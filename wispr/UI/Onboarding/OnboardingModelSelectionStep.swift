@@ -192,12 +192,19 @@ struct OnboardingModelSelectionStep: View {
         }
         availableModels = models
 
-        // If a model matching the active setting is already downloaded, mark step complete
+        // If a model matching the active setting is already downloaded, ensure it's
+        // loaded into WhisperKit so test dictation works, then mark step complete.
         if !settingsStore.activeModelName.isEmpty,
            models.contains(where: {
                $0.id == settingsStore.activeModelName
                && ($0.status == .downloaded || $0.status == .active)
            }) {
+            // Load the model BEFORE enabling Continue so WhisperKit is ready
+            // when the user reaches the test dictation step.
+            let modelName = settingsStore.activeModelName
+            if await whisperService.activeModel() != modelName {
+                try? await whisperService.loadModel(modelName)
+            }
             downloadComplete = true
         }
 

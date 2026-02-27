@@ -391,6 +391,13 @@ actor WhisperService {
         wispLog("WhisperService", "transcribe — samples: \(sampleCount), duration: \(String(format: "%.2f", audioDuration))s")
         #endif
         
+        // Guard against audio too short for meaningful transcription.
+        // WhisperKit needs at least ~0.5s of audio to produce results.
+        guard audioSamples.count >= 8000 else {
+            wispLog("WhisperService", "transcribe — audio too short (\(audioSamples.count) samples), skipping")
+            throw WispError.emptyTranscription
+        }
+        
         let startTime = Date()
         
         do {
@@ -413,6 +420,13 @@ actor WhisperService {
                 decodeOptions: DecodingOptions(language: languageCode)
             )
             
+            #if DEBUG
+            wispLog("WhisperService", "transcribe — WhisperKit returned \(results.count) segment(s)")
+            for (i, segment) in results.enumerated() {
+                wispLog("WhisperService", "transcribe — segment[\(i)]: \"\(segment.text)\"")
+            }
+            #endif
+            
             // Extract transcribed text from all segments
             guard !results.isEmpty else {
                 throw WispError.emptyTranscription
@@ -428,6 +442,12 @@ actor WhisperService {
             let filteredText = hallucinationPatterns.reduce(transcribedText) { text, pattern in
                 text.replacingOccurrences(of: pattern, with: "")
             }.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            
+            #if DEBUG
+            if filteredText != transcribedText {
+                wispLog("WhisperService", "transcribe — filtered hallucinations: \"\(transcribedText)\" → \"\(filteredText)\"")
+            }
+            #endif
             
             // Requirement 3.4: Handle empty transcription
             if filteredText.isEmpty {

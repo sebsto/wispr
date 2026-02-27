@@ -191,6 +191,25 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsStore.onboardingCompleted = true
         onboardingWindow?.close()
         onboardingWindow = nil
+
+        // Ensure the active model is loaded for normal hotkey usage.
+        // During onboarding the model may have been loaded, but we
+        // reload defensively so whisperKit is guaranteed to be ready.
+        let modelName = settingsStore.activeModelName
+        Task {
+            let currentModel = await whisperService.activeModel()
+            guard currentModel != modelName else {
+                wispLog("App", "completeOnboarding — model '\(modelName)' already active")
+                return
+            }
+            do {
+                wispLog("App", "completeOnboarding — loading model '\(modelName)'")
+                try await whisperService.loadModel(modelName)
+                wispLog("App", "completeOnboarding — model '\(modelName)' loaded successfully")
+            } catch {
+                wispLog("App", "completeOnboarding — failed to load model: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - NSWindowDelegate

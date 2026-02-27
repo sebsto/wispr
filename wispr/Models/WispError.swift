@@ -70,3 +70,44 @@ enum WispError: Error, Sendable, Equatable {
     /// No Whisper models are available (all deleted or none downloaded).
     case noModelsAvailable
 }
+
+// MARK: - LocalizedError
+
+extension WispError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .microphonePermissionDenied:
+            return "Microphone permission is required for voice dictation."
+        case .accessibilityPermissionDenied:
+            return "Accessibility permission is required for text insertion."
+        case .noAudioDeviceAvailable:
+            return "No audio input device is available."
+        case .audioDeviceDisconnected:
+            return "The audio input device was disconnected."
+        case .audioRecordingFailed(let message):
+            return "Audio recording failed: \(message)"
+        case .modelLoadFailed(let message):
+            return "Failed to load model: \(message)"
+        case .modelNotDownloaded:
+            return "No transcription model is loaded."
+        case .transcriptionFailed(let message):
+            return "Transcription failed: \(message)"
+        case .emptyTranscription:
+            return "No speech was detected in the recording."
+        case .textInsertionFailed(let message):
+            return "Text insertion failed: \(message)"
+        case .hotkeyConflict(let message):
+            return "Hotkey conflict: \(message)"
+        case .hotkeyRegistrationFailed:
+            return "Failed to register the global hotkey."
+        case .modelDownloadFailed(let message):
+            return "Model download failed: \(message)"
+        case .modelValidationFailed(let message):
+            return "Model validation failed: \(message)"
+        case .modelDeletionFailed(let message):
+            return "Model deletion failed: \(message)"
+        case .noModelsAvailable:
+            return "No transcription models are available."
+        }
+    }
+}

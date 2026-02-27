@@ -124,13 +124,10 @@ struct OnboardingTestDictationStep: View {
             isTestRecording = false
             isTestProcessing = true
         case .idle:
-            // If we were processing, the cycle completed — check for a result
+            // If we were processing, the cycle completed successfully
             if isTestProcessing {
-                // The StateManager doesn't expose the transcription result directly,
-                // but a successful idle transition after processing means text was inserted.
-                // We capture a confirmation message since the actual text goes to the cursor.
                 if testTranscriptionResult.isEmpty {
-                    testTranscriptionResult = "Dictation successful! Text was inserted at your cursor."
+                    testTranscriptionResult = "Dictation working! Your speech was transcribed successfully."
                 }
             }
             isTestRecording = false
@@ -138,11 +135,7 @@ struct OnboardingTestDictationStep: View {
         case .error(let message):
             isTestRecording = false
             isTestProcessing = false
-            // Don't overwrite a successful result with an error
-            if testTranscriptionResult.isEmpty {
-                testTranscriptionResult = ""
-            }
-            _ = message // Error is shown by the StateManager's own overlay
+            _ = message // Error is displayed by the overlay; user can retry
         }
     }
 }

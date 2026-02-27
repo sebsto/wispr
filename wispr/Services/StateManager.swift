@@ -275,8 +275,8 @@ final class StateManager {
             await resetToIdle()
 
         } catch WispError.emptyTranscription {
-            // Requirement 3.4: Empty transcription returns to idle
-            await resetToIdle()
+            // Requirement 3.4: Empty transcription — notify user and return to idle
+            await handleError(.emptyTranscription)
         } catch let error as WispError {
             await handleError(error)
         } catch {
