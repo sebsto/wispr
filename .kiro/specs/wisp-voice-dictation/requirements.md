@@ -118,6 +118,7 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 10. IF the user deletes the only downloaded Whisper_Model, THEN THE Whisper_Service SHALL set the application state to require a model download and prompt the user to download a model.
 11. THE Settings_Store SHALL persist the user's selected Whisper_Model across application restarts.
 12. IF the active Whisper_Model fails to load, THEN THE Whisper_Service SHALL attempt to fall back to the smallest available downloaded model.
+13. THE Whisper_Service SHALL store all downloaded Whisper_Model files under `~/.wispr/` so that models reside in a fixed, user-visible location independent of App Sandbox or HubApi defaults.
 
 ### Requirement 8: Audio Device Selection
 

@@ -39,6 +39,17 @@ actor WhisperService {
     /// Stores true when a model is being downloaded (for concurrent download prevention)
     private var downloadTasks: [String: Bool] = [:]
     
+    /// Base directory for model downloads.
+    /// WhisperKit / HubApi stores models under this path as:
+    ///   `<downloadBase>/models/argmaxinc/whisperkit-coreml/<variant>/`
+    ///
+    /// Hardcoded to `~/.wispr` so models are stored in a predictable,
+    /// user-visible location independent of App Sandbox or HubApi defaults.
+    private var modelDownloadBase: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".wispr", isDirectory: true)
+    }
+    
     // MARK: - Model Management
     
     /// Returns the list of available Whisper models with their metadata.
@@ -127,6 +138,7 @@ actor WhisperService {
                 // Step 1: Download model files with real progress via WhisperKit's static API
                 let modelFolder = try await WhisperKit.download(
                     variant: model.id,
+                    downloadBase: self.modelDownloadBase,
                     progressCallback: { progress in
                         let fraction = progress.fractionCompleted
                         let downloaded = Int64(Double(totalBytes) * fraction)
@@ -230,31 +242,48 @@ actor WhisperService {
     }
     
     /// Returns the file system path for a given model.
+    ///
+    /// HubApi stores snapshots under:
+    ///   `<downloadBase>/models/argmaxinc/whisperkit-coreml/`
+    /// The variant folder name is resolved by WhisperKit during download
+    /// (e.g. `openai_whisper-large-v3`), so we scan for a directory
+    /// whose name contains the model id.
     private func getModelPath(for modelName: String) throws -> URL {
-        guard let appSupportURL = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
-            throw WispError.modelDeletionFailed("Could not locate Application Support directory")
+        let repoDir = modelDownloadBase
+            .appendingPathComponent("models", isDirectory: true)
+            .appendingPathComponent("argmaxinc", isDirectory: true)
+            .appendingPathComponent("whisperkit-coreml", isDirectory: true)
+        
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: repoDir.path) else {
+            throw WispError.modelDeletionFailed("Model directory not found at \(repoDir.path)")
         }
         
-        // WhisperKit stores models in Application Support/whisperkit/models/
-        return appSupportURL
-            .appendingPathComponent("whisperkit", isDirectory: true)
-            .appendingPathComponent("models", isDirectory: true)
-            .appendingPathComponent(modelName, isDirectory: true)
+        // Find the variant folder that contains the model name
+        let contents = try fm.contentsOfDirectory(atPath: repoDir.path)
+        if let match = contents.first(where: { $0.contains(modelName) }) {
+            return repoDir.appendingPathComponent(match, isDirectory: true)
+        }
+        
+        throw WispError.modelDeletionFailed("Model \(modelName) not found on disk")
     }
     
     /// Loads a Whisper model into memory.
     ///
     /// Requirement 7.6: Load a downloaded model and make it ready for transcription.
     ///
+    /// Uses the app's `modelDownloadBase` so WhisperKit finds the previously
+    /// downloaded files instead of re-downloading.
+    ///
     /// - Parameter modelName: The name of the model to load
-    /// - Throws: WispError.modelNotDownloaded if model is not downloaded
     /// - Throws: WispError.modelLoadFailed if loading fails
     func loadModel(_ modelName: String) async throws {
         do {
-            whisperKit = try await WhisperKit(model: modelName)
+            let config = WhisperKitConfig(
+                model: modelName,
+                downloadBase: modelDownloadBase
+            )
+            whisperKit = try await WhisperKit(config)
             activeModelName = modelName
         } catch {
             throw WispError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
@@ -400,7 +429,11 @@ actor WhisperService {
         for attempt in 0..<maxAttempts {
             do {
                 whisperKit = nil
-                whisperKit = try await WhisperKit(model: modelName)
+                let config = WhisperKitConfig(
+                    model: modelName,
+                    downloadBase: modelDownloadBase
+                )
+                whisperKit = try await WhisperKit(config)
                 // Reload succeeded
                 return
             } catch {

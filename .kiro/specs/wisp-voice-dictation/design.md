@@ -42,7 +42,7 @@ graph TB
 
     subgraph Storage["Persistence"]
         SS[Settings Store<br/>UserDefaults / @AppStorage]
-        FS[File System<br/>Application Support/Models]
+        FS[File System<br/>~/.wispr/models]
     end
 
     subgraph System["macOS System APIs"]
@@ -196,7 +196,7 @@ struct AudioInputDevice: Identifiable, Sendable, Codable {
 
 ### 3. WhisperService
 
-An actor managing WhisperKit model lifecycle, downloads, and transcription.
+An actor managing WhisperKit model lifecycle, downloads, and transcription. Downloaded models are stored under `~/.wispr/models/argmaxinc/whisperkit-coreml/<variant>/` — a fixed, user-visible location independent of App Sandbox or HubApi defaults.
 
 ```swift
 actor WhisperService {
@@ -222,7 +222,7 @@ actor WhisperService {
 }
 
 struct WhisperModelInfo: Identifiable, Sendable {
-    let id: String          // e.g. "openai_whisper-tiny"
+    let id: String          // e.g. "tiny"
     let displayName: String // e.g. "Tiny"
     let sizeDescription: String // e.g. "~75 MB"
     var status: ModelStatus
@@ -330,7 +330,7 @@ final class SettingsStore {
     var selectedAudioDeviceUID: String?
     
     // Model
-    var activeModelName: String = "openai_whisper-tiny"
+    var activeModelName: String = "tiny"
     
     // Language
     var languageMode: TranscriptionLanguage = .autoDetect
@@ -509,7 +509,7 @@ struct RecordingSession: Sendable {
 
 ```swift
 struct WhisperModelInfo: Identifiable, Sendable, Equatable {
-    let id: String              // e.g. "openai_whisper-tiny"
+    let id: String              // e.g. "tiny"
     let displayName: String     // e.g. "Tiny"
     let sizeDescription: String // e.g. "~75 MB"
     let qualityDescription: String // e.g. "Fastest, lower accuracy"
@@ -592,7 +592,7 @@ All settings are stored in `UserDefaults` via the `SettingsStore`. The keys:
 | `hotkeyKeyCode` | `UInt32` | `49` (Space) | Virtual key code |
 | `hotkeyModifiers` | `UInt32` | `2048` (Option) | Carbon modifier flags |
 | `selectedAudioDeviceUID` | `String?` | `nil` (system default) | Preferred mic UID |
-| `activeModelName` | `String` | `"openai_whisper-tiny"` | Active Whisper model |
+| `activeModelName` | `String` | `"tiny"` | Active Whisper model |
 | `languageMode` | `TranscriptionLanguage` | `.autoDetect` | Language selection |
 | `launchAtLogin` | `Bool` | `false` | Auto-start at login |
 | `onboardingCompleted` | `Bool` | `false` | First-launch flag |
