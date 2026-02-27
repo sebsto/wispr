@@ -29,6 +29,7 @@ actor AudioEngine {
     private var levelContinuation: AsyncStream<Float>.Continuation?
     private var selectedDeviceID: AudioDeviceID?
     private var isCapturing = false
+    private var audioConverter: AVAudioConverter?
     
     // MARK: - Configuration
     
@@ -70,6 +71,26 @@ actor AudioEngine {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
         
+        // WhisperKit requires 16kHz mono Float32 audio
+        guard let targetFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 16000,
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw WispError.audioRecordingFailed("Failed to create 16kHz target format")
+        }
+        
+        // Create converter from system sample rate to 16kHz
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            throw WispError.audioRecordingFailed(
+                "Failed to create audio converter from \(inputFormat.sampleRate)Hz to 16kHz"
+            )
+        }
+        self.audioConverter = converter
+        
+        wispLog("AudioEngine", "startCapture — inputFormat sampleRate: \(inputFormat.sampleRate), targetFormat: 16kHz mono Float32, converter created: true")
+        
         // Reset audio buffer
         audioBuffer.removeAll()
         isCapturing = true
@@ -79,15 +100,46 @@ actor AudioEngine {
         let (stream, continuation) = AsyncStream.makeStream(of: Float.self)
         self.levelContinuation = continuation
         
+        // Capture converter as a local let so the @Sendable closure can use it
+        let tapConverter = converter
+        let sampleRateRatio = targetFormat.sampleRate / inputFormat.sampleRate
+        
         // Install tap on input node to capture audio
         // Task {} here bridges from AVAudioEngine's sync C callback to async actor method
         // This IS structured: task is scoped to the tap's lifetime (removed when tap is removed)
+        nonisolated(unsafe) var hasLoggedFirstBuffer = false
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
-            let channelData = buffer.floatChannelData?[0]
-            let frameLength = Int(buffer.frameLength)
-            guard let channelData, frameLength > 0, let self else { return }
+            guard let self, buffer.frameLength > 0 else { return }
             
-            let bufferCopy = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
+            // Calculate output frame count based on sample rate ratio
+            let outputFrameCount = AVAudioFrameCount(Double(buffer.frameLength) * sampleRateRatio)
+            guard let outputBuffer = AVAudioPCMBuffer(
+                pcmFormat: targetFormat,
+                frameCapacity: outputFrameCount
+            ) else { return }
+            
+            // Resample from system rate to 16kHz
+            // The input block captures `buffer` which is non-Sendable (AVAudioPCMBuffer),
+            // but it's used synchronously within the same tap callback scope.
+            nonisolated(unsafe) let inputBuffer = buffer
+            var conversionError: NSError?
+            let status = tapConverter.convert(to: outputBuffer, error: &conversionError) { _, outStatus in
+                outStatus.pointee = .haveData
+                return inputBuffer
+            }
+            
+            guard status != .error,
+                  let channelData = outputBuffer.floatChannelData?[0],
+                  outputBuffer.frameLength > 0 else { return }
+            
+            let bufferCopy = Array(UnsafeBufferPointer(start: channelData, count: Int(outputBuffer.frameLength)))
+            
+            #if DEBUG
+            if !hasLoggedFirstBuffer {
+                hasLoggedFirstBuffer = true
+                wispLog("AudioEngine", "First buffer — inputFrames: \(buffer.frameLength), outputFrames: \(outputBuffer.frameLength)")
+            }
+            #endif
             
             Task {
                 await self.processAudioBufferData(bufferCopy)
@@ -116,12 +168,20 @@ actor AudioEngine {
         }
         
         let capturedAudio = audioBuffer
+        
+        #if DEBUG
+        let sampleCount = capturedAudio.count
+        let duration = Double(sampleCount) / 16000.0
+        wispLog("AudioEngine", "stopCapture — samples: \(sampleCount), duration: \(String(format: "%.2f", duration))s")
+        #endif
+        
         teardownEngine()
         return capturedAudio
     }
     
     /// Cancels the current capture session and cleans up resources
     func cancelCapture() {
+        wispLog("AudioEngine", "cancelCapture — discarding audio buffer")
         teardownEngine()
     }
     
@@ -205,6 +265,7 @@ actor AudioEngine {
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
         self.engine = nil
+        self.audioConverter = nil
         audioBuffer.removeAll()
     }
     

@@ -156,9 +156,12 @@ final class StateManager {
 
         // Check permissions before starting
         guard permissionManager.allPermissionsGranted else {
+            wispLog("StateManager", "beginRecording — permissions not granted, aborting")
             await handleError(.microphonePermissionDenied)
             return
         }
+
+        wispLog("StateManager", "beginRecording — transitioning .idle → .recording")
 
         // Transition to recording state
         appState = .recording
@@ -208,6 +211,8 @@ final class StateManager {
         let audioSamples = await audioEngine.stopCapture()
         audioLevelStream = nil
 
+        wispLog("StateManager", "endRecording — received \(audioSamples.count) samples from stopCapture()")
+
         // Requirement 3.6: Transition to processing
         appState = .processing
 
@@ -220,6 +225,7 @@ final class StateManager {
 
         // Guard against empty audio
         guard !audioSamples.isEmpty else {
+            wispLog("StateManager", "endRecording — audio samples empty, returning to idle")
             await resetToIdle()
             return
         }
@@ -231,6 +237,11 @@ final class StateManager {
                 language: currentLanguage
             )
 
+            #if DEBUG
+            let preview = String(result.text.prefix(50))
+            wispLog("StateManager", "endRecording — transcription: \"\(preview)\" (len=\(result.text.count))")
+            #endif
+
             // Requirement 3.4: Empty transcription returns to idle without inserting
             guard !result.text.isEmpty else {
                 await resetToIdle()
@@ -240,6 +251,7 @@ final class StateManager {
             // Requirement 4.1, 4.3: Insert transcribed text
             do {
                 try await textInsertionService.insertText(result.text)
+                wispLog("StateManager", "endRecording — text inserted successfully")
             } catch {
                 // Requirement 4.4: On insertion failure, retain text on pasteboard and notify
                 let pasteboard = NSPasteboard.general
@@ -279,6 +291,8 @@ final class StateManager {
     ///
     /// **Validates**: Requirement 12.1
     func handleError(_ error: WispError) async {
+        wispLog("StateManager", "handleError — \(error.localizedDescription)")
+
         // Cancel any pending audio capture
         await audioEngine.cancelCapture()
         audioLevelStream = nil
