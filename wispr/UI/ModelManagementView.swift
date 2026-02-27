@@ -43,6 +43,14 @@ struct ModelManagementView: View {
     /// The model ID currently being activated (loading into memory).
     @State private var activatingModelId: String?
 
+    /// Tracks which model ID currently shows the green highlight overlay.
+    /// Drives the animated transition when switching active models.
+    @State private var highlightedModelId: String?
+
+    /// Namespace used by `matchedGeometryEffect` so the green highlight
+    /// slides from one row to another instead of fading independently.
+    @Namespace private var highlightNamespace
+
     init(whisperService: WhisperService) {
         self.whisperService = whisperService
     }
@@ -53,6 +61,7 @@ struct ModelManagementView: View {
                 modelSection(for: model)
             }
         }
+        .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: highlightedModelId)
         .frame(minWidth: 500, idealWidth: 540)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
@@ -118,6 +127,8 @@ struct ModelManagementView: View {
                 model: model,
                 theme: theme,
                 isActivating: activatingModelId == model.id,
+                isHighlighted: highlightedModelId == model.id,
+                namespace: highlightNamespace,
                 onDownload: {
                     activeDownloads.insert(model.id)
                     updateModelStatus(model.id, to: .downloading(progress: 0.0))
@@ -137,6 +148,15 @@ struct ModelManagementView: View {
             allModels[index].status = await whisperService.modelStatus(allModels[index].id)
         }
         models = allModels
+
+        // Keep highlightedModelId in sync with the actual active model.
+        let activeId = allModels.first(where: {
+            if case .active = $0.status { return true }
+            return false
+        })?.id
+        if highlightedModelId != activeId {
+            highlightedModelId = activeId
+        }
     }
 
     /// Sets a downloaded model as the active model.
@@ -144,6 +164,16 @@ struct ModelManagementView: View {
     /// Requirement 7.6: Switch active model.
     /// Requirement 7.7: Allow changing active model when not recording.
     private func setActiveModel(_ model: WhisperModelInfo) async {
+        // Animate the green highlight to the new model before starting activation.
+        if !theme.reduceMotion {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                highlightedModelId = model.id
+            }
+            try? await Task.sleep(for: .milliseconds(400))
+        } else {
+            highlightedModelId = model.id
+        }
+
         activatingModelId = model.id
         do {
             try await whisperService.switchModel(to: model.id)
@@ -152,6 +182,12 @@ struct ModelManagementView: View {
             await refreshModels()
         } catch {
             activatingModelId = nil
+            // Revert highlight back to the actual active model on failure.
+            let activeId = models.first(where: {
+                if case .active = $0.status { return true }
+                return false
+            })?.id
+            highlightedModelId = activeId
             errorMessage = "Failed to activate model: \(error.localizedDescription)"
         }
     }
@@ -211,6 +247,8 @@ private struct ModelRowView: View {
     let model: WhisperModelInfo
     let theme: UIThemeEngine
     let isActivating: Bool
+    let isHighlighted: Bool
+    let namespace: Namespace.ID
     let onDownload: () -> Void
     let onSetActive: () async -> Void
     let onDelete: () -> Void
@@ -264,21 +302,20 @@ private struct ModelRowView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isActive
-                    ? theme.successColor.opacity(0.06)
-                    : Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(
-                    isActive
-                        ? theme.successColor.opacity(0.5)
-                        : Color.clear,
-                    lineWidth: 1.5
-                )
-        )
+        .background {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(theme.successColor.opacity(0.06))
+                    .matchedGeometryEffect(id: "activeHighlight", in: namespace)
+            }
+        }
+        .overlay {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(theme.successColor.opacity(0.5), lineWidth: 1.5)
+                    .matchedGeometryEffect(id: "activeHighlightBorder", in: namespace)
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
         .opacity(isActivating ? 0.7 : 1.0)
@@ -484,6 +521,38 @@ private struct StatusPillView: View {
 }
 
 #if DEBUG
+
+/// Wrapper that owns the `@Namespace` required by `ModelRowView` previews.
+private struct ModelRowPreviewWrapper: View {
+    @Namespace private var namespace
+    let theme: UIThemeEngine
+    let models: [WhisperModelInfo]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(models) { model in
+                    ModelRowView(
+                        model: model,
+                        theme: theme,
+                        isActivating: false,
+                        isHighlighted: {
+                            if case .active = model.status { return true }
+                            return false
+                        }(),
+                        namespace: namespace,
+                        onDownload: {},
+                        onSetActive: {},
+                        onDelete: {}
+                    )
+                    Divider()
+                }
+            }
+            .padding()
+        }
+    }
+}
+
 #Preview("Model Management") {
     let theme = PreviewMocks.makeTheme()
     let settingsStore = PreviewMocks.makeSettingsStore()
@@ -497,24 +566,8 @@ private struct StatusPillView: View {
         WhisperModelInfo(id: "large-v3", displayName: "Large v3", sizeDescription: "~3 GB",
                          qualityDescription: "Slowest, highest accuracy", status: .notDownloaded),
     ]
-    ScrollView {
-        VStack(spacing: 0) {
-            ForEach(models) { model in
-                ModelRowView(
-                    model: model,
-                    theme: theme,
-                    isActivating: false,
-                    onDownload: {},
-                    onSetActive: {},
-                    onDelete: {}
-                )
-                Divider()
-            }
-        }
-        .padding()
-    }
-    .environment(settingsStore)
-    .environment(theme)
-//    .frame(width: 540, height: 520)
+    ModelRowPreviewWrapper(theme: theme, models: models)
+        .environment(settingsStore)
+        .environment(theme)
 }
 #endif
