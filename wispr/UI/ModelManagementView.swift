@@ -318,8 +318,6 @@ private struct ModelRowView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
-        .opacity(isActivating ? 0.7 : 1.0)
-        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isActivating)
     }
 
     // MARK: - Status Icon
@@ -422,11 +420,15 @@ private struct ModelRowView: View {
             HStack {
                 Spacer()
                 if isActivating {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Activating…")
-                        .font(.callout)
-                        .foregroundStyle(theme.secondaryTextColor)
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Activating…")
+                            .font(.callout)
+                            .foregroundStyle(theme.secondaryTextColor)
+                    }
+                    .opacity(isActivating ? 0.7 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isActivating)
                 } else {
                     Button {
                         Task { await onSetActive() }
