@@ -26,10 +26,13 @@ struct RecordingOverlayView: View {
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
     /// Recent audio level samples for the level meter visualization.
-    @State private var audioLevels: [Float] = Array(repeating: 0, count: 12)
+    @State private var audioLevels: [Float] = Array(repeating: 0, count: 20)
 
     /// Task consuming the audio level stream.
     @State private var levelTask: Task<Void, Never>?
+
+    /// Whether the recording glow pulse is in its "on" phase.
+    @State private var isGlowActive: Bool = false
 
     /// Scaled overlay width for Dynamic Type support (Req 17.7).
     @ScaledMetric(relativeTo: .body) private var overlayWidth: CGFloat = 240
@@ -47,6 +50,9 @@ struct RecordingOverlayView: View {
         .highContrastBorder(cornerRadius: 16)
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .motionRespectingAnimation(value: stateManager.appState)
+        .onAppear {
+            handleStateChange(stateManager.appState)
+        }
         .onChange(of: stateManager.appState) { _, newState in
             handleStateChange(newState)
         }
@@ -72,13 +78,19 @@ struct RecordingOverlayView: View {
         }
     }
 
-    /// Recording state: microphone icon + audio level bars.
+    /// Recording state: microphone icon + animated audio level bars.
     private var recordingContent: some View {
         HStack(spacing: 10) {
             Image(systemName: SFSymbols.recordingMicrophone)
                 .font(.title)
                 .foregroundStyle(theme.accentColor)
                 .symbolEffect(.pulse, isActive: !theme.reduceMotion)
+                .shadow(
+                    color: theme.reduceMotion
+                        ? .clear
+                        : theme.accentColor.opacity(isGlowActive ? 0.6 : 0.0),
+                    radius: isGlowActive ? 8 : 0
+                )
                 .accessibilityHidden(true)
 
             audioLevelMeter
@@ -118,23 +130,39 @@ struct RecordingOverlayView: View {
 
     // MARK: - Audio Level Meter
 
-    /// A row of vertical bars representing recent audio levels.
+    /// A horizontal VU meter: vertical bars whose height tracks recent audio levels.
     private var audioLevelMeter: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(0..<audioLevels.count, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(theme.accentColor.opacity(0.8))
-                    .frame(width: 5, height: barHeight(for: audioLevels[index]))
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(barColor(for: audioLevels[index]))
+                    .frame(width: 4, height: barHeight(for: audioLevels[index]))
             }
         }
-        .frame(height: 32)
+        .frame(height: 36, alignment: .center)
+        .animation(
+            theme.reduceMotion ? nil : .interpolatingSpring(stiffness: 280, damping: 14),
+            value: audioLevels
+        )
         .accessibilityHidden(true)
     }
 
-    /// Maps a 0…1 audio level to a bar height between 5 and 32 points.
+    /// Maps a 0…1 audio level to a color: green → yellow → red.
+    private func barColor(for level: Float) -> Color {
+        let clamped = Double(min(max(level, 0), 1))
+        if clamped < 0.5 {
+            return theme.accentColor.opacity(0.5 + clamped)
+        } else if clamped < 0.8 {
+            return .yellow.opacity(0.6 + clamped * 0.4)
+        } else {
+            return .orange.opacity(0.7 + clamped * 0.3)
+        }
+    }
+
+    /// Maps a 0…1 audio level to a bar height between 4 and 36 points.
     private func barHeight(for level: Float) -> CGFloat {
         let clamped = min(max(CGFloat(level), 0), 1)
-        return 5 + clamped * 27
+        return 4 + clamped * 32
     }
 
     // MARK: - State Change Handling
@@ -143,8 +171,10 @@ struct RecordingOverlayView: View {
         switch state {
         case .recording:
             startConsumingAudioLevels()
+            startGlowAnimation()
         default:
             stopConsumingAudioLevels()
+            stopGlowAnimation()
         }
     }
 
@@ -152,15 +182,25 @@ struct RecordingOverlayView: View {
 
     /// Starts a task that reads from `StateManager.audioLevelStream`
     /// and shifts new samples into the `audioLevels` ring buffer.
+    /// If the stream isn't available yet (recording still starting),
+    /// polls briefly until it appears.
     private func startConsumingAudioLevels() {
         stopConsumingAudioLevels()
 
-        guard let stream = stateManager.audioLevelStream else { return }
-
         levelTask = Task { @MainActor in
+            // Wait for the stream to become available (recording may still be starting)
+            var stream = stateManager.audioLevelStream
+            var retries = 0
+            while stream == nil, retries < 20, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))
+                stream = stateManager.audioLevelStream
+                retries += 1
+            }
+
+            guard let stream, !Task.isCancelled else { return }
+
             for await level in stream {
                 guard !Task.isCancelled else { break }
-                // Shift left and append new sample
                 if audioLevels.count > 1 {
                     audioLevels.removeFirst()
                 }
@@ -173,7 +213,26 @@ struct RecordingOverlayView: View {
     private func stopConsumingAudioLevels() {
         levelTask?.cancel()
         levelTask = nil
-        audioLevels = Array(repeating: 0, count: 12)
+        audioLevels = Array(repeating: 0, count: 20)
+    }
+
+    // MARK: - Glow Animation
+
+    /// Starts a repeating glow pulse on the microphone icon using SwiftUI animation.
+    /// Uses `withAnimation` with a repeating easeInOut — no Timer or Task loop needed.
+    /// Skipped entirely when Reduce Motion is enabled.
+    private func startGlowAnimation() {
+        guard !theme.reduceMotion else { return }
+        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            isGlowActive = true
+        }
+    }
+
+    /// Stops the glow animation and resets state.
+    private func stopGlowAnimation() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            isGlowActive = false
+        }
     }
 
     // MARK: - Accessibility
