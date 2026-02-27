@@ -244,12 +244,19 @@ struct SettingsView: View {
             @Bindable var store = settingsStore
             Picker(selection: $store.activeModelName) {
                 ForEach(whisperModels) { model in
+                    let isAvailable = model.status == .downloaded || model.status == .active
                     HStack {
                         Text(model.displayName)
                         Text("(\(model.sizeDescription))")
                             .foregroundStyle(theme.secondaryTextColor)
+                        if !isAvailable {
+                            Text("— Not Downloaded")
+                                .foregroundStyle(theme.secondaryTextColor.opacity(0.6))
+                                .font(.caption)
+                        }
                     }
                     .tag(model.id)
+                    .opacity(isAvailable ? 1.0 : 0.4)
                 }
             } label: {
                 Label("Active Model", systemImage: theme.actionSymbol(.model))
@@ -259,6 +266,14 @@ struct SettingsView: View {
             .padding(.vertical, 4)
             .accessibilityLabel("Whisper model")
             .accessibilityHint("Select the speech recognition model to use")
+            .onChange(of: settingsStore.activeModelName) { _, newValue in
+                let isValid = whisperModels.contains { model in
+                    model.id == newValue && (model.status == .downloaded || model.status == .active)
+                }
+                if !isValid, let fallback = whisperModels.first(where: { $0.status == .downloaded || $0.status == .active }) {
+                    settingsStore.activeModelName = fallback.id
+                }
+            }
         } header: {
             Text("Whisper Model")
                 .font(.headline)
@@ -337,7 +352,11 @@ struct SettingsView: View {
     }
 
     private func loadWhisperModels() async {
-        whisperModels = await whisperService.availableModels()
+        var models = await whisperService.availableModels()
+        for index in models.indices {
+            models[index].status = await whisperService.modelStatus(models[index].id)
+        }
+        whisperModels = models
     }
 
     // MARK: - Bindings
