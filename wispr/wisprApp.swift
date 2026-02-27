@@ -5,7 +5,7 @@
 //  Main entry point for the Wisp voice dictation application.
 //  Initializes all services, sets menu bar-only mode, and shows
 //  onboarding on first launch.
-//  Requirements: 5.6, 13.1, 13.12
+//  Requirements: 5.6, 13.1, 13.12, 13.16
 //
 
 import SwiftUI
@@ -52,7 +52,7 @@ struct WispApp: App {
 /// before any SwiftUI scene body is evaluated, and provides a
 /// clean hook for the `applicationDidFinishLaunching` lifecycle event.
 @MainActor
-final class WispAppDelegate: NSObject, NSApplicationDelegate {
+final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: - Services
 
@@ -169,6 +169,21 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate {
         onboardingWindow = nil
     }
 
+    // MARK: - NSWindowDelegate
+
+    /// Handles the onboarding window being closed (e.g. via the red close button).
+    ///
+    /// If onboarding was not completed, the app terminates without persisting
+    /// the onboarding-completed flag so the wizard reappears on next launch (Req 13.16).
+    func windowWillClose(_ notification: Notification) {
+        guard let closingWindow = notification.object as? NSWindow,
+              closingWindow === onboardingWindow else { return }
+        if !settingsStore.onboardingCompleted {
+            NSApplication.shared.terminate(nil)
+        }
+        onboardingWindow = nil
+    }
+
     // MARK: - Onboarding Window
 
     /// Creates and shows the onboarding window using NSWindow + NSHostingController.
@@ -196,6 +211,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        window.delegate = self
         onboardingWindow = window
     }
 

@@ -200,6 +200,7 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 13. THE Onboarding_Flow SHALL use smooth animated transitions between steps and present a visually cohesive design consistent with macOS Human Interface Guidelines.
 14. IF the user force-quits Wisp during the Onboarding_Flow, THEN THE Onboarding_Flow SHALL resume from the last incomplete required step on the next launch.
 15. IF a model download fails during the Onboarding_Flow, THEN THE Onboarding_Flow SHALL display the error and offer a retry action without leaving the current step.
+16. IF the user closes the Onboarding_Flow window without completing all required steps, THEN THE Wisp application SHALL terminate without persisting the onboarding-completed flag, ensuring the Onboarding_Flow appears again on the next launch.
 
 ### Requirement 14: Modern macOS Visual Design and UI Quality
 

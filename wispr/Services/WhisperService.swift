@@ -9,6 +9,7 @@
 import Foundation
 import WhisperKit
 import AVFoundation
+import Darwin
 
 /// Actor managing WhisperKit model lifecycle, downloads, and transcription.
 ///
@@ -45,9 +46,31 @@ actor WhisperService {
     ///
     /// Hardcoded to `~/.wispr` so models are stored in a predictable,
     /// user-visible location independent of App Sandbox or HubApi defaults.
+    ///
+    /// Uses `getpwuid` to resolve the real home directory even when
+    /// running inside App Sandbox (where `FileManager.homeDirectoryForCurrentUser`
+    /// returns the container path instead).
     private var modelDownloadBase: URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        let home: String
+        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+            home = String(cString: dir)
+        } else {
+            home = FileManager.default.homeDirectoryForCurrentUser.path
+        }
+        return URL(fileURLWithPath: home)
             .appendingPathComponent(".wispr", isDirectory: true)
+    }
+    
+    /// Ensures the `modelDownloadBase` directory exists on disk.
+    /// Called before any download or model-status query that needs the path.
+    private func ensureModelDirectoryExists() throws {
+        let base = modelDownloadBase
+        if !FileManager.default.fileExists(atPath: base.path) {
+            try FileManager.default.createDirectory(
+                at: base,
+                withIntermediateDirectories: true
+            )
+        }
     }
     
     // MARK: - Model Management
@@ -128,6 +151,9 @@ actor WhisperService {
             }
             
             do {
+                // Ensure ~/.wispr exists before downloading
+                try self.ensureModelDirectoryExists()
+                
                 // Yield initial 0% progress
                 continuation.yield(DownloadProgress(
                     fractionCompleted: 0.0,
