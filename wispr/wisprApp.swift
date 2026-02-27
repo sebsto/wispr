@@ -165,12 +165,38 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate {
     /// dismisses the onboarding window.
     func completeOnboarding() {
         settingsStore.onboardingCompleted = true
-        // Close the onboarding window
-        if let window = NSApp.windows.first(where: {
-            $0.title == "Wisp Setup"
-        }) {
-            window.close()
-        }
+        onboardingWindow?.close()
+        onboardingWindow = nil
+    }
+
+    // MARK: - Onboarding Window
+
+    /// Creates and shows the onboarding window using NSWindow + NSHostingController.
+    ///
+    /// Requirement 13.1: Present a multi-step setup wizard on first launch.
+    private func showOnboardingWindow(stateManager sm: StateManager) {
+        let onboardingView = OnboardingFlow(
+            whisperService: whisperService,
+            onDismiss: { [weak self] in
+                self?.completeOnboarding()
+            }
+        )
+        .environment(permissionManager)
+        .environment(settingsStore)
+        .environment(themeEngine)
+        .environment(sm)
+        .frame(minWidth: 600, minHeight: 500)
+
+        let hostingController = NSHostingController(rootView: onboardingView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Wisp Setup"
+        window.styleMask = [.titled, .closable]
+        window.setContentSize(NSSize(width: 600, height: 500))
+        window.center()
+
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        onboardingWindow = window
     }
 
     // MARK: - Overlay State Observation

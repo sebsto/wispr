@@ -254,10 +254,10 @@ struct SettingsViewPersistenceTests {
         let suite = "test.wispr.persist.model.\(UUID().uuidString)"
         let store1 = makeStore(suiteName: suite)
 
-        store1.activeModelName = "openai_whisper-large"
+        store1.activeModelName = "large-v3"
 
         let store2 = makeStore(suiteName: suite)
-        #expect(store2.activeModelName == "openai_whisper-large")
+        #expect(store2.activeModelName == "large-v3")
     }
 
     @Test("Launch at login changes persist immediately")

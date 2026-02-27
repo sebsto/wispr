@@ -23,14 +23,14 @@ struct WhisperModelInfoDataModelTests {
     @Test("WhisperModelInfo stores all properties correctly")
     func testModelInfoProperties() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
             status: .notDownloaded
         )
 
-        #expect(model.id == "openai_whisper-tiny")
+        #expect(model.id == "tiny")
         #expect(model.displayName == "Tiny")
         #expect(model.sizeDescription == "~75 MB")
         #expect(model.qualityDescription == "Fastest, lower accuracy")
@@ -40,7 +40,7 @@ struct WhisperModelInfoDataModelTests {
     @Test("WhisperModelInfo status is mutable")
     func testModelInfoStatusMutable() {
         var model = WhisperModelInfo(
-            id: "openai_whisper-base",
+            id: "base",
             displayName: "Base",
             sizeDescription: "~140 MB",
             qualityDescription: "Fast, moderate accuracy",
@@ -60,21 +60,21 @@ struct WhisperModelInfoDataModelTests {
     @Test("WhisperModelInfo Equatable compares all fields")
     func testModelInfoEquatable() {
         let model1 = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
             status: .downloaded
         )
         let model2 = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
             status: .downloaded
         )
         let model3 = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
@@ -88,14 +88,14 @@ struct WhisperModelInfoDataModelTests {
     @Test("WhisperModelInfo uses id as Identifiable key")
     func testModelInfoIdentifiable() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-small",
+            id: "small",
             displayName: "Small",
             sizeDescription: "~460 MB",
             qualityDescription: "Balanced speed and accuracy",
             status: .notDownloaded
         )
 
-        #expect(model.id == "openai_whisper-small")
+        #expect(model.id == "small")
     }
 }
 
@@ -198,13 +198,13 @@ struct AvailableModelsListTests {
         }
     }
 
-    @Test("Model IDs follow openai_whisper naming convention")
+    @Test("Model IDs are non-empty strings")
     func testModelIDNamingConvention() async {
         let service = WhisperService()
         let models = await service.availableModels()
 
         for model in models {
-            #expect(model.id.hasPrefix("openai_whisper-"), "Model ID \(model.id) should start with openai_whisper-")
+            #expect(!model.id.isEmpty, "Model ID should not be empty")
         }
     }
 }
@@ -222,7 +222,7 @@ struct ModelDeletionFallbackLogicTests {
         let service = WhisperService()
 
         do {
-            try await service.deleteModel("openai_whisper-tiny")
+            try await service.deleteModel("tiny")
             Issue.record("Expected deleteModel to throw for non-existent model")
         } catch let error as WispError {
             if case .modelDeletionFailed(let message) = error {
@@ -245,7 +245,7 @@ struct ModelDeletionFallbackLogicTests {
     @Test("Model status is notDownloaded for fresh service")
     func testFreshServiceModelStatus() async {
         let service = WhisperService()
-        let status = await service.modelStatus("openai_whisper-tiny")
+        let status = await service.modelStatus("tiny")
 
         if case .notDownloaded = status {
             // Expected
@@ -259,7 +259,7 @@ struct ModelDeletionFallbackLogicTests {
         let service = WhisperService()
 
         do {
-            try await service.switchModel(to: "openai_whisper-tiny")
+            try await service.switchModel(to: "tiny")
             Issue.record("Expected switchModel to throw for non-existent model")
         } catch let error as WispError {
             if case .modelLoadFailed = error {
@@ -304,7 +304,7 @@ struct ModelManagementAccessibilityTests {
     @Test("Accessibility label for not downloaded model")
     func testAccessibilityNotDownloaded() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
@@ -318,7 +318,7 @@ struct ModelManagementAccessibilityTests {
     @Test("Accessibility label for downloading model includes percentage")
     func testAccessibilityDownloading() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-base",
+            id: "base",
             displayName: "Base",
             sizeDescription: "~140 MB",
             qualityDescription: "Fast, moderate accuracy",
@@ -332,7 +332,7 @@ struct ModelManagementAccessibilityTests {
     @Test("Accessibility label for downloaded model")
     func testAccessibilityDownloaded() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-small",
+            id: "small",
             displayName: "Small",
             sizeDescription: "~460 MB",
             qualityDescription: "Balanced speed and accuracy",
@@ -346,7 +346,7 @@ struct ModelManagementAccessibilityTests {
     @Test("Accessibility label for active model")
     func testAccessibilityActive() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-large",
+            id: "large-v3",
             displayName: "Large",
             sizeDescription: "~3 GB",
             qualityDescription: "Slowest, highest accuracy",
@@ -360,7 +360,7 @@ struct ModelManagementAccessibilityTests {
     @Test("Accessibility label for downloading at 0 percent")
     func testAccessibilityDownloadingZero() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
@@ -374,7 +374,7 @@ struct ModelManagementAccessibilityTests {
     @Test("Accessibility label for downloading at 100 percent")
     func testAccessibilityDownloadingComplete() {
         let model = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",

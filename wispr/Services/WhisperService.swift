@@ -49,36 +49,36 @@ actor WhisperService {
     func availableModels() -> [WhisperModelInfo] {
         return [
             WhisperModelInfo(
-                id: "openai_whisper-tiny",
+                id: "tiny",
                 displayName: "Tiny",
                 sizeDescription: "~75 MB",
                 qualityDescription: "Fastest, lower accuracy",
                 status: .notDownloaded
             ),
             WhisperModelInfo(
-                id: "openai_whisper-base",
+                id: "base",
                 displayName: "Base",
                 sizeDescription: "~140 MB",
                 qualityDescription: "Fast, moderate accuracy",
                 status: .notDownloaded
             ),
             WhisperModelInfo(
-                id: "openai_whisper-small",
+                id: "small",
                 displayName: "Small",
                 sizeDescription: "~460 MB",
                 qualityDescription: "Balanced speed and accuracy",
                 status: .notDownloaded
             ),
             WhisperModelInfo(
-                id: "openai_whisper-medium",
+                id: "medium",
                 displayName: "Medium",
                 sizeDescription: "~1.5 GB",
                 qualityDescription: "Slower, high accuracy",
                 status: .notDownloaded
             ),
             WhisperModelInfo(
-                id: "openai_whisper-large",
-                displayName: "Large",
+                id: "large-v3",
+                displayName: "Large v3",
                 sizeDescription: "~3 GB",
                 qualityDescription: "Slowest, highest accuracy",
                 status: .notDownloaded
@@ -151,15 +151,15 @@ actor WhisperService {
     /// Returns the estimated size in bytes for a given model.
     private func estimatedModelSize(for modelId: String) -> Int64 {
         switch modelId {
-        case "openai_whisper-tiny":
+        case "tiny":
             return 75 * 1024 * 1024
-        case "openai_whisper-base":
+        case "base":
             return 140 * 1024 * 1024
-        case "openai_whisper-small":
+        case "small":
             return 460 * 1024 * 1024
-        case "openai_whisper-medium":
+        case "medium":
             return 1536 * 1024 * 1024
-        case "openai_whisper-large":
+        case "large-v3":
             return 3072 * 1024 * 1024
         default:
             return 100 * 1024 * 1024

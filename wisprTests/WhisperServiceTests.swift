@@ -29,11 +29,11 @@ struct WhisperServiceTests {
         // Wrap property access in MainActor to avoid Swift 6 strict concurrency issues
         await MainActor.run {
             // Verify IDs
-            #expect(models[0].id == "openai_whisper-tiny")
-            #expect(models[1].id == "openai_whisper-base")
-            #expect(models[2].id == "openai_whisper-small")
-            #expect(models[3].id == "openai_whisper-medium")
-            #expect(models[4].id == "openai_whisper-large")
+            #expect(models[0].id == "tiny")
+            #expect(models[1].id == "base")
+            #expect(models[2].id == "small")
+            #expect(models[3].id == "medium")
+            #expect(models[4].id == "large-v3")
             
             // Verify display names
             #expect(models[0].displayName == "Tiny")
@@ -50,7 +50,7 @@ struct WhisperServiceTests {
     @Test("Model status returns notDownloaded for non-existent models")
     func testModelStatusNotDownloaded() async {
         let service = WhisperService()
-        let status = await service.modelStatus("openai_whisper-tiny")
+        let status = await service.modelStatus("tiny")
         
         // Since we haven't downloaded any models, status should be notDownloaded
         if case .notDownloaded = status {
@@ -83,7 +83,7 @@ struct WhisperServiceTests {
     func testDownloadModelPreventsConcurrentDownloads() async {
         let service = WhisperService()
         let model = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
@@ -122,7 +122,7 @@ struct WhisperServiceTests {
     func testDownloadModelReportsProgress() async {
         let service = WhisperService()
         let model = WhisperModelInfo(
-            id: "openai_whisper-tiny",
+            id: "tiny",
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
@@ -161,7 +161,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         do {
-            try await service.deleteModel("openai_whisper-tiny")
+            try await service.deleteModel("tiny")
             Issue.record("Expected deleteModel to throw error for non-existent model")
         } catch let error as WispError {
             if case .modelDeletionFailed(let message) = error {
@@ -184,7 +184,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         do {
-            try await service.loadModel("openai_whisper-tiny")
+            try await service.loadModel("tiny")
             Issue.record("Expected loadModel to throw error for non-existent model")
         } catch let error as WispError {
             if case .modelLoadFailed = error {
@@ -210,7 +210,7 @@ struct WhisperServiceTests {
         
         // Try to switch to a model (will fail, but we're testing the unload logic)
         do {
-            try await service.switchModel(to: "openai_whisper-tiny")
+            try await service.switchModel(to: "tiny")
         } catch {
             // Expected to fail - model doesn't exist
         }
@@ -230,7 +230,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         do {
-            let isValid = try await service.validateModelIntegrity("openai_whisper-tiny")
+            let isValid = try await service.validateModelIntegrity("tiny")
             #expect(isValid == false)
         } catch {
             Issue.record("validateModelIntegrity should not throw for non-existent models")
@@ -342,7 +342,7 @@ struct WhisperServiceTests {
         // Since we can't actually load models in tests, we test the error path
         // The fallback logic is tested indirectly through the deleteModel implementation
         do {
-            try await service.deleteModel("openai_whisper-tiny")
+            try await service.deleteModel("tiny")
         } catch let error as WispError {
             if case .modelDeletionFailed = error {
                 // Expected - model doesn't exist
@@ -362,7 +362,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         // Initially no model is active
-        let status = await service.modelStatus("openai_whisper-tiny")
+        let status = await service.modelStatus("tiny")
         
         if case .active = status {
             Issue.record("No model should be active initially")

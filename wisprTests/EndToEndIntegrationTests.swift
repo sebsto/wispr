@@ -172,10 +172,10 @@ struct EndToEndIntegrationTests {
         let (defaults, _) = createIsolatedDefaults()
 
         let store1 = SettingsStore(defaults: defaults)
-        store1.activeModelName = "openai_whisper-small"
+        store1.activeModelName = "small"
 
         let store2 = SettingsStore(defaults: defaults)
-        #expect(store2.activeModelName == "openai_whisper-small",
+        #expect(store2.activeModelName == "small",
                 "Active model name should persist across restarts")
     }
 
@@ -228,7 +228,7 @@ struct EndToEndIntegrationTests {
         store1.hotkeyKeyCode = 42
         store1.hotkeyModifiers = 8192
         store1.selectedAudioDeviceUID = "external-mic-uid"
-        store1.activeModelName = "openai_whisper-medium"
+        store1.activeModelName = "medium"
         store1.languageMode = .specific(code: "de")
         store1.launchAtLogin = true
         store1.onboardingCompleted = true
@@ -239,7 +239,7 @@ struct EndToEndIntegrationTests {
         #expect(store2.hotkeyKeyCode == 42)
         #expect(store2.hotkeyModifiers == 8192)
         #expect(store2.selectedAudioDeviceUID == "external-mic-uid")
-        #expect(store2.activeModelName == "openai_whisper-medium")
+        #expect(store2.activeModelName == "medium")
         #expect(store2.launchAtLogin == true)
         #expect(store2.onboardingCompleted == true)
         #expect(store2.onboardingLastStep == OnboardingStep.completion.rawValue)
@@ -261,17 +261,17 @@ struct EndToEndIntegrationTests {
         #expect(models.count == 5, "Should have 5 available models")
 
         let ids = models.map(\.id)
-        #expect(ids.contains("openai_whisper-tiny"))
-        #expect(ids.contains("openai_whisper-base"))
-        #expect(ids.contains("openai_whisper-small"))
-        #expect(ids.contains("openai_whisper-medium"))
-        #expect(ids.contains("openai_whisper-large"))
+        #expect(ids.contains("tiny"))
+        #expect(ids.contains("base"))
+        #expect(ids.contains("small"))
+        #expect(ids.contains("medium"))
+        #expect(ids.contains("large-v3"))
     }
 
     @Test("E2E: modelStatus returns notDownloaded for undownloaded models")
     func testModelManagementStatusNotDownloaded() async {
         let services = createServices()
-        let status = await services.whisperService.modelStatus("openai_whisper-tiny")
+        let status = await services.whisperService.modelStatus("tiny")
 
         if case .notDownloaded = status {
             // Expected

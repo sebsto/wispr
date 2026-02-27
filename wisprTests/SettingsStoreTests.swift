@@ -56,7 +56,7 @@ struct SettingsStoreTests {
         #expect(store.selectedAudioDeviceUID == nil, "Default audio device UID should be nil")
         
         // Model defaults
-        #expect(store.activeModelName == "openai_whisper-tiny", "Default model should be tiny")
+        #expect(store.activeModelName == "tiny", "Default model should be tiny")
         
         // Language defaults
         if case .autoDetect = store.languageMode {
@@ -109,12 +109,12 @@ struct SettingsStoreTests {
         let store = SettingsStore(defaults: defaults)
         
         // Change model
-        store.activeModelName = "openai_whisper-base"
+        store.activeModelName = "base"
         
         // Create a new store instance to verify persistence
         let newStore = SettingsStore(defaults: defaults)
         
-        #expect(newStore.activeModelName == "openai_whisper-base", "Active model name should persist")
+        #expect(newStore.activeModelName == "base", "Active model name should persist")
     }
     
     @Test("SettingsStore persists language mode - autoDetect")
@@ -200,7 +200,7 @@ struct SettingsStoreTests {
         store.hotkeyKeyCode = 50
         store.hotkeyModifiers = 8192
         store.selectedAudioDeviceUID = "device-123"
-        store.activeModelName = "openai_whisper-medium"
+        store.activeModelName = "medium"
         store.languageMode = .specific(code: "es")
         store.launchAtLogin = true
         store.onboardingCompleted = true
@@ -215,7 +215,7 @@ struct SettingsStoreTests {
         #expect(newStore.hotkeyKeyCode == 50)
         #expect(newStore.hotkeyModifiers == 8192)
         #expect(newStore.selectedAudioDeviceUID == "device-123")
-        #expect(newStore.activeModelName == "openai_whisper-medium")
+        #expect(newStore.activeModelName == "medium")
         #expect(newStore.launchAtLogin == true)
         #expect(newStore.onboardingCompleted == true)
         #expect(newStore.onboardingLastStep == 5)
@@ -234,14 +234,14 @@ struct SettingsStoreTests {
         // First, create a store and set values
         let store1 = SettingsStore(defaults: defaults)
         store1.hotkeyKeyCode = 55
-        store1.activeModelName = "openai_whisper-large"
+        store1.activeModelName = "large-v3"
         store1.save()
         
         // Create a new store and verify it loads the values
         let store2 = SettingsStore(defaults: defaults)
         
         #expect(store2.hotkeyKeyCode == 55, "load() should retrieve persisted hotkey key code")
-        #expect(store2.activeModelName == "openai_whisper-large", "load() should retrieve persisted model name")
+        #expect(store2.activeModelName == "large-v3", "load() should retrieve persisted model name")
     }
     
     // MARK: - Edge Cases

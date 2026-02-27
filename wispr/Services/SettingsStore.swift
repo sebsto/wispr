@@ -76,7 +76,7 @@ final class SettingsStore {
         self.hotkeyKeyCode = 49  // Space
         self.hotkeyModifiers = 2048  // Option
         self.selectedAudioDeviceUID = nil
-        self.activeModelName = "openai_whisper-tiny"
+        self.activeModelName = "tiny"
         self.languageMode = .autoDetect
         self.launchAtLogin = false
         self.onboardingCompleted = false
