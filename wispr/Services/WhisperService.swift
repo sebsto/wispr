@@ -90,9 +90,9 @@ actor WhisperService {
     ///
     /// Requirements 7.2, 7.3, 7.4: Download models with progress tracking and concurrent task management.
     ///
-    /// Note: WhisperKit downloads models automatically during initialization.
-    /// This method triggers the download by attempting to load the model,
-    /// then reports progress by monitoring the file system.
+    /// Uses WhisperKit's static `download(variant:progressCallback:)` to get real
+    /// download progress, then initialises WhisperKit from the already-downloaded
+    /// folder so no redundant network request is made.
     ///
     /// - Parameter model: The model to download
     /// - Returns: An AsyncThrowingStream of DownloadProgress updates
@@ -107,6 +107,8 @@ actor WhisperService {
         
         downloadTasks[model.id] = true
         
+        let totalBytes = estimatedModelSize(for: model.id)
+        
         // Use Task to drive the download within the actor
         // This is the accepted pattern for AsyncStream production per the spec
         Task {
@@ -115,28 +117,45 @@ actor WhisperService {
             }
             
             do {
+                // Yield initial 0% progress
                 continuation.yield(DownloadProgress(
                     fractionCompleted: 0.0,
                     bytesDownloaded: 0,
-                    totalBytes: estimatedModelSize(for: model.id)
+                    totalBytes: totalBytes
                 ))
                 
-                let kit = try await WhisperKit(model: model.id)
+                // Step 1: Download model files with real progress via WhisperKit's static API
+                let modelFolder = try await WhisperKit.download(
+                    variant: model.id,
+                    progressCallback: { progress in
+                        let fraction = progress.fractionCompleted
+                        let downloaded = Int64(Double(totalBytes) * fraction)
+                        continuation.yield(DownloadProgress(
+                            fractionCompleted: fraction,
+                            bytesDownloaded: downloaded,
+                            totalBytes: totalBytes
+                        ))
+                    }
+                )
                 
-                let totalBytes = estimatedModelSize(for: model.id)
+                // Step 2: Load the model from the already-downloaded folder (no re-download)
+                let config = WhisperKitConfig(
+                    modelFolder: modelFolder.path,
+                    download: false
+                )
+                let kit = try await WhisperKit(config)
+                
+                // Step 3: Store the loaded instance — avoids redundant validation load
+                self.whisperKit = kit
+                self.activeModelName = model.id
+                
+                // Yield 100% completion
                 continuation.yield(DownloadProgress(
                     fractionCompleted: 1.0,
                     bytesDownloaded: totalBytes,
                     totalBytes: totalBytes
                 ))
                 
-                let isValid = try await validateModelIntegrity(model.id)
-                guard isValid else {
-                    continuation.finish(throwing: WispError.modelValidationFailed("Model \(model.displayName) failed integrity check"))
-                    return
-                }
-                
-                _ = kit
                 continuation.finish()
             } catch is CancellationError {
                 continuation.finish(throwing: WispError.modelDownloadFailed("Download of \(model.displayName) was cancelled"))
@@ -251,11 +270,16 @@ actor WhisperService {
         try await loadModel(modelName)
     }
     
-    /// Validates the integrity of a downloaded model.
+    /// Validates the integrity of a downloaded model by checking that its
+    /// directory exists and contains at least one file.
     ///
     /// Requirement 7.5: Validate model file integrity after download.
+    ///
+    /// Note: We intentionally avoid creating a WhisperKit instance here.
+    /// Loading a model is expensive and was the root cause of the previous
+    /// "WispError 6 / modelValidationFailed" bug — the second WhisperKit
+    /// init conflicted with the first one created during download.
     func validateModelIntegrity(_ modelName: String) async throws -> Bool {
-        // Check if model files exist
         do {
             let modelPath = try getModelPath(for: modelName)
             let fileManager = FileManager.default
@@ -264,11 +288,9 @@ actor WhisperService {
                 return false
             }
             
-            // Try to load the model to verify it's not corrupted
-            let testKit = try await WhisperKit(model: modelName)
-            _ = testKit
-            
-            return true
+            // Verify the directory is not empty (contains model files)
+            let contents = try fileManager.contentsOfDirectory(atPath: modelPath.path)
+            return !contents.isEmpty
         } catch {
             return false
         }
