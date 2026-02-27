@@ -9,13 +9,22 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
+        VStack(spacing: 16) {
+            Image(systemName: "mic.badge.plus")
+                .font(.system(size: 48))
                 .foregroundStyle(.tint)
-            Text("Hello, world!")
+                .accessibilityHidden(true)
+
+            Text("Wisp")
+                .font(.largeTitle)
+                .fontWeight(.semibold)
+
+            Text("Voice dictation, on-device")
+                .font(.title3)
+                .foregroundStyle(.secondary)
         }
-        .padding()
+        .frame(minWidth: 300, minHeight: 200)
+        .padding(32)
     }
 }
 

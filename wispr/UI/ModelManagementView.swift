@@ -56,7 +56,7 @@ struct ModelManagementView: View {
                 )
             }
         }
-        .frame(minWidth: 420, minHeight: 300)
+        .frame(minWidth: 500, idealWidth: 540, minHeight: 420, idealHeight: 480)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
         .task {
@@ -209,7 +209,7 @@ private struct ModelRowView: View {
             Spacer()
             statusSection
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
     }
@@ -232,11 +232,11 @@ private struct ModelRowView: View {
             }
 
             Text(model.sizeDescription)
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(theme.secondaryTextColor)
 
             Text(model.qualityDescription)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(theme.secondaryTextColor)
         }
     }
@@ -270,7 +270,6 @@ private struct ModelRowView: View {
         }
         .buttonStyle(.bordered)
         .highContrastBorder(cornerRadius: 6)
-        .minimumTouchTarget()
         .keyboardFocusRing()
         .accessibilityLabel("Download \(model.displayName) model")
         .accessibilityHint("Downloads the \(model.sizeDescription) model")
@@ -287,7 +286,7 @@ private struct ModelRowView: View {
                 .accessibilityValue("\(Int(progress * 100)) percent")
 
             Text("\(Int(progress * 100))%")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(theme.secondaryTextColor)
         }
     }
@@ -304,7 +303,6 @@ private struct ModelRowView: View {
             }
             .buttonStyle(.bordered)
             .highContrastBorder(cornerRadius: 6)
-            .minimumTouchTarget()
             .keyboardFocusRing()
             .accessibilityLabel("Set \(model.displayName) as active model")
             .accessibilityHint("Switches transcription to use this model")
@@ -316,7 +314,6 @@ private struct ModelRowView: View {
             }
             .buttonStyle(.bordered)
             .highContrastBorder(cornerRadius: 6)
-            .minimumTouchTarget()
             .keyboardFocusRing()
             .accessibilityLabel("Delete \(model.displayName) model")
             .accessibilityHint("Removes the model from disk")
@@ -332,7 +329,6 @@ private struct ModelRowView: View {
         }
         .buttonStyle(.bordered)
         .highContrastBorder(cornerRadius: 6)
-        .minimumTouchTarget()
         .keyboardFocusRing()
         .accessibilityLabel("Delete \(model.displayName) model")
         .accessibilityHint("Removes the active model from disk. A different model will be activated.")
@@ -355,3 +351,21 @@ private struct ModelRowView: View {
         return parts.joined(separator: ", ")
     }
 }
+
+#if DEBUG
+private struct ModelManagementPreview: View {
+    @State private var settingsStore = PreviewMocks.makeSettingsStore()
+    @State private var theme = PreviewMocks.makeTheme()
+
+    var body: some View {
+        ModelManagementView(whisperService: PreviewMocks.makeWhisperService())
+            .environment(settingsStore)
+            .environment(theme)
+            .frame(width: 540, height: 480)
+    }
+}
+
+#Preview("Model Management") {
+    ModelManagementPreview()
+}
+#endif

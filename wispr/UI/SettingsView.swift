@@ -166,7 +166,8 @@ struct SettingsView: View {
             generalSection
         }
         .formStyle(.grouped)
-        .frame(minWidth: 480, minHeight: 400)
+        .font(.body)
+        .frame(minWidth: 520, idealWidth: 560, minHeight: 520, idealHeight: 580)
         .liquidGlassPanel()
         .task {
             await loadAudioDevices()
@@ -182,6 +183,7 @@ struct SettingsView: View {
         Section {
             HStack {
                 Label("Shortcut", systemImage: SFSymbols.keyboard)
+                    .font(.body)
                     .foregroundStyle(theme.primaryTextColor)
                 Spacer()
                 HotkeyRecorderView(
@@ -191,6 +193,7 @@ struct SettingsView: View {
                     errorMessage: $hotkeyError
                 )
             }
+            .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Hotkey shortcut")
             .accessibilityHint("Activate to record a new hotkey combination")
@@ -198,10 +201,11 @@ struct SettingsView: View {
             if let error = hotkeyError {
                 Label(error, systemImage: theme.actionSymbol(.warning))
                     .foregroundStyle(theme.errorColor)
-                    .font(.caption)
+                    .font(.callout)
             }
         } header: {
             Text("Hotkey Configuration")
+                .font(.headline)
         }
     }
 
@@ -220,12 +224,15 @@ struct SettingsView: View {
                 }
             } label: {
                 Label("Input Device", systemImage: theme.actionSymbol(.microphone))
+                    .font(.body)
                     .foregroundStyle(theme.primaryTextColor)
             }
+            .padding(.vertical, 4)
             .accessibilityLabel("Audio input device")
             .accessibilityHint("Select the microphone to use for recording")
         } header: {
             Text("Audio Device")
+                .font(.headline)
         }
     }
 
@@ -246,12 +253,15 @@ struct SettingsView: View {
                 }
             } label: {
                 Label("Active Model", systemImage: theme.actionSymbol(.model))
+                    .font(.body)
                     .foregroundStyle(theme.primaryTextColor)
             }
+            .padding(.vertical, 4)
             .accessibilityLabel("Whisper model")
             .accessibilityHint("Select the speech recognition model to use")
         } header: {
             Text("Whisper Model")
+                .font(.headline)
         }
     }
 
@@ -268,6 +278,7 @@ struct SettingsView: View {
                 Label("Auto-Detect Language", systemImage: theme.actionSymbol(.language))
                     .foregroundStyle(theme.primaryTextColor)
             }
+            .padding(.vertical, 4)
             .accessibilityLabel("Auto-detect language")
             .accessibilityHint("When enabled, Wisp automatically detects the spoken language")
 
@@ -291,11 +302,13 @@ struct SettingsView: View {
                     Label("Pin Language", systemImage: SFSymbols.pin)
                         .foregroundStyle(theme.primaryTextColor)
                 }
+                .padding(.vertical, 4)
                 .accessibilityLabel("Pin language")
                 .accessibilityHint("When enabled, locks transcription to the selected language")
             }
         } header: {
             Text("Language")
+                .font(.headline)
         }
     }
 
@@ -308,10 +321,12 @@ struct SettingsView: View {
                 Label("Launch at Login", systemImage: theme.actionSymbol(.launchAtLogin))
                     .foregroundStyle(theme.primaryTextColor)
             }
+            .padding(.vertical, 4)
             .accessibilityLabel("Launch at login")
             .accessibilityHint("When enabled, Wisp starts automatically when you log in")
         } header: {
             Text("General")
+                .font(.headline)
         }
     }
 
@@ -426,7 +441,6 @@ struct HotkeyRecorderView: View {
         }
         .buttonStyle(.bordered)
         .highContrastBorder(cornerRadius: 6)
-        .minimumTouchTarget()
         .keyboardFocusRing()
         .accessibilityLabel(isRecording ? "Recording hotkey, press desired key combination" : "Current hotkey: \(hotkeyDisplayString)")
         .accessibilityHint("Click to record a new hotkey")
@@ -525,3 +539,26 @@ struct HotkeyRecorderView: View {
         return keyNames[code] ?? "Key \(code)"
     }
 }
+
+// MARK: - Preview
+
+#if DEBUG
+private struct SettingsPreview: View {
+    @State private var settingsStore = PreviewMocks.makeSettingsStore()
+    @State private var theme = PreviewMocks.makeTheme()
+
+    var body: some View {
+        SettingsView(
+            audioEngine: PreviewMocks.makeAudioEngine(),
+            whisperService: PreviewMocks.makeWhisperService()
+        )
+        .environment(settingsStore)
+        .environment(theme)
+        .frame(width: 560, height: 580)
+    }
+}
+
+#Preview("Settings") {
+    SettingsPreview()
+}
+#endif

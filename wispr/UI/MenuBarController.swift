@@ -401,7 +401,7 @@ final class MenuBarController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Wisp Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 480, height: 400))
+        window.setContentSize(NSSize(width: 560, height: 580))
         window.center()
         window.makeKeyAndOrderFront(nil)
         settingsWindow = window
@@ -428,7 +428,7 @@ final class MenuBarController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Model Management"
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 420, height: 300))
+        window.setContentSize(NSSize(width: 540, height: 480))
         window.center()
         window.makeKeyAndOrderFront(nil)
         modelManagementWindow = window

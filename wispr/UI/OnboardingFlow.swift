@@ -93,9 +93,9 @@ struct OnboardingFlow: View {
             Divider()
 
             navigationBar
-                .padding(20)
+                .padding(24)
         }
-        .frame(width: 540, height: 460)
+//        .frame(width: 620, height: 580)
         .liquidGlassPanel()
         .highContrastBorder(cornerRadius: 12)
         .motionRespectingAnimation(value: currentStep)
@@ -115,7 +115,7 @@ struct OnboardingFlow: View {
     private var stepIndicator: some View {
         VStack(spacing: 8) {
             Text("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(theme.secondaryTextColor)
                 .accessibilityLabel("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
 
@@ -133,25 +133,30 @@ struct OnboardingFlow: View {
 
     // MARK: - Step Content
 
-    /// Placeholder content for each step. Actual implementations will be added in tasks 18.2–18.5.
+    /// Content area for the current step, wrapped in a ScrollView so taller
+    /// steps (e.g. model selection with 5 rows) don't push the step indicator
+    /// or navigation bar off-screen.
     private var stepContent: some View {
-        VStack(spacing: 16) {
-            switch currentStep {
-            case .welcome:
-                welcomeStepContent
-            case .microphonePermission:
-                microphonePermissionStepContent
-            case .accessibilityPermission:
-                accessibilityPermissionStepContent
-            case .modelSelection:
-                modelSelectionStepContent
-            case .testDictation:
-                testDictationStepContent
-            case .completion:
-                completionStepContent
+        ScrollView {
+            VStack(spacing: 20) {
+                switch currentStep {
+                case .welcome:
+                    welcomeStepContent
+                case .microphonePermission:
+                    microphonePermissionStepContent
+                case .accessibilityPermission:
+                    accessibilityPermissionStepContent
+                case .modelSelection:
+                    modelSelectionStepContent
+                case .testDictation:
+                    testDictationStepContent
+                case .completion:
+                    completionStepContent
+                }
             }
+            .padding(32)
+            .frame(maxWidth: .infinity)
         }
-        .padding(24)
     }
 
     // MARK: - Welcome Step
@@ -173,6 +178,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
+                .lineSpacing(4)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Welcome to Wisp. Dictate text anywhere on your Mac. All transcription happens on-device.")
@@ -199,6 +205,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
+                .lineSpacing(4)
 
             if permissionManager.microphoneStatus == .authorized {
                 Label("Microphone Access Granted", systemImage: theme.actionSymbol(.checkmark))
@@ -215,7 +222,6 @@ struct OnboardingFlow: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .minimumTouchTarget()
                 .accessibilityLabel("Grant Microphone Access")
                 .accessibilityHint("Opens the system dialog to allow microphone access")
             }
@@ -245,6 +251,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
+                .lineSpacing(4)
 
             if permissionManager.accessibilityStatus == .authorized {
                 Label("Accessibility Access Granted", systemImage: theme.actionSymbol(.checkmark))
@@ -259,12 +266,11 @@ struct OnboardingFlow: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .minimumTouchTarget()
                 .accessibilityLabel("Open System Settings")
                 .accessibilityHint("Opens System Settings to the Accessibility privacy pane")
 
                 Text("After enabling Wisp in System Settings, return here to continue.")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(theme.secondaryTextColor)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 360)
@@ -294,6 +300,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
+                .lineSpacing(4)
 
             if downloadComplete {
                 // Download completed successfully
@@ -334,7 +341,6 @@ struct OnboardingFlow: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .minimumTouchTarget()
                 .padding(.top, 8)
                 .accessibilityLabel("Download selected model")
                 .accessibilityHint("Downloads the selected Whisper model to your Mac")
@@ -345,11 +351,19 @@ struct OnboardingFlow: View {
     /// A single row in the model list.
     private func modelRow(_ model: WhisperModelInfo) -> some View {
         let isSelected = selectedModelId == model.id
+        let isOnDisk = model.status == .downloaded || model.status == .active
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(model.displayName)
-                    .font(.headline)
-                    .foregroundStyle(theme.primaryTextColor)
+                HStack(spacing: 6) {
+                    Text(model.displayName)
+                        .font(.headline)
+                        .foregroundStyle(theme.primaryTextColor)
+                    if isOnDisk {
+                        Text("Downloaded")
+                            .font(.caption2)
+                            .foregroundStyle(theme.successColor)
+                    }
+                }
                 Text("\(model.sizeDescription) · \(model.qualityDescription)")
                     .font(.caption)
                     .foregroundStyle(theme.secondaryTextColor)
@@ -386,7 +400,7 @@ struct OnboardingFlow: View {
                 .accessibilityValue("\(Int(downloadProgress * 100)) percent")
 
             Text("\(Int(downloadProgress * 100))% — \(formattedBytes(downloadedBytes)) of \(formattedBytes(downloadTotalBytes))")
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(theme.secondaryTextColor)
                 .accessibilityHidden(true)
         }
@@ -400,7 +414,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.errorColor)
 
             Text(error)
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
@@ -413,7 +427,6 @@ struct OnboardingFlow: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.regular)
-            .minimumTouchTarget()
             .accessibilityLabel("Retry download")
             .accessibilityHint("Attempts to download the model again")
         }
@@ -421,13 +434,31 @@ struct OnboardingFlow: View {
 
     // MARK: - Model Download Logic
 
-    /// Loads the available models from WhisperService.
+    /// Loads the available models from WhisperService, querying actual disk status for each.
     private func loadAvailableModels() async {
-        let models = await whisperService.availableModels()
+        var models = await whisperService.availableModels()
+        for index in models.indices {
+            models[index].status = await whisperService.modelStatus(models[index].id)
+        }
         availableModels = models
-        // Pre-select the first model if nothing is selected
-        if selectedModelId == nil, let first = models.first {
-            selectedModelId = first.id
+
+        // If a model matching the active setting is already downloaded, mark step complete
+        if !settingsStore.activeModelName.isEmpty,
+           models.contains(where: {
+               $0.id == settingsStore.activeModelName
+               && ($0.status == .downloaded || $0.status == .active)
+           }) {
+            downloadComplete = true
+        }
+
+        // Pre-select the active model, or the first model if nothing is selected
+        if selectedModelId == nil {
+            if !settingsStore.activeModelName.isEmpty,
+               models.contains(where: { $0.id == settingsStore.activeModelName }) {
+                selectedModelId = settingsStore.activeModelName
+            } else if let first = models.first {
+                selectedModelId = first.id
+            }
         }
     }
 
@@ -492,6 +523,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
+                .lineSpacing(4)
 
             // State-dependent content
             if isTestProcessing {
@@ -500,7 +532,7 @@ struct OnboardingFlow: View {
                     .accessibilityLabel("Processing speech")
 
                 Text("Transcribing…")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(theme.secondaryTextColor)
             } else if isTestRecording {
                 HStack(spacing: 8) {
@@ -533,7 +565,7 @@ struct OnboardingFlow: View {
             } else {
                 // Idle — prompt the user to try
                 Text("Press the hotkey to begin")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(theme.secondaryTextColor)
             }
         }
@@ -613,6 +645,7 @@ struct OnboardingFlow: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
+                .lineSpacing(4)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Setup complete. Wisp is ready. Press Option Space to start dictating.")
@@ -655,7 +688,6 @@ struct OnboardingFlow: View {
                 .keyboardShortcut(.cancelAction)
                 .buttonStyle(.plain)
                 .foregroundStyle(theme.secondaryTextColor)
-                .minimumTouchTarget()
                 .accessibilityLabel("Go back to previous step")
                 .accessibilityHint("Returns to the previous onboarding step")
             }
@@ -669,7 +701,6 @@ struct OnboardingFlow: View {
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .minimumTouchTarget()
                 .accessibilityLabel("Done")
                 .accessibilityHint("Completes setup and closes the onboarding window")
             } else if currentStep.isSkippable && !isCurrentStepComplete {
@@ -679,7 +710,6 @@ struct OnboardingFlow: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(theme.secondaryTextColor)
-                    .minimumTouchTarget()
                     .accessibilityLabel("Skip this step")
                     .accessibilityHint("Skips the test dictation step")
 
@@ -689,7 +719,6 @@ struct OnboardingFlow: View {
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .minimumTouchTarget()
                     .disabled(!isCurrentStepComplete)
                     .accessibilityLabel("Continue")
                     .accessibilityHint(isCurrentStepComplete ? "Proceeds to the next step" : "Complete this step to continue")
@@ -701,7 +730,6 @@ struct OnboardingFlow: View {
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .minimumTouchTarget()
                 .disabled(!isCurrentStepComplete)
                 .accessibilityLabel("Continue")
                 .accessibilityHint(isCurrentStepComplete ? "Proceeds to the next step" : "Complete this step to continue")
@@ -839,3 +867,32 @@ struct OnboardingFlow: View {
         case backward
     }
 }
+
+#if DEBUG
+private struct OnboardingPreview: View {
+    @State private var settingsStore: SettingsStore
+    @State private var permissionManager = PreviewMocks.makePermissionManager()
+    @State private var theme = PreviewMocks.makeTheme()
+    @State private var stateManager: StateManager
+
+    init() {
+        let store = PreviewMocks.makeSettingsStore()
+        _settingsStore = State(initialValue: store)
+        _stateManager = State(initialValue: PreviewMocks.makeStateManager(settingsStore: store))
+    }
+
+    var body: some View {
+        OnboardingFlow(whisperService: PreviewMocks.makeWhisperService())
+            .environment(permissionManager)
+            .environment(settingsStore)
+            .environment(theme)
+            .environment(stateManager)
+            .frame(width: 620, height: 580)
+    }
+}
+
+#Preview("Onboarding") {
+    OnboardingPreview()
+}
+#endif
+

@@ -100,10 +100,10 @@ final class RecordingOverlayPanel {
             .environment(themeEngine)
 
         let hostingView = NSHostingView(rootView: overlayView)
-        hostingView.setFrameSize(NSSize(width: 220, height: 80))
+        hostingView.setFrameSize(NSSize(width: 260, height: 92))
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 220, height: 80),
+            contentRect: NSRect(x: 0, y: 0, width: 260, height: 92),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

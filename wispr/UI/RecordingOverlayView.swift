@@ -32,10 +32,10 @@ struct RecordingOverlayView: View {
     @State private var levelTask: Task<Void, Never>?
 
     /// Scaled overlay width for Dynamic Type support (Req 17.7).
-    @ScaledMetric(relativeTo: .body) private var overlayWidth: CGFloat = 200
+    @ScaledMetric(relativeTo: .body) private var overlayWidth: CGFloat = 240
 
     /// Scaled overlay height for Dynamic Type support (Req 17.7).
-    @ScaledMetric(relativeTo: .body) private var overlayHeight: CGFloat = 60
+    @ScaledMetric(relativeTo: .body) private var overlayHeight: CGFloat = 72
 
     var body: some View {
         ZStack {
@@ -76,19 +76,19 @@ struct RecordingOverlayView: View {
     private var recordingContent: some View {
         HStack(spacing: 10) {
             Image(systemName: SFSymbols.recordingMicrophone)
-                .font(.title2)
+                .font(.title)
                 .foregroundStyle(theme.accentColor)
                 .symbolEffect(.pulse, isActive: !theme.reduceMotion)
                 .accessibilityHidden(true)
 
             audioLevelMeter
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
     }
 
     /// Processing state: spinner + label.
     private var processingContent: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ProgressView()
                 .controlSize(.small)
                 .accessibilityHidden(true)
@@ -108,12 +108,12 @@ struct RecordingOverlayView: View {
                 .accessibilityHidden(true)
 
             Text(message)
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(theme.primaryTextColor)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Audio Level Meter
@@ -124,17 +124,17 @@ struct RecordingOverlayView: View {
             ForEach(0..<audioLevels.count, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(theme.accentColor.opacity(0.8))
-                    .frame(width: 4, height: barHeight(for: audioLevels[index]))
+                    .frame(width: 5, height: barHeight(for: audioLevels[index]))
             }
         }
-        .frame(height: 28)
+        .frame(height: 32)
         .accessibilityHidden(true)
     }
 
-    /// Maps a 0…1 audio level to a bar height between 4 and 28 points.
+    /// Maps a 0…1 audio level to a bar height between 5 and 32 points.
     private func barHeight(for level: Float) -> CGFloat {
         let clamped = min(max(CGFloat(level), 0), 1)
-        return 4 + clamped * 24
+        return 5 + clamped * 27
     }
 
     // MARK: - State Change Handling
@@ -191,3 +191,28 @@ struct RecordingOverlayView: View {
         }
     }
 }
+
+#if DEBUG
+private struct RecordingOverlayPreview: View {
+    @State private var stateManager: StateManager
+    @State private var theme = PreviewMocks.makeTheme()
+
+    init() {
+        let sm = PreviewMocks.makeStateManager()
+        sm.appState = .recording
+        _stateManager = State(initialValue: sm)
+    }
+
+    var body: some View {
+        RecordingOverlayView()
+            .environment(stateManager)
+            .environment(theme)
+            .frame(width: 280, height: 100)
+            .background(.black.opacity(0.3))
+    }
+}
+
+#Preview("Recording Overlay") {
+    RecordingOverlayPreview()
+}
+#endif
