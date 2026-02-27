@@ -53,6 +53,9 @@ final class MenuBarController {
     /// Observation tracking for state changes.
     private var observationTask: Task<Void, Never>?
 
+    /// Key used for the Core Animation pulse on the status button during processing.
+    private static let processingAnimationKey = "wisp.processing.pulse"
+
     /// Retained reference to the settings window.
     private var settingsWindow: NSWindow?
 
@@ -324,6 +327,45 @@ final class MenuBarController {
         image?.isTemplate = true
         button.image = image
         button.toolTip = description
+
+        // Drive animation via Core Animation (runs on the render server,
+        // zero main-thread or Swift Concurrency executor overhead).
+        if state == .processing {
+            startProcessingAnimation()
+        } else {
+            stopProcessingAnimation()
+        }
+    }
+
+    // MARK: - Processing Animation (Core Animation)
+
+    /// Adds a subtle opacity pulse to the status button using Core Animation.
+    ///
+    /// CA animations run on the macOS render server (a separate process),
+    /// so they have zero impact on the main thread or Swift Concurrency
+    /// cooperative executor — WhisperKit.transcribe() won't be starved.
+    ///
+    /// Respects `themeEngine.reduceMotion`.
+    private func startProcessingAnimation() {
+        guard let button = statusItem.button else { return }
+        guard !themeEngine.reduceMotion else { return }
+        guard button.layer?.animation(forKey: Self.processingAnimationKey) == nil else { return }
+
+        button.wantsLayer = true
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.3
+        pulse.duration = 0.6
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        button.layer?.add(pulse, forKey: Self.processingAnimationKey)
+    }
+
+    /// Removes the processing pulse animation.
+    private func stopProcessingAnimation() {
+        guard let button = statusItem.button else { return }
+        button.layer?.removeAnimation(forKey: Self.processingAnimationKey)
     }
 
     // MARK: - State Observation
@@ -359,6 +401,7 @@ final class MenuBarController {
     func stopObserving() {
         observationTask?.cancel()
         observationTask = nil
+        stopProcessingAnimation()
     }
 
     // MARK: - Actions (called by MenuBarActionHandler)
