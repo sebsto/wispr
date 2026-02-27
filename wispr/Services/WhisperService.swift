@@ -426,9 +426,15 @@ actor WhisperService {
 
             
             // Perform transcription (Requirements 3.1, 3.2)
+            // When language is nil (auto-detect), enable detectLanguage so
+            // WhisperKit runs its language identification pass instead of
+            // falling back to the default "en".
             let results = try await whisperKit.transcribe(
                 audioArray: audioSamples,
-                decodeOptions: DecodingOptions(language: languageCode)
+                decodeOptions: DecodingOptions(
+                    language: languageCode,
+                    detectLanguage: languageCode == nil
+                )
             )
             
             #if DEBUG
