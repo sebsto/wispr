@@ -93,8 +93,8 @@ struct RecordingOverlayPanelTests {
 
         panel.dismiss()
 
-        // Wait for the dismiss cleanup task (duration 0 + 50ms buffer)
-        try await Task.sleep(for: .milliseconds(150))
+        // Yield to the run loop so the completion handler fires
+        try await Task.sleep(for: .milliseconds(100))
 
         #expect(panel.isVisible == false, "Panel should not be visible after dismiss()")
     }
@@ -119,7 +119,7 @@ struct RecordingOverlayPanelTests {
         #expect(panel.isVisible == true)
 
         panel.dismiss()
-        try await Task.sleep(for: .milliseconds(150))
+        try await Task.sleep(for: .milliseconds(100))
         #expect(panel.isVisible == false)
 
         panel.show()

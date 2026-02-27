@@ -271,7 +271,8 @@ struct EndToEndIntegrationTests {
     @Test("E2E: modelStatus returns notDownloaded for undownloaded models")
     func testModelManagementStatusNotDownloaded() async {
         let services = createServices()
-        let status = await services.whisperService.modelStatus("tiny")
+        // Use a model name that definitely won't exist on disk
+        let status = await services.whisperService.modelStatus("nonexistent-model-xyz")
 
         if case .notDownloaded = status {
             // Expected

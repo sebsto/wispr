@@ -161,7 +161,7 @@ struct AvailableModelsListTests {
         let service = WhisperService()
         let models = await service.availableModels()
 
-        let expectedOrder = ["Tiny", "Base", "Small", "Medium", "Large"]
+        let expectedOrder = ["Tiny", "Base", "Small", "Medium", "Large v3"]
         let actualOrder = models.map { $0.displayName }
         #expect(actualOrder == expectedOrder)
     }
@@ -222,7 +222,7 @@ struct ModelDeletionFallbackLogicTests {
         let service = WhisperService()
 
         do {
-            try await service.deleteModel("tiny")
+            try await service.deleteModel("nonexistent-model-xyz")
             Issue.record("Expected deleteModel to throw for non-existent model")
         } catch let error as WispError {
             if case .modelDeletionFailed(let message) = error {
@@ -245,7 +245,8 @@ struct ModelDeletionFallbackLogicTests {
     @Test("Model status is notDownloaded for fresh service")
     func testFreshServiceModelStatus() async {
         let service = WhisperService()
-        let status = await service.modelStatus("tiny")
+        // Use a model name that definitely won't exist on disk
+        let status = await service.modelStatus("nonexistent-model-xyz")
 
         if case .notDownloaded = status {
             // Expected
@@ -259,7 +260,7 @@ struct ModelDeletionFallbackLogicTests {
         let service = WhisperService()
 
         do {
-            try await service.switchModel(to: "tiny")
+            try await service.switchModel(to: "nonexistent-model-xyz")
             Issue.record("Expected switchModel to throw for non-existent model")
         } catch let error as WispError {
             if case .modelLoadFailed = error {

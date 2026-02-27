@@ -40,7 +40,7 @@ struct WhisperServiceTests {
             #expect(models[1].displayName == "Base")
             #expect(models[2].displayName == "Small")
             #expect(models[3].displayName == "Medium")
-            #expect(models[4].displayName == "Large")
+            #expect(models[4].displayName == "Large v3")
         }
     }
     
@@ -50,7 +50,8 @@ struct WhisperServiceTests {
     @Test("Model status returns notDownloaded for non-existent models")
     func testModelStatusNotDownloaded() async {
         let service = WhisperService()
-        let status = await service.modelStatus("tiny")
+        // Use a model name that definitely won't exist on disk
+        let status = await service.modelStatus("nonexistent-model-xyz")
         
         // Since we haven't downloaded any models, status should be notDownloaded
         if case .notDownloaded = status {
@@ -161,7 +162,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         do {
-            try await service.deleteModel("tiny")
+            try await service.deleteModel("nonexistent-model-xyz")
             Issue.record("Expected deleteModel to throw error for non-existent model")
         } catch let error as WispError {
             if case .modelDeletionFailed(let message) = error {
@@ -184,7 +185,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         do {
-            try await service.loadModel("tiny")
+            try await service.loadModel("nonexistent-model-xyz")
             Issue.record("Expected loadModel to throw error for non-existent model")
         } catch let error as WispError {
             if case .modelLoadFailed = error {
@@ -210,7 +211,7 @@ struct WhisperServiceTests {
         
         // Try to switch to a model (will fail, but we're testing the unload logic)
         do {
-            try await service.switchModel(to: "tiny")
+            try await service.switchModel(to: "nonexistent-model-xyz")
         } catch {
             // Expected to fail - model doesn't exist
         }
@@ -230,7 +231,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         
         do {
-            let isValid = try await service.validateModelIntegrity("tiny")
+            let isValid = try await service.validateModelIntegrity("nonexistent-model-xyz")
             #expect(isValid == false)
         } catch {
             Issue.record("validateModelIntegrity should not throw for non-existent models")
@@ -342,7 +343,7 @@ struct WhisperServiceTests {
         // Since we can't actually load models in tests, we test the error path
         // The fallback logic is tested indirectly through the deleteModel implementation
         do {
-            try await service.deleteModel("tiny")
+            try await service.deleteModel("nonexistent-model-xyz")
         } catch let error as WispError {
             if case .modelDeletionFailed = error {
                 // Expected - model doesn't exist
@@ -361,8 +362,8 @@ struct WhisperServiceTests {
     func testModelStatusActive() async {
         let service = WhisperService()
         
-        // Initially no model is active
-        let status = await service.modelStatus("tiny")
+        // Use a model name that definitely won't exist on disk
+        let status = await service.modelStatus("nonexistent-model-xyz")
         
         if case .active = status {
             Issue.record("No model should be active initially")
