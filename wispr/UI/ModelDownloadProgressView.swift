@@ -164,8 +164,9 @@ struct ModelDownloadProgressView: View {
                 .font(.callout)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Preparing \(model.displayName). Loading model into memory.")
     }
