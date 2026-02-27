@@ -40,6 +40,9 @@ struct ModelManagementView: View {
     /// Error message to display (for non-download errors).
     @State private var errorMessage: String?
 
+    /// The model ID currently being activated (loading into memory).
+    @State private var activatingModelId: String?
+
     init(whisperService: WhisperService) {
         self.whisperService = whisperService
     }
@@ -114,6 +117,7 @@ struct ModelManagementView: View {
             ModelRowView(
                 model: model,
                 theme: theme,
+                isActivating: activatingModelId == model.id,
                 onDownload: {
                     activeDownloads.insert(model.id)
                     updateModelStatus(model.id, to: .downloading(progress: 0.0))
@@ -140,11 +144,14 @@ struct ModelManagementView: View {
     /// Requirement 7.6: Switch active model.
     /// Requirement 7.7: Allow changing active model when not recording.
     private func setActiveModel(_ model: WhisperModelInfo) async {
+        activatingModelId = model.id
         do {
             try await whisperService.switchModel(to: model.id)
             settingsStore.activeModelName = model.id
+            activatingModelId = nil
             await refreshModels()
         } catch {
+            activatingModelId = nil
             errorMessage = "Failed to activate model: \(error.localizedDescription)"
         }
     }
@@ -203,6 +210,7 @@ struct ModelManagementView: View {
 private struct ModelRowView: View {
     let model: WhisperModelInfo
     let theme: UIThemeEngine
+    let isActivating: Bool
     let onDownload: () -> Void
     let onSetActive: () async -> Void
     let onDelete: () -> Void
@@ -273,6 +281,8 @@ private struct ModelRowView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
+        .opacity(isActivating ? 0.7 : 1.0)
+        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isActivating)
     }
 
     // MARK: - Status Icon
@@ -374,16 +384,24 @@ private struct ModelRowView: View {
         case .downloaded:
             HStack {
                 Spacer()
-                Button {
-                    Task { await onSetActive() }
-                } label: {
-                    Label("Activate", systemImage: theme.actionSymbol(.checkmark))
+                if isActivating {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Activating…")
+                        .font(.callout)
+                        .foregroundStyle(theme.secondaryTextColor)
+                } else {
+                    Button {
+                        Task { await onSetActive() }
+                    } label: {
+                        Label("Activate", systemImage: theme.actionSymbol(.checkmark))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .highContrastBorder(cornerRadius: 6)
+                    .keyboardFocusRing()
+                    .accessibilityLabel("Set \(model.displayName) as active model")
+                    .accessibilityHint("Switches transcription to use this model")
                 }
-                .buttonStyle(.borderedProminent)
-                .highContrastBorder(cornerRadius: 6)
-                .keyboardFocusRing()
-                .accessibilityLabel("Set \(model.displayName) as active model")
-                .accessibilityHint("Switches transcription to use this model")
 
                 Button(role: .destructive) {
                     onDelete()
@@ -393,6 +411,7 @@ private struct ModelRowView: View {
                 .buttonStyle(.bordered)
                 .highContrastBorder(cornerRadius: 6)
                 .keyboardFocusRing()
+                .disabled(isActivating)
                 .accessibilityLabel("Delete \(model.displayName) model")
                 .accessibilityHint("Removes the model from disk")
             }
@@ -484,6 +503,7 @@ private struct StatusPillView: View {
                 ModelRowView(
                     model: model,
                     theme: theme,
+                    isActivating: false,
                     onDownload: {},
                     onSetActive: {},
                     onDelete: {}
