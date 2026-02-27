@@ -193,6 +193,7 @@ actor WhisperService {
                 // Step 2: Load the model from the already-downloaded folder (no re-download)
                 let config = WhisperKitConfig(
                     modelFolder: modelFolder.path,
+                    prewarm: true,
                     download: false
                 )
                 let kit = try await WhisperKit(config)
@@ -327,7 +328,8 @@ actor WhisperService {
         do {
             let config = WhisperKitConfig(
                 model: modelName,
-                downloadBase: modelDownloadBase
+                downloadBase: modelDownloadBase,
+                prewarm: true
             )
             whisperKit = try await WhisperKit(config)
             activeModelName = modelName
@@ -524,7 +526,8 @@ actor WhisperService {
                 whisperKit = nil
                 let config = WhisperKitConfig(
                     model: modelName,
-                    downloadBase: modelDownloadBase
+                    downloadBase: modelDownloadBase,
+                    prewarm: true
                 )
                 whisperKit = try await WhisperKit(config)
                 // Reload succeeded
