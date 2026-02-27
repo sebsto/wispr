@@ -50,7 +50,7 @@ struct ModelManagementView: View {
                 modelSection(for: model)
             }
         }
-        .frame(minWidth: 500, idealWidth: 540, minHeight: 420, idealHeight: 480)
+//        .frame(minWidth: 500, idealWidth: 540, minHeight: 420, idealHeight: 480)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
         .task {
@@ -198,6 +198,8 @@ struct ModelManagementView: View {
 // MARK: - ModelRowView
 
 /// A single row in the model list showing model info and action controls.
+/// Status is displayed as a prominent badge/pill for at-a-glance clarity.
+/// The active model uses a highlighted card with a green border.
 private struct ModelRowView: View {
     let model: WhisperModelInfo
     let theme: UIThemeEngine
@@ -205,117 +207,211 @@ private struct ModelRowView: View {
     let onSetActive: () async -> Void
     let onDelete: () -> Void
 
+    /// Whether this model is the active one.
+    private var isActive: Bool {
+        if case .active = model.status { return true }
+        return false
+    }
+
+    /// Whether this model has not been downloaded.
+    private var isNotDownloaded: Bool {
+        if case .notDownloaded = model.status { return true }
+        return false
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            modelInfoSection
-            Spacer()
-            statusSection
+        VStack(alignment: .leading, spacing: 10) {
+            // Top row: status icon, model name + info, status badge
+            HStack(alignment: .center, spacing: 10) {
+                statusIcon
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.displayName)
+                        .font(.headline)
+                        .foregroundStyle(isNotDownloaded
+                            ? theme.secondaryTextColor
+                            : theme.primaryTextColor)
+
+                    HStack(spacing: 6) {
+                        Text(model.sizeDescription)
+                            .font(.callout)
+                            .foregroundStyle(theme.secondaryTextColor)
+
+                        Text("·")
+                            .foregroundStyle(theme.secondaryTextColor)
+
+                        Text(model.qualityDescription)
+                            .font(.callout)
+                            .foregroundStyle(theme.secondaryTextColor)
+                    }
+                }
+
+                Spacer()
+
+                statusBadge
+            }
+
+            // Bottom row: action buttons aligned trailing
+            actionButtons
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isActive
+                    ? theme.successColor.opacity(0.06)
+                    : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(
+                    isActive
+                        ? theme.successColor.opacity(0.5)
+                        : Color.clear,
+                    lineWidth: 1.5
+                )
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
     }
 
-    // MARK: - Model Info
+    // MARK: - Status Icon
 
-    private var modelInfoSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(model.displayName)
-                    .font(.headline)
-                    .foregroundStyle(theme.primaryTextColor)
+    /// A leading icon that reflects the model's current state.
+    private var statusIcon: some View {
+        Group {
+            switch model.status {
+            case .active:
+                Image(systemName: theme.actionSymbol(.checkmark))
+                    .foregroundStyle(theme.successColor)
+                    .font(.title2)
 
-                if case .active = model.status {
-                    Image(systemName: theme.actionSymbol(.checkmark))
-                        .foregroundStyle(theme.successColor)
-                        .font(.subheadline)
-                        .accessibilityLabel("Active model")
-                }
+            case .downloaded:
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(theme.accentColor)
+                    .font(.title2)
+
+            case .notDownloaded:
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(theme.secondaryTextColor.opacity(0.5))
+                    .font(.title2)
+
+            case .downloading:
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 22, height: 22)
             }
+        }
+        .frame(width: 28, alignment: .center)
+    }
 
-            Text(model.sizeDescription)
-                .font(.callout)
-                .foregroundStyle(theme.secondaryTextColor)
+    // MARK: - Status Badge
 
-            Text(model.qualityDescription)
-                .font(.caption)
-                .foregroundStyle(theme.secondaryTextColor)
+    /// A prominent pill-shaped badge showing the model's status.
+    private var statusBadge: some View {
+        Group {
+            switch model.status {
+            case .active:
+                StatusPillView(
+                    label: "Active",
+                    symbolName: theme.actionSymbol(.checkmark),
+                    foregroundColor: theme.successColor,
+                    backgroundColor: theme.successColor.opacity(0.15)
+                )
+
+            case .downloaded:
+                StatusPillView(
+                    label: "Downloaded",
+                    symbolName: "checkmark.circle",
+                    foregroundColor: theme.accentColor,
+                    backgroundColor: theme.accentColor.opacity(0.12)
+                )
+
+            case .notDownloaded:
+                StatusPillView(
+                    label: "Not Downloaded",
+                    symbolName: "icloud.and.arrow.down",
+                    foregroundColor: theme.secondaryTextColor,
+                    backgroundColor: theme.borderColor.opacity(0.3)
+                )
+
+            case .downloading:
+                StatusPillView(
+                    label: "Downloading…",
+                    symbolName: nil,
+                    foregroundColor: theme.accentColor,
+                    backgroundColor: theme.accentColor.opacity(0.12)
+                )
+            }
         }
     }
 
-    // MARK: - Status & Actions
+    // MARK: - Action Buttons
 
+    /// Action buttons appropriate for the model's current status.
     @ViewBuilder
-    private var statusSection: some View {
+    private var actionButtons: some View {
         switch model.status {
         case .notDownloaded:
-            downloadButton
+            HStack {
+                Spacer()
+                Button {
+                    onDownload()
+                } label: {
+                    Label("Download", systemImage: theme.actionSymbol(.download))
+                }
+                .buttonStyle(.bordered)
+                .highContrastBorder(cornerRadius: 6)
+                .keyboardFocusRing()
+                .accessibilityLabel("Download \(model.displayName) model")
+                .accessibilityHint("Downloads the \(model.sizeDescription) model")
+            }
 
         case .downloading:
             // Handled by the parent via ModelDownloadProgressView
             EmptyView()
 
         case .downloaded:
-            downloadedActions
+            HStack {
+                Spacer()
+                Button {
+                    Task { await onSetActive() }
+                } label: {
+                    Label("Activate", systemImage: theme.actionSymbol(.checkmark))
+                }
+                .buttonStyle(.borderedProminent)
+                .highContrastBorder(cornerRadius: 6)
+                .keyboardFocusRing()
+                .accessibilityLabel("Set \(model.displayName) as active model")
+                .accessibilityHint("Switches transcription to use this model")
+
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: theme.actionSymbol(.delete))
+                }
+                .buttonStyle(.bordered)
+                .highContrastBorder(cornerRadius: 6)
+                .keyboardFocusRing()
+                .accessibilityLabel("Delete \(model.displayName) model")
+                .accessibilityHint("Removes the model from disk")
+            }
 
         case .active:
-            activeActions
-        }
-    }
-
-    /// Download button for models that haven't been downloaded yet.
-    private var downloadButton: some View {
-        Button {
-            onDownload()
-        } label: {
-            Label("Download", systemImage: theme.actionSymbol(.download))
-        }
-        .buttonStyle(.bordered)
-        .highContrastBorder(cornerRadius: 6)
-        .keyboardFocusRing()
-        .accessibilityLabel("Download \(model.displayName) model")
-        .accessibilityHint("Downloads the \(model.sizeDescription) model")
-    }
-
-    /// Action buttons for downloaded (non-active) models.
-    private var downloadedActions: some View {
-        HStack(spacing: 8) {
-            Button {
-                Task { await onSetActive() }
-            } label: {
-                Text("Set Active")
+            HStack {
+                Spacer()
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: theme.actionSymbol(.delete))
+                }
+                .buttonStyle(.bordered)
+                .highContrastBorder(cornerRadius: 6)
+                .keyboardFocusRing()
+                .accessibilityLabel("Delete \(model.displayName) model")
+                .accessibilityHint("Removes the active model from disk. A different model will be activated.")
             }
-            .buttonStyle(.bordered)
-            .highContrastBorder(cornerRadius: 6)
-            .keyboardFocusRing()
-            .accessibilityLabel("Set \(model.displayName) as active model")
-            .accessibilityHint("Switches transcription to use this model")
-
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Image(systemName: theme.actionSymbol(.delete))
-            }
-            .buttonStyle(.bordered)
-            .highContrastBorder(cornerRadius: 6)
-            .keyboardFocusRing()
-            .accessibilityLabel("Delete \(model.displayName) model")
-            .accessibilityHint("Removes the model from disk")
         }
-    }
-
-    /// Action buttons for the currently active model.
-    private var activeActions: some View {
-        Button(role: .destructive) {
-            onDelete()
-        } label: {
-            Image(systemName: theme.actionSymbol(.delete))
-        }
-        .buttonStyle(.bordered)
-        .highContrastBorder(cornerRadius: 6)
-        .keyboardFocusRing()
-        .accessibilityLabel("Delete \(model.displayName) model")
-        .accessibilityHint("Removes the active model from disk. A different model will be activated.")
     }
 
     // MARK: - Accessibility
@@ -336,20 +432,69 @@ private struct ModelRowView: View {
     }
 }
 
-#if DEBUG
-private struct ModelManagementPreview: View {
-    @State private var settingsStore = PreviewMocks.makeSettingsStore()
-    @State private var theme = PreviewMocks.makeTheme()
+// MARK: - StatusPillView
+
+/// A reusable pill-shaped badge for displaying model status at a glance.
+private struct StatusPillView: View {
+    let label: String
+    let symbolName: String?
+    let foregroundColor: Color
+    let backgroundColor: Color
 
     var body: some View {
-        ModelManagementView(whisperService: PreviewMocks.makeWhisperService())
-            .environment(settingsStore)
-            .environment(theme)
-            .frame(width: 540, height: 480)
+        HStack(spacing: 4) {
+            if let symbolName {
+                Image(systemName: symbolName)
+                    .font(.caption2.weight(.semibold))
+            }
+            Text(label)
+                .font(.caption.weight(.medium))
+        }
+        .foregroundStyle(foregroundColor)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(backgroundColor)
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(foregroundColor.opacity(0.3), lineWidth: 0.5)
+        )
     }
 }
 
+#if DEBUG
 #Preview("Model Management") {
-    ModelManagementPreview()
+    let theme = PreviewMocks.makeTheme()
+    let settingsStore = PreviewMocks.makeSettingsStore()
+    let models: [WhisperModelInfo] = [
+        WhisperModelInfo(id: "tiny", displayName: "Tiny", sizeDescription: "~75 MB",
+                         qualityDescription: "Fastest, lower accuracy", status: .active),
+        WhisperModelInfo(id: "base", displayName: "Base", sizeDescription: "~140 MB",
+                         qualityDescription: "Fast, moderate accuracy", status: .downloaded),
+        WhisperModelInfo(id: "small", displayName: "Small", sizeDescription: "~460 MB",
+                         qualityDescription: "Balanced speed and accuracy", status: .notDownloaded),
+        WhisperModelInfo(id: "large-v3", displayName: "Large v3", sizeDescription: "~3 GB",
+                         qualityDescription: "Slowest, highest accuracy", status: .notDownloaded),
+    ]
+    ScrollView {
+        VStack(spacing: 0) {
+            ForEach(models) { model in
+                ModelRowView(
+                    model: model,
+                    theme: theme,
+                    onDownload: {},
+                    onSetActive: {},
+                    onDelete: {}
+                )
+                Divider()
+            }
+        }
+        .padding()
+    }
+    .environment(settingsStore)
+    .environment(theme)
+//    .frame(width: 540, height: 520)
 }
 #endif
