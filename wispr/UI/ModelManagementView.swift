@@ -50,7 +50,7 @@ struct ModelManagementView: View {
                 modelSection(for: model)
             }
         }
-//        .frame(minWidth: 500, idealWidth: 540, minHeight: 420, idealHeight: 480)
+        .frame(minWidth: 500, idealWidth: 540)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
         .task {
