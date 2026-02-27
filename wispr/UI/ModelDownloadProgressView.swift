@@ -290,7 +290,7 @@ extension ModelDownloadProgressView {
         self.autoStart = false
         self.onComplete = nil
         self.onCancel = nil
-        _progress = State(initialValue: previewProgress)I'm using a very large language model which is supposed to be much more accurate.
+        _progress = State(initialValue: previewProgress)
         _downloadedBytes = State(initialValue: previewDownloadedBytes)
         _totalBytes = State(initialValue: previewTotalBytes)
         _error = State(initialValue: previewError)
