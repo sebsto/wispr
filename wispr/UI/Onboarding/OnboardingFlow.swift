@@ -50,21 +50,6 @@ struct OnboardingFlow: View {
     /// The ID of the model the user has selected for download
     @State private var selectedModelId: String?
 
-    /// Current download progress (0.0–1.0)
-    @State private var downloadProgress: Double = 0
-
-    /// Total bytes for the current download (for display)
-    @State private var downloadTotalBytes: Int64 = 0
-
-    /// Bytes downloaded so far
-    @State private var downloadedBytes: Int64 = 0
-
-    /// Whether a model download is in progress
-    @State private var isDownloading = false
-
-    /// Error message from a failed download
-    @State private var downloadError: String?
-
     /// Whether a model download has completed successfully
     @State private var downloadComplete = false
 
@@ -154,11 +139,6 @@ struct OnboardingFlow: View {
                         whisperService: whisperService,
                         availableModels: $availableModels,
                         selectedModelId: $selectedModelId,
-                        downloadProgress: $downloadProgress,
-                        downloadTotalBytes: $downloadTotalBytes,
-                        downloadedBytes: $downloadedBytes,
-                        isDownloading: $isDownloading,
-                        downloadError: $downloadError,
                         downloadComplete: $downloadComplete
                     )
                 case .testDictation:

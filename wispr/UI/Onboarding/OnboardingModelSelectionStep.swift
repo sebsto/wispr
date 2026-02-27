@@ -20,12 +20,12 @@ struct OnboardingModelSelectionStep: View {
 
     @Binding var availableModels: [WhisperModelInfo]
     @Binding var selectedModelId: String?
-    @Binding var downloadProgress: Double
-    @Binding var downloadTotalBytes: Int64
-    @Binding var downloadedBytes: Int64
-    @Binding var isDownloading: Bool
-    @Binding var downloadError: String?
     @Binding var downloadComplete: Bool
+
+    // MARK: - Local State
+
+    /// Whether the download progress view is currently shown.
+    @State private var isShowingDownload = false
 
     // MARK: - Body
 
@@ -48,18 +48,24 @@ struct OnboardingModelSelectionStep: View {
                 .frame(maxWidth: 400)
                 .lineSpacing(4)
 
-            if downloadComplete {
-                // Download completed successfully
-                Label("Model Downloaded", systemImage: theme.actionSymbol(.checkmark))
-                    .font(.headline)
-                    .foregroundStyle(theme.successColor)
-                    .accessibilityLabel("Model downloaded successfully")
-            } else if isDownloading {
-                // Download in progress — show progress bar
-                modelDownloadProgressView
-            } else if let error = downloadError {
-                // Download failed — show error with retry (Req 13.15)
-                modelDownloadErrorView(error: error)
+            if downloadComplete || isShowingDownload,
+               let modelId = selectedModelId,
+               let selectedModel = availableModels.first(where: { $0.id == modelId }) {
+                // Self-contained download progress view
+                ModelDownloadProgressView(
+                    whisperService: whisperService,
+                    model: selectedModel,
+                    autoStart: true,
+                    onComplete: { completedModelId in
+                        settingsStore.activeModelName = completedModelId
+                        downloadComplete = true
+                        isShowingDownload = false
+                    },
+                    onCancel: {
+                        isShowingDownload = false
+                    }
+                )
+                .frame(maxWidth: 400)
             } else {
                 // Model list for selection
                 modelListView
@@ -83,7 +89,7 @@ struct OnboardingModelSelectionStep: View {
 
             if selectedModelId != nil {
                 Button {
-                    startModelDownload()
+                    isShowingDownload = true
                 } label: {
                     Label("Download", systemImage: theme.actionSymbol(.download))
                 }
@@ -138,50 +144,6 @@ struct OnboardingModelSelectionStep: View {
         .accessibilityHint("Tap to select this model")
     }
 
-    // MARK: - Download Progress
-
-    /// Real-time download progress display (Req 13.7).
-    private var modelDownloadProgressView: some View {
-        VStack(spacing: 12) {
-            ProgressView(value: downloadProgress)
-                .progressViewStyle(.linear)
-                .frame(maxWidth: 360)
-                .accessibilityLabel("Download progress")
-                .accessibilityValue("\(Int(downloadProgress * 100)) percent")
-
-            Text("\(Int(downloadProgress * 100))% — \(formattedBytes(downloadedBytes)) of \(formattedBytes(downloadTotalBytes))")
-                .font(.callout)
-                .foregroundStyle(theme.secondaryTextColor)
-                .accessibilityHidden(true)
-        }
-    }
-
-    /// Error display with retry button (Req 13.15).
-    private func modelDownloadErrorView(error: String) -> some View {
-        VStack(spacing: 12) {
-            Label("Download Failed", systemImage: theme.actionSymbol(.warning))
-                .font(.headline)
-                .foregroundStyle(theme.errorColor)
-
-            Text(error)
-                .font(.callout)
-                .foregroundStyle(theme.secondaryTextColor)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
-
-            Button {
-                downloadError = nil
-                startModelDownload()
-            } label: {
-                Label("Retry", systemImage: SFSymbols.retry)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
-            .accessibilityLabel("Retry download")
-            .accessibilityHint("Attempts to download the model again")
-        }
-    }
-
     // MARK: - Model Download Logic
 
     /// Loads the available models from WhisperService, querying actual disk status for each.
@@ -219,40 +181,4 @@ struct OnboardingModelSelectionStep: View {
         }
     }
 
-    /// Starts downloading the selected model and tracks progress.
-    func startModelDownload() {
-        guard let modelId = selectedModelId,
-              let model = availableModels.first(where: { $0.id == modelId }) else { return }
-
-        isDownloading = true
-        downloadProgress = 0
-        downloadedBytes = 0
-        downloadTotalBytes = 0
-        downloadError = nil
-        downloadComplete = false
-
-        Task {
-            do {
-                let stream = await whisperService.downloadModel(model)
-                for try await progress in stream {
-                    downloadProgress = progress.fractionCompleted
-                    downloadedBytes = progress.bytesDownloaded
-                    downloadTotalBytes = progress.totalBytes
-                }
-                // Download finished successfully — set model as active in SettingsStore
-                settingsStore.activeModelName = modelId
-                downloadComplete = true
-            } catch {
-                downloadError = error.localizedDescription
-            }
-            isDownloading = false
-        }
-    }
-
-    /// Formats byte counts into a human-readable string.
-    private func formattedBytes(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
-    }
 }

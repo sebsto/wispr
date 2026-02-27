@@ -158,6 +158,7 @@ actor WhisperService {
                 
                 // Yield initial 0% progress
                 continuation.yield(DownloadProgress(
+                    phase: .downloading,
                     fractionCompleted: 0.0,
                     bytesDownloaded: 0,
                     totalBytes: totalBytes
@@ -171,6 +172,7 @@ actor WhisperService {
                         let fraction = progress.fractionCompleted
                         let downloaded = Int64(Double(totalBytes) * fraction)
                         continuation.yield(DownloadProgress(
+                            phase: .downloading,
                             fractionCompleted: fraction,
                             bytesDownloaded: downloaded,
                             totalBytes: totalBytes
@@ -179,6 +181,14 @@ actor WhisperService {
                 )
                 
                 wispLog("WhisperService", "downloadModel — WhisperKit.download() returned modelFolder: \(modelFolder.path)")
+                
+                // Signal the UI that we're now loading the model into memory
+                continuation.yield(DownloadProgress(
+                    phase: .loadingModel,
+                    fractionCompleted: 1.0,
+                    bytesDownloaded: totalBytes,
+                    totalBytes: totalBytes
+                ))
                 
                 // Step 2: Load the model from the already-downloaded folder (no re-download)
                 let config = WhisperKitConfig(
@@ -197,6 +207,7 @@ actor WhisperService {
                 
                 // Yield 100% completion
                 continuation.yield(DownloadProgress(
+                    phase: .loadingModel,
                     fractionCompleted: 1.0,
                     bytesDownloaded: totalBytes,
                     totalBytes: totalBytes
@@ -535,25 +546,36 @@ actor WhisperService {
     ///
     /// Requirement 7.7: Query model status (not downloaded, downloading, downloaded, active).
     func modelStatus(_ modelName: String) -> ModelStatus {
-        if modelName == activeModelName {
-            wispLog("WhisperService", "modelStatus('\(modelName)') → .active")
-            return .active
-        }
-        
         if downloadTasks[modelName] != nil {
             wispLog("WhisperService", "modelStatus('\(modelName)') → .downloading")
             return .downloading(progress: 0.0)
         }
         
+        // Check that model files actually exist on disk before reporting
+        // .active or .downloaded. This prevents stale UserDefaults state
+        // (e.g. activeModelName still set after ~/.wispr was deleted)
+        // from incorrectly showing a model as available.
         do {
             let modelPath = try getModelPath(for: modelName)
             if FileManager.default.fileExists(atPath: modelPath.path) {
+                if modelName == activeModelName {
+                    wispLog("WhisperService", "modelStatus('\(modelName)') → .active")
+                    return .active
+                }
                 wispLog("WhisperService", "modelStatus('\(modelName)') → .downloaded")
                 return .downloaded
             }
         } catch {
-            wispLog("WhisperService", "modelStatus('\(modelName)') → .notDownloaded")
-            return .notDownloaded
+            // Model directory not found — fall through to .notDownloaded
+        }
+        
+        // If we thought this model was active but its files are gone,
+        // clear the stale reference so the app doesn't keep assuming
+        // a model is loaded.
+        if modelName == activeModelName {
+            wispLog("WhisperService", "modelStatus('\(modelName)') — files missing, clearing stale active model")
+            activeModelName = nil
+            whisperKit = nil
         }
         
         wispLog("WhisperService", "modelStatus('\(modelName)') → .notDownloaded")

@@ -2,7 +2,8 @@
 //  ModelManagementView.swift
 //  wispr
 //
-//  SwiftUI List-based view for managing Whisper models.
+//  SwiftUI view for managing Whisper models with comprehensive download feedback.
+//  Uses the shared ModelDownloadProgressView for consistent UX with onboarding.
 //  Requirements: 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 14.3, 14.12
 //
 
@@ -24,8 +25,8 @@ struct ModelManagementView: View {
     /// Local state: snapshot of models with their current statuses.
     @State private var models: [WhisperModelInfo] = []
 
-    /// Tracks download progress per model ID.
-    @State private var downloadProgresses: [String: Double] = [:]
+    /// Model IDs currently showing the download progress view.
+    @State private var activeDownloads: Set<String> = []
 
     /// Model pending deletion confirmation.
     @State private var modelToDelete: WhisperModelInfo?
@@ -36,7 +37,7 @@ struct ModelManagementView: View {
     /// Whether a "no models" alert is shown after deleting the last model.
     @State private var showNoModelsAlert = false
 
-    /// Error message to display.
+    /// Error message to display (for non-download errors).
     @State private var errorMessage: String?
 
     init(whisperService: WhisperService) {
@@ -46,14 +47,7 @@ struct ModelManagementView: View {
     var body: some View {
         List {
             ForEach(models) { model in
-                ModelRowView(
-                    model: model,
-                    downloadProgress: downloadProgresses[model.id],
-                    theme: theme,
-                    onDownload: { await downloadModel(model) },
-                    onSetActive: { await setActiveModel(model) },
-                    onDelete: { requestDelete(model) }
-                )
+                modelSection(for: model)
             }
         }
         .frame(minWidth: 500, idealWidth: 540, minHeight: 420, idealHeight: 480)
@@ -93,6 +87,43 @@ struct ModelManagementView: View {
         }
     }
 
+    // MARK: - Model Section
+
+    /// Builds the view for a single model: either the inline download progress or the standard row.
+    @ViewBuilder
+    private func modelSection(for model: WhisperModelInfo) -> some View {
+        if activeDownloads.contains(model.id) {
+            // Self-contained download progress view
+            ModelDownloadProgressView(
+                whisperService: whisperService,
+                model: model,
+                autoStart: true,
+                onComplete: { modelId in
+                    settingsStore.activeModelName = modelId
+                    activeDownloads.remove(modelId)
+                    Task { await refreshModels() }
+                },
+                onCancel: {
+                    activeDownloads.remove(model.id)
+                    Task { await refreshModels() }
+                }
+            )
+            .padding(.vertical, 8)
+        } else {
+            // Standard model row with info and action buttons
+            ModelRowView(
+                model: model,
+                theme: theme,
+                onDownload: {
+                    activeDownloads.insert(model.id)
+                    updateModelStatus(model.id, to: .downloading(progress: 0.0))
+                },
+                onSetActive: { await setActiveModel(model) },
+                onDelete: { requestDelete(model) }
+            )
+        }
+    }
+
     // MARK: - Actions
 
     /// Refreshes the model list with current statuses from WhisperService.
@@ -102,31 +133,6 @@ struct ModelManagementView: View {
             allModels[index].status = await whisperService.modelStatus(allModels[index].id)
         }
         models = allModels
-    }
-
-    /// Downloads a model and tracks progress.
-    ///
-    /// Requirement 7.2: Download model with real-time progress.
-    /// Requirement 7.4: Display percentage and bytes transferred.
-    private func downloadModel(_ model: WhisperModelInfo) async {
-        downloadProgresses[model.id] = 0.0
-        updateModelStatus(model.id, to: .downloading(progress: 0.0))
-
-        let stream = await whisperService.downloadModel(model)
-
-        do {
-            for try await progress in stream {
-                downloadProgresses[model.id] = progress.fractionCompleted
-                updateModelStatus(model.id, to: .downloading(progress: progress.fractionCompleted))
-            }
-            // Download completed successfully
-            downloadProgresses.removeValue(forKey: model.id)
-            await refreshModels()
-        } catch {
-            downloadProgresses.removeValue(forKey: model.id)
-            errorMessage = "Download failed: \(error.localizedDescription)"
-            await refreshModels()
-        }
     }
 
     /// Sets a downloaded model as the active model.
@@ -158,9 +164,7 @@ struct ModelManagementView: View {
         do {
             try await whisperService.deleteModel(model.id)
 
-            // Check if the deleted model was the active one in settings
             if settingsStore.activeModelName == model.id {
-                // Update settings to reflect the new active model (if any)
                 if let newActive = await whisperService.activeModel() {
                     settingsStore.activeModelName = newActive
                 }
@@ -168,7 +172,6 @@ struct ModelManagementView: View {
 
             await refreshModels()
 
-            // Requirement 7.10: Check if no models remain downloaded
             let hasDownloaded = models.contains { status in
                 if case .downloaded = status.status { return true }
                 if case .active = status.status { return true }
@@ -197,9 +200,8 @@ struct ModelManagementView: View {
 /// A single row in the model list showing model info and action controls.
 private struct ModelRowView: View {
     let model: WhisperModelInfo
-    let downloadProgress: Double?
     let theme: UIThemeEngine
-    let onDownload: () async -> Void
+    let onDownload: () -> Void
     let onSetActive: () async -> Void
     let onDelete: () -> Void
 
@@ -250,7 +252,8 @@ private struct ModelRowView: View {
             downloadButton
 
         case .downloading:
-            downloadingIndicator
+            // Handled by the parent via ModelDownloadProgressView
+            EmptyView()
 
         case .downloaded:
             downloadedActions
@@ -261,10 +264,9 @@ private struct ModelRowView: View {
     }
 
     /// Download button for models that haven't been downloaded yet.
-    /// Requirement 7.2: Initiate model download.
     private var downloadButton: some View {
         Button {
-            Task { await onDownload() }
+            onDownload()
         } label: {
             Label("Download", systemImage: theme.actionSymbol(.download))
         }
@@ -275,25 +277,7 @@ private struct ModelRowView: View {
         .accessibilityHint("Downloads the \(model.sizeDescription) model")
     }
 
-    /// Progress indicator shown while a model is downloading.
-    /// Requirement 7.3: Show download progress with percentage.
-    private var downloadingIndicator: some View {
-        VStack(spacing: 4) {
-            let progress = downloadProgress ?? 0.0
-            ProgressView(value: progress)
-                .frame(width: 100)
-                .accessibilityLabel("Downloading \(model.displayName)")
-                .accessibilityValue("\(Int(progress * 100)) percent")
-
-            Text("\(Int(progress * 100))%")
-                .font(.caption)
-                .foregroundStyle(theme.secondaryTextColor)
-        }
-    }
-
     /// Action buttons for downloaded (non-active) models.
-    /// Requirement 7.6: Set active button.
-    /// Requirement 7.8: Delete button.
     private var downloadedActions: some View {
         HStack(spacing: 8) {
             Button {
