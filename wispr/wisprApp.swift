@@ -276,29 +276,39 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overlayObservationTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                let currentState = sm.appState
+                // Process current state
+                self.updateOverlayVisibility(for: sm.appState)
 
-                switch currentState {
-                case .recording, .processing, .error:
-                    // Show overlay if not already visible
-                    if let overlay = self.overlayPanel, !overlay.isVisible {
-                        overlay.show()
-                    }
-                case .idle:
-                    // Dismiss overlay if visible
-                    if let overlay = self.overlayPanel, overlay.isVisible {
-                        overlay.dismiss()
-                    }
-                }
-
-                // Wait for the next state change using Observation framework
+                // Wait for the next state change, then act immediately
+                // in the onChange callback to avoid missing fast transitions
                 await withCheckedContinuation { continuation in
                     withObservationTracking {
                         _ = sm.appState
                     } onChange: {
+                        // Fire on main queue synchronously so we don't miss
+                        // short-lived states like .recording
+                        DispatchQueue.main.async {
+                            self.updateOverlayVisibility(for: sm.appState)
+                        }
                         continuation.resume()
                     }
                 }
+            }
+        }
+    }
+
+    /// Shows or dismisses the overlay based on the current app state.
+    private func updateOverlayVisibility(for state: AppStateType) {
+        switch state {
+        case .recording, .processing, .error:
+            if let overlay = overlayPanel, !overlay.isVisible {
+                wispLog("App", "overlayObservation — showing overlay for state: \(state)")
+                overlay.show()
+            }
+        case .idle:
+            if let overlay = overlayPanel, overlay.isVisible {
+                wispLog("App", "overlayObservation — dismissing overlay")
+                overlay.dismiss()
             }
         }
     }

@@ -77,19 +77,15 @@ final class RecordingOverlayPanel {
         guard let panel, isVisible else { return }
 
         let duration = themeEngine.reduceMotion ? 0.0 : 0.2
-        NSAnimationContext.runAnimationGroup { context in
+        NSAnimationContext.runAnimationGroup({ context in
             context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0.0
-        }
-
-        // Schedule cleanup after the animation completes
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(Int(duration * 1000) + 50))
+        }, completionHandler: { [weak self] in
             guard let self else { return }
             self.panel?.orderOut(nil)
             self.isVisible = false
-        }
+        })
     }
 
     // MARK: - Private Helpers
