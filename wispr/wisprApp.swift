@@ -27,49 +27,13 @@ struct WispApp: App {
     // MARK: - Body
 
     var body: some Scene {
-        // Onboarding window — shown only on first launch (Req 13.1)
-        Window("Wisp Setup", id: "onboarding") {
-            if let stateManager = appDelegate.stateManager {
-                OnboardingFlow(whisperService: appDelegate.whisperService, onDismiss: {
-                    appDelegate.completeOnboarding()
-                })
-                .environment(appDelegate.permissionManager)
-                .environment(appDelegate.settingsStore)
-                .environment(appDelegate.themeEngine)
-                .environment(stateManager)
-                .frame(minWidth: 600, minHeight: 500)
-            }
+        // All windows (onboarding, settings, model management) are opened
+        // imperatively via NSWindow + NSHostingController from the app delegate
+        // and MenuBarController, because SwiftUI Window scenes don't reliably
+        // open in accessory (menu-bar-only) apps.
+        Settings {
+            EmptyView()
         }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-
-        // Settings window — opened from menu bar
-        Window("Wisp Settings", id: "settings") {
-            if let stateManager = appDelegate.stateManager {
-                SettingsView(
-                    audioEngine: appDelegate.audioEngine,
-                    whisperService: appDelegate.whisperService
-                )
-                .environment(appDelegate.settingsStore)
-                .environment(appDelegate.themeEngine)
-                .environment(stateManager)
-                .environment(appDelegate.permissionManager)
-            }
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-
-        // Model Management window — opened from menu bar
-        Window("Model Management", id: "model-management") {
-            if let stateManager = appDelegate.stateManager {
-                ModelManagementView(whisperService: appDelegate.whisperService)
-                    .environment(appDelegate.settingsStore)
-                    .environment(appDelegate.themeEngine)
-                    .environment(stateManager)
-            }
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
     }
 
     // MARK: - Initialization
@@ -125,6 +89,9 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate {
     /// Task observing StateManager.appState to drive overlay visibility.
     private var overlayObservationTask: Task<Void, Never>?
 
+    /// Retained reference to the onboarding window.
+    private var onboardingWindow: NSWindow?
+
     // MARK: - NSApplicationDelegate
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -153,7 +120,10 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate {
         menuBarController = MenuBarController(
             stateManager: sm,
             settingsStore: settingsStore,
-            themeEngine: themeEngine
+            themeEngine: themeEngine,
+            audioEngine: audioEngine,
+            whisperService: whisperService,
+            permissionManager: permissionManager
         )
 
         // Create recording overlay panel
@@ -185,15 +155,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate {
 
         // Requirement 13.1, 13.12: Show onboarding on first launch
         if !settingsStore.onboardingCompleted {
-            Task { @MainActor in
-                NSApp.activate(ignoringOtherApps: true)
-                // Open the onboarding window via the environment
-                if let window = NSApp.windows.first(where: {
-                    $0.title == "Wisp Setup"
-                }) {
-                    window.makeKeyAndOrderFront(nil)
-                }
-            }
+            showOnboardingWindow(stateManager: sm)
         }
     }
 

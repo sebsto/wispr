@@ -42,7 +42,10 @@ private func createTestController(
     let controller = MenuBarController(
         stateManager: stateManager,
         settingsStore: settingsStore,
-        themeEngine: themeEngine
+        themeEngine: themeEngine,
+        audioEngine: audioEngine,
+        whisperService: whisperService,
+        permissionManager: permissionManager
     )
 
     return (controller, stateManager, settingsStore, themeEngine)

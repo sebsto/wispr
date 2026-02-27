@@ -41,8 +41,23 @@ final class MenuBarController {
     /// Theme engine for SF Symbol helpers.
     private let themeEngine: UIThemeEngine
 
+    /// Audio engine for settings view.
+    private let audioEngine: AudioEngine
+
+    /// Whisper service for settings and model management views.
+    private let whisperService: WhisperService
+
+    /// Permission manager for settings view.
+    private let permissionManager: PermissionManager
+
     /// Observation tracking for state changes.
     private var observationTask: Task<Void, Never>?
+
+    /// Retained reference to the settings window.
+    private var settingsWindow: NSWindow?
+
+    /// Retained reference to the model management window.
+    private var modelManagementWindow: NSWindow?
 
     // MARK: - Menu Items (retained for dynamic updates)
 
@@ -58,14 +73,23 @@ final class MenuBarController {
     ///   - stateManager: The central state coordinator.
     ///   - settingsStore: The persistent settings store.
     ///   - themeEngine: The UI theme engine for SF Symbol helpers.
+    ///   - audioEngine: The audio engine (needed for SettingsView).
+    ///   - whisperService: The whisper service (needed for SettingsView and ModelManagementView).
+    ///   - permissionManager: The permission manager (needed for SettingsView).
     init(
         stateManager: StateManager,
         settingsStore: SettingsStore,
-        themeEngine: UIThemeEngine = .shared
+        themeEngine: UIThemeEngine = .shared,
+        audioEngine: AudioEngine,
+        whisperService: WhisperService,
+        permissionManager: PermissionManager
     ) {
         self.stateManager = stateManager
         self.settingsStore = settingsStore
         self.themeEngine = themeEngine
+        self.audioEngine = audioEngine
+        self.whisperService = whisperService
+        self.permissionManager = permissionManager
 
         // Requirement 5.1: Create NSStatusItem in the menu bar
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -353,15 +377,61 @@ final class MenuBarController {
     }
 
     /// Opens the Settings window.
+    ///
+    /// Creates an NSWindow hosting the SwiftUI SettingsView if one doesn't
+    /// already exist, or brings the existing one to front.
     func openSettings() {
-        // Will be wired to SettingsView in a later task
         NSApp.activate(ignoringOtherApps: true)
+
+        if let window = settingsWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let settingsView = SettingsView(
+            audioEngine: audioEngine,
+            whisperService: whisperService
+        )
+        .environment(settingsStore)
+        .environment(themeEngine)
+        .environment(stateManager)
+        .environment(permissionManager)
+
+        let hostingController = NSHostingController(rootView: settingsView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Wisp Settings"
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.setContentSize(NSSize(width: 480, height: 400))
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        settingsWindow = window
     }
 
     /// Opens the Model Management window.
+    ///
+    /// Creates an NSWindow hosting the SwiftUI ModelManagementView if one doesn't
+    /// already exist, or brings the existing one to front.
     func openModelManagement() {
-        // Will be wired to ModelManagementView in a later task
         NSApp.activate(ignoringOtherApps: true)
+
+        if let window = modelManagementWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let modelView = ModelManagementView(whisperService: whisperService)
+            .environment(settingsStore)
+            .environment(themeEngine)
+            .environment(stateManager)
+
+        let hostingController = NSHostingController(rootView: modelView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Model Management"
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.setContentSize(NSSize(width: 420, height: 300))
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        modelManagementWindow = window
     }
 
     /// Sets language to auto-detect mode.
