@@ -146,8 +146,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 4.2, 4.5_
 
-- [ ] 9. Implement HotkeyMonitor
-  - [ ] 9.1 Create HotkeyMonitor class with Carbon Event API integration using Xcode MCP tool
+- [x] 9. Implement HotkeyMonitor
+  - [x] 9.1 Create HotkeyMonitor class with Carbon Event API integration using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in Services/ directory
     - Implement `@MainActor` class
     - Implement register() using Carbon RegisterEventHotKey
@@ -158,7 +158,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 12.3_
   
-  - [ ] 9.2 Write unit tests for HotkeyMonitor using Xcode MCP tool
+  - [x] 9.2 Write unit tests for HotkeyMonitor using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test hotkey registration and unregistration
     - Test conflict detection
@@ -166,14 +166,14 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 1.4, 1.5_
 
-- [ ] 10. Checkpoint - Verify all service actors compile and tests pass
+- [x] 10. Checkpoint - Verify all service actors compile and tests pass
   - Use Xcode MCP tool to build the project
   - Use Xcode MCP tool to run all tests
   - Use Xcode MCP tool to check for diagnostics and warnings
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Implement StateManager
-  - [ ] 11.1 Create StateManager class using Xcode MCP tool
+- [x] 11. Implement StateManager
+  - [x] 11.1 Create StateManager class using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in Services/ directory
     - Implement `@MainActor @Observable` class
     - Add published properties: appState, errorMessage, currentLanguage
@@ -181,7 +181,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 1.1, 3.6, 9.3, 12.1, 12.5_
   
-  - [ ] 11.2 Implement state machine methods using Xcode MCP tool
+  - [x] 11.2 Implement state machine methods using Xcode MCP tool
     - Use Xcode MCP tool to add methods to StateManager
     - Implement beginRecording() to start audio capture and transition to .recording
     - Implement endRecording() to stop capture, transition to .processing, call transcription, then text insertion
@@ -191,7 +191,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.3, 4.1, 4.3, 12.1, 12.5_
   
-  - [ ] 11.3 Write unit tests for StateManager using Xcode MCP tool
+  - [x] 11.3 Write unit tests for StateManager using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test state transitions (idle → recording → processing → idle)
     - Test error handling and recovery
@@ -200,8 +200,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 12.1, 12.5_
 
-- [ ] 12. Implement UI Theme Engine
-  - [ ] 12.1 Create UIThemeEngine utility using Xcode MCP tool
+- [x] 12. Implement UI Theme Engine
+  - [x] 12.1 Create UIThemeEngine utility using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in Utilities/ directory
     - Create utility class for managing Liquid Glass materials, semantic colors, SF Symbols
     - Implement system appearance change detection
@@ -210,15 +210,15 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 14.1, 14.3, 14.4, 14.5, 14.8, 14.9, 17.4, 17.5, 17.6_
   
-  - [ ] 12.2 Write unit tests for UIThemeEngine using Xcode MCP tool
+  - [x] 12.2 Write unit tests for UIThemeEngine using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test appearance adaptation
     - Test accessibility setting detection
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 14.4, 17.4, 17.5, 17.6_
 
-- [ ] 13. Implement RecordingOverlay UI
-  - [ ] 13.1 Create RecordingOverlay SwiftUI view and NSPanel wrapper using Xcode MCP tool
+- [x] 13. Implement RecordingOverlay UI
+  - [x] 13.1 Create RecordingOverlay SwiftUI view and NSPanel wrapper using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift files in UI/ directory
     - Create borderless NSPanel with floating level
     - Create SwiftUI view with Liquid Glass material background
@@ -229,7 +229,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 14.3, 14.8, 14.9, 14.10, 14.12_
   
-  - [ ] 13.2 Write UI tests for RecordingOverlay using Xcode MCP tool
+  - [x] 13.2 Write UI tests for RecordingOverlay using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test overlay appearance and dismissal
     - Test state transitions (recording → processing → idle/error)
@@ -237,8 +237,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 9.1, 9.4, 17.1, 17.3_
 
-- [ ] 14. Implement MenuBarController
-  - [ ] 14.1 Create MenuBarController with NSStatusItem using Xcode MCP tool
+- [x] 14. Implement MenuBarController
+  - [x] 14.1 Create MenuBarController with NSStatusItem using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in UI/ directory
     - Create NSStatusItem in menu bar
     - Load template icon (SF Symbol microphone) with @1x, @2x, @3x support
@@ -248,7 +248,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 14.2, 14.9, 16.7, 16.8_
   
-  - [ ] 14.2 Write UI tests for MenuBarController using Xcode MCP tool
+  - [x] 14.2 Write UI tests for MenuBarController using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test menu item actions
     - Test icon state updates
@@ -256,14 +256,14 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 5.3, 5.4, 17.10_
 
-- [ ] 15. Checkpoint - Verify core UI and menu bar integration
+- [x] 15. Checkpoint - Verify core UI and menu bar integration
   - Use Xcode MCP tool to build the project
   - Use Xcode MCP tool to run all tests
   - Use Xcode MCP tool to check for diagnostics and warnings
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 16. Implement SettingsView
-  - [ ] 16.1 Create SettingsView SwiftUI form using Xcode MCP tool
+- [x] 16. Implement SettingsView
+  - [x] 16.1 Create SettingsView SwiftUI form using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in UI/ directory
     - Create SwiftUI Form with sections: Hotkey Configuration, Audio Device, Whisper Model, Language, General
     - Bind all controls to SettingsStore properties
@@ -276,7 +276,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 14.3, 14.5, 14.12, 16.3, 16.4, 16.5, 16.6, 16.9, 16.10, 16.11_
   
-  - [ ] 16.2 Write UI tests for SettingsView using Xcode MCP tool
+  - [x] 16.2 Write UI tests for SettingsView using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test setting changes apply immediately
     - Test Launch at Login registration
@@ -285,8 +285,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 10.5, 17.2, 17.8_
 
-- [ ] 17. Implement ModelManagementView
-  - [ ] 17.1 Create ModelManagementView SwiftUI list using Xcode MCP tool
+- [x] 17. Implement ModelManagementView
+  - [x] 17.1 Create ModelManagementView SwiftUI list using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in UI/ directory
     - Create SwiftUI List displaying all available models
     - Show model name, size, quality description, status (not downloaded / downloading % / downloaded / active)
@@ -298,7 +298,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 7.2, 7.3, 7.4, 7.6, 7.7, 7.8, 7.9, 7.10, 14.3, 14.12_
   
-  - [ ] 17.2 Write UI tests for ModelManagementView using Xcode MCP tool
+  - [x] 17.2 Write UI tests for ModelManagementView using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test model download flow
     - Test model deletion and fallback
@@ -307,8 +307,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 7.8, 7.9, 17.1_
 
-- [ ] 18. Implement OnboardingFlow
-  - [ ] 18.1 Create OnboardingFlow multi-step wizard using Xcode MCP tool
+- [x] 18. Implement OnboardingFlow
+  - [x] 18.1 Create OnboardingFlow multi-step wizard using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in UI/ directory
     - Create SwiftUI view with step navigation (Welcome, Microphone Permission, Accessibility Permission, Model Selection, Test Dictation, Completion)
     - Implement step indicator showing current step and progress
@@ -317,7 +317,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 13.1, 13.2, 13.13, 14.3, 14.8, 14.12_
   
-  - [ ] 18.2 Implement permission request steps using Xcode MCP tool
+  - [x] 18.2 Implement permission request steps using Xcode MCP tool
     - Use Xcode MCP tool to add permission steps to OnboardingFlow
     - Create Microphone Permission step with explanation and request button
     - Create Accessibility Permission step with explanation and system settings link
@@ -325,7 +325,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 13.3, 13.4, 13.5_
   
-  - [ ] 18.3 Implement model selection and download step using Xcode MCP tool
+  - [x] 18.3 Implement model selection and download step using Xcode MCP tool
     - Use Xcode MCP tool to add model selection step to OnboardingFlow
     - Create Model Selection step with model list and descriptions
     - Implement download with real-time progress (percentage, estimated time)
@@ -334,7 +334,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 13.6, 13.7, 13.8, 13.15_
   
-  - [ ] 18.4 Implement test dictation step using Xcode MCP tool
+  - [x] 18.4 Implement test dictation step using Xcode MCP tool
     - Use Xcode MCP tool to add test dictation step to OnboardingFlow
     - Create Test Dictation step with instructions and hotkey prompt
     - Display transcribed text in onboarding window
@@ -342,7 +342,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 13.9, 13.10_
   
-  - [ ] 18.5 Implement completion and resume logic using Xcode MCP tool
+  - [x] 18.5 Implement completion and resume logic using Xcode MCP tool
     - Use Xcode MCP tool to add completion logic to OnboardingFlow
     - Create Completion step with confirmation message
     - Persist onboardingCompleted flag on dismissal
@@ -351,7 +351,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 13.11, 13.12, 13.14_
   
-  - [ ] 18.6 Write UI tests for OnboardingFlow using Xcode MCP tool
+  - [x] 18.6 Write UI tests for OnboardingFlow using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test step navigation and progress indicator
     - Test Continue button enabling/disabling
@@ -360,14 +360,14 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 13.2, 13.14, 17.9_
 
-- [ ] 19. Checkpoint - Verify all UI views compile and render correctly
+- [x] 19. Checkpoint - Verify all UI views compile and render correctly
   - Use Xcode MCP tool to build the project
   - Use Xcode MCP tool to run all tests
   - Use Xcode MCP tool to check for diagnostics and warnings
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 20. Implement application lifecycle and wiring
-  - [ ] 20.1 Create WispApp main entry point using Xcode MCP tool
+- [x] 20. Implement application lifecycle and wiring
+  - [x] 20.1 Create WispApp main entry point using Xcode MCP tool
     - Use Xcode MCP tool to create or modify main App file
     - Create SwiftUI App struct with @main
     - Set NSApplication.ActivationPolicy.accessory for menu bar-only mode
@@ -376,7 +376,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 5.6, 13.1, 13.12_
   
-  - [ ] 20.2 Wire StateManager to UI components using Xcode MCP tool
+  - [x] 20.2 Wire StateManager to UI components using Xcode MCP tool
     - Use Xcode MCP tool to modify UI components
     - Connect StateManager to RecordingOverlay for state-driven display
     - Connect StateManager to MenuBarController for icon updates
@@ -384,7 +384,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 1.1, 1.2, 5.2, 9.1, 9.3_
   
-  - [ ] 20.3 Implement privacy and cleanup logic using Xcode MCP tool
+  - [x] 20.3 Implement privacy and cleanup logic using Xcode MCP tool
     - Use Xcode MCP tool to modify AudioEngine and related services
     - Implement temporary audio file cleanup in AudioEngine after recording
     - Ensure no network connections for transcription
@@ -392,7 +392,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
   
-  - [ ] 20.4 Write integration tests for application lifecycle using Xcode MCP tool
+  - [x] 20.4 Write integration tests for application lifecycle using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test full recording → transcription → insertion flow
     - Test error recovery and state transitions
@@ -400,8 +400,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 12.1, 13.12_
 
-- [ ] 21. Implement accessibility support
-  - [ ] 21.1 Add VoiceOver labels and hints to all UI elements using Xcode MCP tool
+- [x] 21. Implement accessibility support
+  - [x] 21.1 Add VoiceOver labels and hints to all UI elements using Xcode MCP tool
     - Use Xcode MCP tool to modify all UI files
     - Add accessibility labels to all buttons, controls, status indicators
     - Add accessibility hints for non-obvious interactions
@@ -409,7 +409,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 17.1, 17.3, 17.11_
   
-  - [ ] 21.2 Implement keyboard navigation using Xcode MCP tool
+  - [x] 21.2 Implement keyboard navigation using Xcode MCP tool
     - Use Xcode MCP tool to modify UI files
     - Ensure all interactive controls are Tab-navigable
     - Implement visible focus indicators
@@ -417,7 +417,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 17.2, 17.8_
   
-  - [ ] 21.3 Implement accessibility setting adaptations using Xcode MCP tool
+  - [x] 21.3 Implement accessibility setting adaptations using Xcode MCP tool
     - Use Xcode MCP tool to modify UIThemeEngine and UI files
     - Implement Increase Contrast mode with higher contrast borders and backgrounds
     - Implement Reduce Motion mode disabling non-essential animations
@@ -427,7 +427,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 17.4, 17.5, 17.6, 17.7, 17.12_
   
-  - [ ] 21.4 Write accessibility tests using Xcode MCP tool
+  - [x] 21.4 Write accessibility tests using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test VoiceOver navigation through all views
     - Test keyboard navigation
@@ -435,8 +435,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 17.1, 17.2, 17.4, 17.5, 17.6_
 
-- [ ] 22. Implement multi-language transcription support
-  - [ ] 22.1 Add language selection UI to menu bar and settings using Xcode MCP tool
+- [x] 22. Implement multi-language transcription support
+  - [x] 22.1 Add language selection UI to menu bar and settings using Xcode MCP tool
     - Use Xcode MCP tool to modify MenuBarController and SettingsView
     - Add language picker to MenuBarController dropdown
     - Add language section to SettingsView
@@ -445,7 +445,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 16.3, 16.7, 16.8, 16.9, 16.10, 16.11_
   
-  - [ ] 22.2 Integrate language selection with WhisperService using Xcode MCP tool
+  - [x] 22.2 Integrate language selection with WhisperService using Xcode MCP tool
     - Use Xcode MCP tool to modify WhisperService and StateManager
     - Pass TranscriptionLanguage to WhisperService.transcribe()
     - Handle auto-detect, specific language, and pinned language modes
@@ -453,7 +453,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 16.2, 16.4, 16.5, 16.6_
   
-  - [ ] 22.3 Write tests for multi-language support using Xcode MCP tool
+  - [x] 22.3 Write tests for multi-language support using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test language selection persistence
     - Test auto-detect mode
@@ -462,8 +462,8 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 16.2, 16.4, 16.5_
 
-- [ ] 23. Implement error recovery and resilience
-  - [ ] 23.1 Add error handling to all service actors using Xcode MCP tool
+- [x] 23. Implement error recovery and resilience
+  - [x] 23.1 Add error handling to all service actors using Xcode MCP tool
     - Use Xcode MCP tool to modify service files
     - Implement model reload retry in WhisperService
     - Implement audio device fallback in AudioEngine
@@ -472,7 +472,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
   
-  - [ ] 23.2 Write tests for error recovery using Xcode MCP tool
+  - [x] 23.2 Write tests for error recovery using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test model reload retry
     - Test audio device fallback
@@ -481,22 +481,22 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 12.2, 12.3, 12.5_
 
-- [ ] 24. Final integration and polish
-  - [ ] 24.1 Implement Launch at Login functionality using Xcode MCP tool
+- [x] 24. Final integration and polish
+  - [x] 24.1 Implement Launch at Login functionality using Xcode MCP tool
     - Use Xcode MCP tool to modify SettingsStore or create helper
     - Use ServiceManagement framework to register/unregister login item
     - Wire to SettingsStore launchAtLogin property
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 10.3, 10.4_
   
-  - [ ] 24.2 Add SF Symbols and template icons using Xcode MCP tool
+  - [x] 24.2 Add SF Symbols and template icons using Xcode MCP tool
     - Use Xcode MCP tool to add assets to project
     - Create menu bar template icon with @1x, @2x, @3x resolutions
     - Use SF Symbols throughout UI for consistency
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 14.1, 14.2_
   
-  - [ ] 24.3 Verify Swift 6 strict concurrency compliance using Xcode MCP tool
+  - [x] 24.3 Verify Swift 6 strict concurrency compliance using Xcode MCP tool
     - Use Xcode MCP tool to check build settings
     - Enable strict concurrency checking in all targets
     - Use Xcode MCP tool to build and check for diagnostics
@@ -504,14 +504,14 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Ensure all types are properly Sendable
     - _Requirements: 15.1, 15.3_
   
-  - [ ] 24.4 Verify no Objective-C bridging or legacy APIs using Xcode MCP tool
+  - [x] 24.4 Verify no Objective-C bridging or legacy APIs using Xcode MCP tool
     - Use Xcode MCP tool to search codebase
     - Audit codebase for @objc annotations, NSObject subclasses
     - Ensure only unavoidable legacy APIs (Carbon hotkeys, AXUIElement) are used
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 15.6, 15.7_
   
-  - [ ] 24.5 Write end-to-end integration tests using Xcode MCP tool
+  - [x] 24.5 Write end-to-end integration tests using Xcode MCP tool
     - Use Xcode MCP tool to create test file
     - Test full user flow: launch → onboarding → recording → transcription → insertion
     - Test settings persistence across app restarts
@@ -519,7 +519,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to run tests and verify results
     - _Requirements: 13.1, 13.12, 10.5_
 
-- [ ] 25. Final checkpoint - Comprehensive testing and validation
+- [x] 25. Final checkpoint - Comprehensive testing and validation
   - Use Xcode MCP tool to build the entire project
   - Use Xcode MCP tool to run all tests
   - Use Xcode MCP tool to check for any remaining diagnostics or warnings

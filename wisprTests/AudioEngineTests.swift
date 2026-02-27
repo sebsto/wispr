@@ -27,9 +27,9 @@ struct AudioEngineTests {
         
         // If we have devices, verify their structure
         if let firstDevice = devices.first {
-            let name = await firstDevice.name
-            let uid = await firstDevice.uid
-            let id = await firstDevice.id
+            let name = firstDevice.name
+            let uid = firstDevice.uid
+            let id = firstDevice.id
             #expect(!name.isEmpty, "Device name should not be empty")
             #expect(!uid.isEmpty, "Device UID should not be empty")
             #expect(id > 0, "Device ID should be valid")
@@ -45,7 +45,7 @@ struct AudioEngineTests {
         // Create a set of UIDs to check for uniqueness
         var allUIDs: [String] = []
         for device in devices {
-            let uid = await device.uid
+            let uid = device.uid
             allUIDs.append(uid)
         }
         let uniqueUIDs = Set(allUIDs)
@@ -61,9 +61,9 @@ struct AudioEngineTests {
         
         for device in devices {
             // Verify each device has valid properties
-            let id = await device.id
-            let name = await device.name
-            let uid = await device.uid
+            let id = device.id
+            let name = device.name
+            let uid = device.uid
             #expect(id > 0, "Device ID should be positive")
             #expect(!name.isEmpty, "Device name should not be empty")
             #expect(!uid.isEmpty, "Device UID should not be empty")

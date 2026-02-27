@@ -1,1 +1,13 @@
+# macOS
 .DS_Store
+
+# Xcode user-specific data
+**/xcuserdata/
+
+# Xcode build artifacts
+build/
+DerivedData/
+
+# Swift Package Manager
+.build/
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata

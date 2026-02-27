@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import ServiceManagement
 
 @MainActor
 @Observable
@@ -37,7 +38,10 @@ final class SettingsStore {
     
     // MARK: - General Settings
     var launchAtLogin: Bool {
-        didSet { save() }
+        didSet {
+            save()
+            updateLaunchAtLogin(launchAtLogin)
+        }
     }
     
     var onboardingCompleted: Bool {
@@ -135,5 +139,27 @@ final class SettingsStore {
         self.onboardingCompleted = defaults.bool(forKey: Keys.onboardingCompleted)
         
         self.onboardingLastStep = defaults.integer(forKey: Keys.onboardingLastStep)
+    }
+    
+    // MARK: - Launch at Login
+    
+    /// Registers or unregisters the app as a login item using ServiceManagement.
+    /// If registration fails, reverts the `launchAtLogin` property.
+    /// Requirements: 10.3, 10.4
+    func updateLaunchAtLogin(_ enabled: Bool) {
+        let service = SMAppService.mainApp
+        do {
+            if enabled {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+        } catch {
+            // Revert on failure — use isLoading guard to prevent re-triggering didSet save
+            isLoading = true
+            launchAtLogin = !enabled
+            isLoading = false
+            save()
+        }
     }
 }

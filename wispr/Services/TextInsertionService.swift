@@ -22,6 +22,17 @@ protocol TextInserting: Sendable {
 ///
 /// **Validates Requirements**: 4.1, 4.2, 4.3, 4.4, 4.5
 ///
+/// ## Privacy Guarantees (Requirement 11.4)
+///
+/// - **No logging or persistence**: Transcribed text received by `insertText(_:)`
+///   is used solely for immediate insertion into the frontmost application. The text
+///   is never logged, written to disk, cached, or transmitted over any network.
+/// - **Clipboard restoration**: When the clipboard fallback path is used, the
+///   original pasteboard contents are restored within 2 seconds, ensuring the
+///   transcribed text does not linger on the system clipboard.
+/// - **No network connections**: This service uses only local macOS APIs
+///   (AXUIElement, NSPasteboard, CGEvent). No outbound network calls are made.
+///
 /// Note: This is @MainActor isolated because NSPasteboard and CGEvent APIs
 /// require main thread access.
 @MainActor

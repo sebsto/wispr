@@ -11,6 +11,19 @@ import WhisperKit
 import AVFoundation
 
 /// Actor managing WhisperKit model lifecycle, downloads, and transcription.
+///
+/// ## Privacy Guarantees (Requirements 11.1, 11.3)
+///
+/// - **Fully local transcription**: The `transcribe(_:language:)` method uses
+///   WhisperKit's `transcribe(audioArray:decodeOptions:)` which runs the Whisper
+///   model entirely on-device via CoreML. No audio data or transcription results
+///   are transmitted over any network connection.
+/// - **No outbound network for processing**: The only network activity in this
+///   service is model *downloading* (initiated explicitly by the user). Once a
+///   model is downloaded, all transcription operates fully offline.
+/// - **No logging of transcribed text**: Transcription results are returned to
+///   the caller and immediately discarded by this service. No transcribed text
+///   is logged, cached, or persisted within WhisperService.
 actor WhisperService {
     // MARK: - State
     
@@ -340,6 +353,49 @@ actor WhisperService {
             // Requirement 3.5: Handle transcription failures
             throw WispError.transcriptionFailed("Transcription failed: \(error.localizedDescription)")
         }
+    }
+    
+    // MARK: - Error Recovery
+    
+    /// Attempts to reload the active model with exponential backoff retry.
+    ///
+    /// Requirement 12.2: If the WhisperService encounters a model loading error,
+    /// attempt to reload the model before reporting failure.
+    ///
+    /// Uses exponential backoff: 1s, 2s, 4s, etc. between attempts.
+    /// If all retries fail, the service transitions to a degraded state
+    /// (whisperKit set to nil) and surfaces the last error.
+    ///
+    /// - Parameter maxAttempts: Maximum number of reload attempts (default 3).
+    /// - Throws: WispError.modelLoadFailed if all retry attempts are exhausted.
+    func reloadModelWithRetry(maxAttempts: Int = 3) async throws {
+        guard let modelName = activeModelName else {
+            throw WispError.modelLoadFailed("No active model to reload")
+        }
+        
+        var lastError: Error?
+        
+        for attempt in 0..<maxAttempts {
+            do {
+                whisperKit = nil
+                whisperKit = try await WhisperKit(model: modelName)
+                // Reload succeeded
+                return
+            } catch {
+                lastError = error
+                
+                // Exponential backoff: 1s, 2s, 4s, ...
+                let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000
+                try await Task.sleep(nanoseconds: delay)
+            }
+        }
+        
+        // All retries exhausted — enter degraded state
+        whisperKit = nil
+        let description = lastError?.localizedDescription ?? "Unknown error"
+        throw WispError.modelLoadFailed(
+            "Failed to reload model \(modelName) after \(maxAttempts) attempts: \(description)"
+        )
     }
     
     // MARK: - Queries

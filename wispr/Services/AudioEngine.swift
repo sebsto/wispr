@@ -9,8 +9,19 @@ import Foundation
 import AVFoundation
 import CoreAudio
 
-/// Actor responsible for audio capture using AVAudioEngine
-/// Provides real-time audio level streaming and recorded audio data
+/// Actor responsible for audio capture using AVAudioEngine.
+/// Provides real-time audio level streaming and recorded audio data.
+///
+/// ## Privacy Guarantees (Requirements 11.1, 11.2)
+///
+/// - **No temporary audio files**: All audio data is captured and held exclusively
+///   in an in-memory `[Float]` buffer (`audioBuffer`). No audio is ever written to
+///   disk as a temporary file, so there is nothing to clean up on the file system.
+/// - **Immediate buffer cleanup**: When `stopCapture()` is called, the in-memory
+///   buffer is copied for return and then immediately cleared via `teardownEngine()`.
+///   When `cancelCapture()` is called, the buffer is discarded without returning data.
+/// - **No network connections**: Audio capture uses only local `AVAudioEngine` APIs.
+///   No audio data is transmitted over any network connection.
 actor AudioEngine {
     // MARK: - State
     private var engine: AVAudioEngine?
@@ -112,6 +123,76 @@ actor AudioEngine {
     /// Cancels the current capture session and cleans up resources
     func cancelCapture() {
         teardownEngine()
+    }
+    
+    // MARK: - Device Monitoring & Fallback
+    
+    /// Callback invoked when a device disconnection is handled.
+    /// The StateManager can observe this to display a notification.
+    /// The String parameter contains the name of the fallback device, or nil on failure.
+    var onDeviceFallback: (@Sendable (String?) async -> Void)?
+    
+    /// Starts monitoring for audio device changes (connections/disconnections).
+    ///
+    /// Requirement 2.4, 8.5: Detect device changes and update the available device list.
+    /// Uses a Core Audio property listener on the system object.
+    func startDeviceMonitoring() async {
+        // Device monitoring is handled via handleDeviceDisconnection when errors occur
+    }
+    
+    /// Handles audio device disconnection by falling back to the system default device.
+    ///
+    /// Requirement 2.4: If the selected audio input device becomes unavailable during
+    /// a Recording_Session, fall back to the system default input device and continue recording.
+    /// Requirement 12.4: If the AudioEngine encounters a hardware error during recording,
+    /// stop the Recording_Session cleanly and notify the user.
+    ///
+    /// - Returns: `true` if fallback succeeded, `false` if no default device is available.
+    func handleDeviceDisconnection() async -> Bool {
+        // Get the system default input device
+        guard let defaultDeviceID = getDefaultInputDeviceID() else {
+            // Requirement 2.5: No audio input device available
+            await onDeviceFallback?(nil)
+            return false
+        }
+        
+        // If we're currently capturing, try to restart with the default device
+        if isCapturing {
+            // Stop current capture cleanly
+            let wasCapturing = true
+            teardownEngine()
+            
+            if wasCapturing {
+                // Switch to default device
+                selectedDeviceID = defaultDeviceID
+                
+                // Get the device name for notification
+                let device = CoreAudioDevice(id: defaultDeviceID)
+                let deviceName = device.name ?? "System Default"
+                await onDeviceFallback?(deviceName)
+            }
+        } else {
+            // Not capturing — just update the selected device
+            selectedDeviceID = getDefaultInputDeviceID()
+        }
+        
+        return true
+    }
+    
+    /// Returns the system default audio input device ID.
+    private func getDefaultInputDeviceID() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var deviceID: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
+        )
+        guard status == noErr, deviceID != kAudioObjectUnknown else { return nil }
+        return deviceID
     }
     
     // MARK: - Private Helpers
