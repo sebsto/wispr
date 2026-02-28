@@ -20,9 +20,9 @@ import Foundation
 
 let scriptDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 let projectRoot = URL(fileURLWithPath: scriptDir).deletingLastPathComponent().path
-let svgPath = "\(scriptDir)/icon.svg"
+let svgPath = "\(scriptDir)/icon-square.svg"
 let outputDir = "\(projectRoot)/wispr/Assets.xcassets/AppIcon.appiconset"
-let marginPercent: CGFloat = 0.02
+let marginPercent: CGFloat = 0.0
 
 /// All required macOS icon sizes: (point size, scale, pixel size)
 let iconSizes: [(size: String, scale: String, pixels: Int)] = [

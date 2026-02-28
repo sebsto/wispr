@@ -60,8 +60,9 @@ NSGraphicsContext.current = context
 // Clear to transparent
 context.cgContext.clear(CGRect(origin: .zero, size: targetSize))
 
-// Calculate content bounds and draw with margin
-let margin: CGFloat = targetSize.width * 0.02
+// Calculate content bounds and draw with maxrgin
+let marginPercentage = 0.0
+let margin: CGFloat = targetSize.width * marginPercentage
 let drawSize = NSSize(width: targetSize.width - margin * 2, height: targetSize.height - margin * 2)
 let drawRect = NSRect(x: margin, y: margin, width: drawSize.width, height: drawSize.height)
 
