@@ -82,9 +82,11 @@ final class RecordingOverlayPanel {
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0.0
         }, completionHandler: { [weak self] in
-            guard let self else { return }
-            self.panel?.orderOut(nil)
-            self.isVisible = false
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.panel?.orderOut(nil)
+                self.isVisible = false
+            }
         })
     }
 
