@@ -15,6 +15,16 @@ import SwiftUI
 /// above all other windows without stealing focus from the frontmost application.
 /// Show/dismiss uses spring animations (≤300ms) that respect Reduce Motion.
 ///
+/// ## Why NSPanel + NSAnimationContext? (Modernization blocker)
+/// SwiftUI `Window` scenes always activate the app when shown via `openWindow`, stealing
+/// focus from whatever the user is dictating into. macOS 26 added `.windowLevel(.floating)`
+/// and `.allowsWindowActivationEvents(false)`, but the latter only prevents gesture-based
+/// activation — the window itself still activates on appearance. There is also no SwiftUI
+/// equivalent for `hidesOnDeactivate = false`, `.canJoinAllSpaces`, or `orderFrontRegardless()`.
+/// `NSAnimationContext` is tied to `NSPanel` (animates `alphaValue`); if the panel migrates,
+/// the animations migrate with it. Unblocked if Apple ships a non-activating SwiftUI window
+/// primitive (e.g. `WindowActivationPolicy` or `WindowStyle.nonActivating`). Monitor WWDC 2026.
+///
 /// **Validates**: Requirement 9.1 (overlay appears on recording),
 /// 9.4 (auto-dismiss on idle), 14.8 (spring animations ≤300ms),
 /// 14.10 (compact borderless floating window)

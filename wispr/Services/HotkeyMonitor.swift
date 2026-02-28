@@ -13,6 +13,11 @@ import AppKit
 ///
 /// This class must run on `@MainActor` because Carbon event handlers
 /// dispatch on the main thread's run loop.
+///
+/// ## Why Carbon? (Modernization blocker)
+/// Carbon's `RegisterEventHotKey` / `InstallEventHandler` is the only stable macOS API
+/// for registering system-wide global hotkeys. Apple provides no AppKit, SwiftUI, or
+/// modern replacement. Unblocked if Apple ships a `GlobalKeyboardShortcut` API or similar.
 @MainActor
 final class HotkeyMonitor {
     // MARK: - Callbacks

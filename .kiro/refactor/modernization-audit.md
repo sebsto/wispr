@@ -105,13 +105,14 @@ Eliminates unnecessary polling — updates are now instant and zero-cost when id
 
 ## 5. Refactor Priority
 
-1. **Quick wins (do first):** Items 2a and 2b — fix two deprecated API calls.
-2. **Low effort, good payoff:** Item 2c — replace polling with KVO/notifications in `UIThemeEngine`.
-3. **Nice to have:** Item 2d — migrate to `os.Logger`.
+1. ~~**Quick wins (do first):** Items 2a and 2b — fix two deprecated API calls.~~ ✅ DONE
+2. ~~**Low effort, good payoff:** Item 2c — replace polling with KVO/notifications in `UIThemeEngine`.~~ ✅ DONE
+3. ~~**Nice to have:** Item 2d — migrate to `os.Logger`.~~ ✅ DONE
 4. **Track externally:** Item 3a — `nonisolated(unsafe)` on `WhisperService.whisperKit` pending WhisperKit `Sendable` support.
-5. **Minor cleanup:** Item 3d — `RecordingSession.audioData` `var` → `let`.
-6. **Blocked (no SwiftUI API):** Item 2e — `NSAnimationContext` in `RecordingOverlayPanel` tied to `NSPanel` usage. Migrate when SwiftUI gains a floating panel primitive.
-7. **Blocked (narrower gap on macOS 26):** Item 2f — `NSPanel` can't be fully replaced yet. macOS 26 added `.windowLevel(.floating)`, `.windowStyle(.plain)`, and `.allowsWindowActivationEvents(false)`, but still lacks a non-activating window scene that doesn't steal focus on show. Monitor macOS 27.
+5. ~~**Minor cleanup:** Item 3d — `RecordingSession.audioData` `var` → `let`.~~ ✅ DONE (file deleted — unused)
+6. **Blocked (no SwiftUI API):** Item 2e — `NSAnimationContext` in `RecordingOverlayPanel` tied to `NSPanel` usage. Source comment added.
+7. **Blocked (narrower gap on macOS 26):** Item 2f — `NSPanel` can't be fully replaced yet. Source comment added. Monitor WWDC 2026.
+8. **Blocked (no replacement):** Section 1 items — Source comments added to `HotkeyMonitor.swift`, `TextInsertionService.swift`, `MenuBarController.swift`, `RecordingOverlayPanel.swift`.
 
 **Critical blocker remains:** SwiftUI `Window`/`openWindow(id:)` **always activates the app** when shown. `.allowsWindowActivationEvents(false)` only prevents *gestures within the window* from activating — the window appearance itself still brings your app forward, stealing focus from whatever the user was using (Safari, Notes, etc.). This breaks the dictation UX.
 

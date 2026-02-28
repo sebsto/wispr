@@ -22,6 +22,12 @@ protocol TextInserting: Sendable {
 ///
 /// **Validates Requirements**: 4.1, 4.2, 4.3, 4.4, 4.5
 ///
+/// ## Why AppKit / Accessibility APIs? (Modernization blocker)
+/// `AXUIElement`, `CGEvent`, and `NSPasteboard` are the only macOS APIs for inserting
+/// text at the cursor in arbitrary third-party apps. No SwiftUI or higher-level
+/// replacement exists. Unblocked if Apple ships an Input Method Kit alternative or
+/// a system-level text insertion API.
+///
 /// ## Privacy Guarantees (Requirement 11.4)
 ///
 /// - **No logging or persistence**: Transcribed text received by `insertText(_:)`

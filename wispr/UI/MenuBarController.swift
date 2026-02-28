@@ -17,6 +17,12 @@ import Observation
 /// the current application state, and builds a dropdown menu with recording,
 /// settings, model management, language selection, and quit actions.
 ///
+/// ## Why AppKit? (Modernization blocker)
+/// SwiftUI's `MenuBarExtra` doesn't support dynamic icon changes, submenus, or
+/// target-action wiring needed here. `NSStatusItem` / `NSMenu` remain the only
+/// viable API for a fully custom menu bar presence. Unblocked if Apple extends
+/// `MenuBarExtra` with dynamic image binding and nested menu support.
+///
 /// **Validates Requirements**: 5.1 (NSStatusItem creation), 5.2 (icon state),
 /// 5.3 (dropdown menu), 5.4 (start/stop recording), 5.5 (quit with cleanup),
 /// 14.2 (template icon), 14.9 (smooth icon transitions), 16.7 (language display),
