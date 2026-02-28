@@ -35,8 +35,11 @@ final class UIThemeEngine {
 
     // MARK: - Private State
 
-    /// Observation task for system appearance and accessibility changes
-    private var monitoringTask: Task<Void, Never>?
+    /// Task monitoring system appearance changes via KVO
+    private var appearanceTask: Task<Void, Never>?
+
+    /// Task monitoring accessibility setting changes via NotificationCenter
+    private var accessibilityTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -50,15 +53,34 @@ final class UIThemeEngine {
 
     // MARK: - Monitoring
 
-    /// Starts polling for system appearance and accessibility setting changes.
+    /// Starts observing system appearance and accessibility setting changes.
     /// Call this once from a structured task context (e.g., `.task` modifier on the root view).
     func startMonitoring() {
-        guard monitoringTask == nil else { return }
-        monitoringTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+        guard appearanceTask == nil else { return }
+
+        // Observe dark/light mode changes via KVO on NSApp.effectiveAppearance
+        appearanceTask = Task { [weak self] in
+            let stream = AsyncStream<Void> { continuation in
+                let observation = NSApp.observe(\.effectiveAppearance) { _, _ in
+                    continuation.yield()
+                }
+                continuation.onTermination = { _ in
+                    _ = observation // prevent the observation from being deallocated
+                }
+            }
+            for await _ in stream {
                 guard let self else { return }
                 self.refreshAppearance()
+            }
+        }
+
+        // Observe accessibility setting changes via system notification
+        accessibilityTask = Task { [weak self] in
+            let notifications = NotificationCenter.default.notifications(
+                named: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+            )
+            for await _ in notifications {
+                guard let self else { return }
                 self.refreshAccessibilitySettings()
             }
         }
@@ -66,8 +88,10 @@ final class UIThemeEngine {
 
     /// Stops monitoring for system changes.
     func stopMonitoring() {
-        monitoringTask?.cancel()
-        monitoringTask = nil
+        appearanceTask?.cancel()
+        appearanceTask = nil
+        accessibilityTask?.cancel()
+        accessibilityTask = nil
     }
 
     // MARK: - Refresh
