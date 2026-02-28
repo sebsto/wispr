@@ -11,3 +11,6 @@ DerivedData/
 # Swift Package Manager
 .build/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+# Secrets
+secrets
