@@ -254,7 +254,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setContentSize(NSSize(width: 600, height: 500))
         window.center()
 
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         window.delegate = self
         onboardingWindow = window

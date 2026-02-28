@@ -424,7 +424,7 @@ final class MenuBarController {
     /// Creates an NSWindow hosting the SwiftUI SettingsView if one doesn't
     /// already exist, or brings the existing one to front.
     func openSettings() {
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
 
         if let window = settingsWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)
@@ -455,7 +455,7 @@ final class MenuBarController {
     /// Creates an NSWindow hosting the SwiftUI ModelManagementView if one doesn't
     /// already exist, or brings the existing one to front.
     func openModelManagement() {
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
 
         if let window = modelManagementWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)

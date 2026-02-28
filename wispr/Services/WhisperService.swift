@@ -536,8 +536,7 @@ actor WhisperService {
                 lastError = error
                 
                 // Exponential backoff: 1s, 2s, 4s, ...
-                let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000
-                try await Task.sleep(nanoseconds: delay)
+                try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
             }
         }
         

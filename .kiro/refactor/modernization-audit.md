@@ -34,26 +34,15 @@
 
 ## 2. Actionable Modernization Items
 
-### 2a. Deprecated API — `NSApp.activate(ignoringOtherApps:)` ⚠️
+### 2a. ~~Deprecated API — `NSApp.activate(ignoringOtherApps:)`~~ ✅ DONE
 
 **Files:** `wisprApp.swift`, `MenuBarController.swift`
-**Current:** `NSApp.activate(ignoringOtherApps: true)`
-**Fix:** Replace with `NSApp.activate()` (deprecated in macOS 14).
-**Effort:** Trivial.
+**Fix applied:** Replaced all 3 occurrences of `NSApp.activate(ignoringOtherApps: true)` with `NSApp.activate()`.
 
-### 2b. Deprecated API — `Task.sleep(nanoseconds:)`
+### 2b. ~~Deprecated API — `Task.sleep(nanoseconds:)`~~ ✅ DONE
 
 **File:** `WhisperService.swift` → `reloadModelWithRetry()`
-**Current:**
-```swift
-let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000
-try await Task.sleep(nanoseconds: delay)
-```
-**Fix:**
-```swift
-try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
-```
-**Effort:** Trivial. One occurrence. Rest of codebase already uses `Task.sleep(for:)`.
+**Fix applied:** Replaced `Task.sleep(nanoseconds:)` with `Task.sleep(for: .seconds(...))`. Now consistent with rest of codebase.
 
 ### 2c. Polling Timer → KVO / Notification Observation
 
