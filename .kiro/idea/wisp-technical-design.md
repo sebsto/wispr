@@ -1,10 +1,10 @@
-# Wisp Voice Dictation App - Technical Design Document
+# Wispr Voice Dictation App - Technical Design Document
 
 ## 1. System Architecture Diagram (Text-Based)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Wisp Application                         │
+│                        Wispr Application                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
 │  │   UI Layer      │  │  Service Layer  │  │  System Layer   │ │
@@ -159,7 +159,7 @@ class AppState: ObservableObject {
     @Published var currentState: AppStateType = .idle
     @Published var isRecording: Bool = false
     @Published var isProcessing: Bool = false
-    @Published var lastError: WispError?
+    @Published var lastError: WisprError?
     @Published var settings: AppSettings
 }
 
@@ -333,7 +333,7 @@ enum PermissionStatus {
 
 ### Error Types and Recovery
 ```swift
-enum WispError: LocalizedError {
+enum WisprError: LocalizedError {
     case microphonePermissionDenied
     case accessibilityPermissionDenied
     case audioRecordingFailed(Error)
@@ -352,7 +352,7 @@ enum WispError: LocalizedError {
 ```
 
 ### Error Handling Patterns
-- **Result Types**: Use `Result<Success, WispError>` for fallible operations
+- **Result Types**: Use `Result<Success, WisprError>` for fallible operations
 - **Async Throws**: Leverage Swift's async/await error propagation
 - **UI Error States**: Dedicated error views with recovery actions
 - **Logging**: Structured logging for debugging without user data
@@ -372,13 +372,13 @@ enum WispError: LocalizedError {
 ### Background Queues
 ```swift
 // Audio processing queue
-private let audioQueue = DispatchQueue(label: "wisp.audio", qos: .userInitiated)
+private let audioQueue = DispatchQueue(label: "wispr.audio", qos: .userInitiated)
 
 // Whisper processing queue  
-private let whisperQueue = DispatchQueue(label: "wisp.whisper", qos: .userInitiated)
+private let whisperQueue = DispatchQueue(label: "wispr.whisper", qos: .userInitiated)
 
 // File I/O queue
-private let fileQueue = DispatchQueue(label: "wisp.file", qos: .utility)
+private let fileQueue = DispatchQueue(label: "wispr.file", qos: .utility)
 ```
 
 ### Async/Await Integration
@@ -395,9 +395,9 @@ private let fileQueue = DispatchQueue(label: "wisp.file", qos: .utility)
 ## 9. File Structure
 
 ```
-Wisp/
+Wispr/
 ├── App/
-│   ├── WispApp.swift                 # App entry point
+│   ├── WisprApp.swift                 # App entry point
 │   ├── AppDelegate.swift             # macOS app lifecycle
 │   └── Info.plist                    # App configuration
 ├── Core/
@@ -405,7 +405,7 @@ Wisp/
 │   │   ├── AppState.swift            # Central state model
 │   │   ├── RecordingSession.swift    # Recording data
 │   │   ├── Settings.swift            # App settings
-│   │   └── WispError.swift           # Error definitions
+│   │   └── WisprError.swift           # Error definitions
 │   ├── Services/
 │   │   ├── AudioService.swift        # Audio recording
 │   │   ├── WhisperService.swift      # Speech transcription
@@ -438,8 +438,8 @@ Wisp/
 │   ├── Constants.swift               # App constants
 │   └── Helpers.swift                 # General utilities
 └── Tests/
-    ├── WispTests/                    # Unit tests
-    └── WispUITests/                  # UI tests
+    ├── WisprTests/                    # Unit tests
+    └── WisprUITests/                  # UI tests
 ```
 
 ## 10. External Dependencies
@@ -489,4 +489,4 @@ Wisp/
 - Model validation and integrity checking
 - Fallback to smaller models if larger ones fail
 
-This technical design provides a comprehensive foundation for building the Wisp voice dictation app with proper separation of concerns, robust error handling, and adherence to macOS development best practices.
+This technical design provides a comprehensive foundation for building the Wispr voice dictation app with proper separation of concerns, robust error handling, and adherence to macOS development best practices.

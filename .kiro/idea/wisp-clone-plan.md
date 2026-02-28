@@ -1,4 +1,4 @@
-# Plan: Build Wisp-like Voice Dictation App in Swift/SwiftUI
+# Plan: Build Wispr-like Voice Dictation App in Swift/SwiftUI
 
 ## 1. Core Architecture Setup
 - Create SwiftUI macOS app with menu bar presence (NSStatusItem)

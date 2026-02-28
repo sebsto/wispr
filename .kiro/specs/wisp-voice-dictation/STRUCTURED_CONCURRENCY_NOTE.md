@@ -1,4 +1,4 @@
-# Structured Concurrency in Wisp
+# Structured Concurrency in Wispr
 
 ## Policy
 This project uses structured concurrency patterns (async let, TaskGroup, AsyncStream) throughout.
@@ -119,7 +119,7 @@ try await downloadTask.value  // Manual tracking required
 func downloadModel(...) async throws {
     // Concurrent download check (business logic requirement)
     guard downloadTasks[model.id] == nil else {
-        throw WispError.modelDownloadFailed("Already downloading")
+        throw WisprError.modelDownloadFailed("Already downloading")
     }
     
     // ✅ PURE STRUCTURED: No Task creation - just do the work

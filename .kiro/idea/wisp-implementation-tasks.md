@@ -1,21 +1,21 @@
-# Wisp Voice Dictation macOS App - Detailed Implementation Task List
+# Wispr Voice Dictation macOS App - Detailed Implementation Task List
 
 ## Phase 1: Project Setup & Dependencies
 
 ### Task 1.1: Create Xcode Project Structure
 **Files to create:**
-- `WispApp.xcodeproj`
-- `WispApp/WispApp.swift` (main app entry point)
-- `WispApp/Info.plist`
-- `WispApp/WispApp.entitlements`
+- `WisprApp.xcodeproj`
+- `WisprApp/WisprApp.swift` (main app entry point)
+- `WisprApp/Info.plist`
+- `WisprApp/WisprApp.entitlements`
 
 **Implementation:**
 ```swift
-// WispApp.swift
+// WisprApp.swift
 import SwiftUI
 
 @main
-struct WispApp: App {
+struct WisprApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
@@ -37,12 +37,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 ### Task 1.2: Configure Entitlements and Permissions
 **Files to modify:**
-- `WispApp.entitlements`
+- `WisprApp.entitlements`
 - `Info.plist`
 
 **Implementation:**
 ```xml
-<!-- WispApp.entitlements -->
+<!-- WisprApp.entitlements -->
 <key>com.apple.security.device.microphone</key>
 <true/>
 <key>com.apple.security.automation.apple-events</key>
@@ -179,7 +179,7 @@ class MenuBarManager: ObservableObject {
     
     func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem?.button?.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Wisp")
+        statusItem?.button?.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Wispr")
         
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Start Recording", action: #selector(startRecording), keyEquivalent: ""))
@@ -360,14 +360,14 @@ class AppController: ObservableObject {
 
 ### Task 4.3: Integrate Services with UI
 **Files to modify:**
-- `WispApp.swift`
+- `WisprApp.swift`
 - `UI/MenuBarManager.swift`
 
 **Implementation:**
 ```swift
-// Update WispApp.swift
+// Update WisprApp.swift
 @main
-struct WispApp: App {
+struct WisprApp: App {
     @StateObject private var appController = AppController()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
@@ -446,7 +446,7 @@ Text(transcriptionStatus)
 
 ### Task 5.5: Final Integration Testing
 **Files to create:**
-- `Tests/WispAppTests.swift`
+- `Tests/WisprAppTests.swift`
 
 **Implementation:**
 Create integration tests for:

@@ -1,8 +1,8 @@
-# Design Document: Wisp Voice Dictation
+# Design Document: Wispr Voice Dictation
 
 ## Overview
 
-Wisp is a privacy-first macOS 26 menu bar application that captures speech via the system microphone, transcribes it on-device using WhisperKit, and inserts the resulting text at the user's cursor position in any application. The app is activated via a configurable global hotkey (default ⌥Space) and lives entirely in the macOS menu bar with no Dock presence.
+Wispr is a privacy-first macOS 26 menu bar application that captures speech via the system microphone, transcribes it on-device using WhisperKit, and inserts the resulting text at the user's cursor position in any application. The app is activated via a configurable global hotkey (default ⌥Space) and lives entirely in the macOS menu bar with no Dock presence.
 
 All processing is local — no audio data leaves the machine. The application is built with Swift 6, SwiftUI, Swift Concurrency (async/await, actors), the Observation framework (@Observable), and the swift-testing framework. No Objective-C bridging, no GCD, no Combine for async flows, and no XCTest.
 
@@ -151,7 +151,7 @@ final class StateManager {
     // MARK: - State Machine
     func beginRecording() async
     func endRecording() async
-    func handleError(_ error: WispError) async
+    func handleError(_ error: WisprError) async
     func resetToIdle() async
 }
 
@@ -383,7 +383,7 @@ Lists all available Whisper models with status (not downloaded / downloading % /
 
 The USER will manually create the initial Xcode project and skeleton app structure. Implementation will START FROM this existing project by first discovering the project structure using the Xcode MCP tool, then proceeding with all development operations.
 
-All development operations for Wisp will be performed through the Xcode MCP tool, which provides integrated access to Xcode's native capabilities for file management, building, testing, and debugging. This ensures consistency with Xcode's project model and leverages the IDE's understanding of Swift project structure.
+All development operations for Wispr will be performed through the Xcode MCP tool, which provides integrated access to Xcode's native capabilities for file management, building, testing, and debugging. This ensures consistency with Xcode's project model and leverages the IDE's understanding of Swift project structure.
 
 ### File Operations
 
@@ -601,7 +601,7 @@ All settings are stored in `UserDefaults` via the `SettingsStore`. The keys:
 ### Error Types
 
 ```swift
-enum WispError: Error, Sendable, Equatable {
+enum WisprError: Error, Sendable, Equatable {
     // Permissions
     case microphonePermissionDenied
     case accessibilityPermissionDenied

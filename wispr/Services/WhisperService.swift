@@ -129,7 +129,7 @@ actor WhisperService {
         
         // Requirement 7.4: Handle concurrent download tasks
         guard downloadTasks[model.id] == nil else {
-            continuation.finish(throwing: WispError.modelDownloadFailed("Model \(model.displayName) is already being downloaded"))
+            continuation.finish(throwing: WisprError.modelDownloadFailed("Model \(model.displayName) is already being downloaded"))
             return stream
         }
         
@@ -210,9 +210,9 @@ actor WhisperService {
                 
                 continuation.finish()
             } catch is CancellationError {
-                continuation.finish(throwing: WispError.modelDownloadFailed("Download of \(model.displayName) was cancelled"))
+                continuation.finish(throwing: WisprError.modelDownloadFailed("Download of \(model.displayName) was cancelled"))
             } catch {
-                continuation.finish(throwing: WispError.modelDownloadFailed("Failed to download \(model.displayName): \(error.localizedDescription)"))
+                continuation.finish(throwing: WisprError.modelDownloadFailed("Failed to download \(model.displayName): \(error.localizedDescription)"))
             }
         }
         
@@ -242,7 +242,7 @@ actor WhisperService {
     /// Requirements 7.8, 7.9, 7.10: Delete models with file system cleanup and handle active model deletion.
     ///
     /// - Parameter modelName: The name of the model to delete
-    /// - Throws: WispError.modelDeletionFailed if deletion fails
+    /// - Throws: WisprError.modelDeletionFailed if deletion fails
     func deleteModel(_ modelName: String) async throws {
         // Requirement 7.9: If deleting the active model, switch to another model first
         if modelName == activeModelName {
@@ -271,13 +271,13 @@ actor WhisperService {
         let fileManager = FileManager.default
         
         guard fileManager.fileExists(atPath: modelPath.path) else {
-            throw WispError.modelDeletionFailed("Model \(modelName) not found on disk")
+            throw WisprError.modelDeletionFailed("Model \(modelName) not found on disk")
         }
         
         do {
             try fileManager.removeItem(at: modelPath)
         } catch {
-            throw WispError.modelDeletionFailed("Failed to delete model \(modelName): \(error.localizedDescription)")
+            throw WisprError.modelDeletionFailed("Failed to delete model \(modelName): \(error.localizedDescription)")
         }
     }
     
@@ -296,7 +296,7 @@ actor WhisperService {
         
         let fm = FileManager.default
         guard fm.fileExists(atPath: repoDir.path) else {
-            throw WispError.modelDeletionFailed("Model directory not found at \(repoDir.path)")
+            throw WisprError.modelDeletionFailed("Model directory not found at \(repoDir.path)")
         }
         
         // Find the variant folder that contains the model name
@@ -305,7 +305,7 @@ actor WhisperService {
             return repoDir.appendingPathComponent(match, isDirectory: true)
         }
         
-        throw WispError.modelDeletionFailed("Model \(modelName) not found on disk")
+        throw WisprError.modelDeletionFailed("Model \(modelName) not found on disk")
     }
     
     /// Loads a Whisper model into memory.
@@ -316,7 +316,7 @@ actor WhisperService {
     /// downloaded files instead of re-downloading.
     ///
     /// - Parameter modelName: The name of the model to load
-    /// - Throws: WispError.modelLoadFailed if loading fails
+    /// - Throws: WisprError.modelLoadFailed if loading fails
     func loadModel(_ modelName: String) async throws {
         Log.whisperService.debug("loadModel — loading '\(modelName)'")
         do {
@@ -329,7 +329,7 @@ actor WhisperService {
             activeModelName = modelName
             Log.whisperService.debug("loadModel — '\(modelName)' loaded successfully")
         } catch {
-            throw WispError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
+            throw WisprError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
         }
     }
     
@@ -349,7 +349,7 @@ actor WhisperService {
     ///
     /// Note: We intentionally avoid creating a WhisperKit instance here.
     /// Loading a model is expensive and was the root cause of the previous
-    /// "WispError 6 / modelValidationFailed" bug — the second WhisperKit
+    /// "WisprError 6 / modelValidationFailed" bug — the second WhisperKit
     /// init conflicted with the first one created during download.
     func validateModelIntegrity(_ modelName: String) async throws -> Bool {
         do {
@@ -379,9 +379,9 @@ actor WhisperService {
     ///   - audioSamples: The audio samples to transcribe (Float array, 16kHz sample rate)
     ///   - language: The language mode for transcription
     /// - Returns: TranscriptionResult with text and metadata
-    /// - Throws: WispError.modelNotDownloaded if no model is loaded
-    /// - Throws: WispError.transcriptionFailed if transcription fails
-    /// - Throws: WispError.emptyTranscription if result is empty
+    /// - Throws: WisprError.modelNotDownloaded if no model is loaded
+    /// - Throws: WisprError.transcriptionFailed if transcription fails
+    /// - Throws: WisprError.emptyTranscription if result is empty
     func transcribe(
         _ audioSamples: [Float],
         language: TranscriptionLanguage
@@ -389,7 +389,7 @@ actor WhisperService {
         // Requirement 3.1: Check that a model is loaded
         guard let whisperKit = whisperKit else {
             Log.whisperService.error("transcribe — whisperKit is nil, no model loaded")
-            throw WispError.modelNotDownloaded
+            throw WisprError.modelNotDownloaded
         }
         
         let sampleCount = audioSamples.count
@@ -400,7 +400,7 @@ actor WhisperService {
         // WhisperKit needs at least ~0.5s of audio to produce results.
         guard audioSamples.count >= 8000 else {
             Log.whisperService.debug("transcribe — audio too short (\(audioSamples.count) samples), skipping")
-            throw WispError.emptyTranscription
+            throw WisprError.emptyTranscription
         }
         
         let startTime = Date()
@@ -440,7 +440,7 @@ actor WhisperService {
             
             // Extract transcribed text from all segments
             guard !results.isEmpty else {
-                throw WispError.emptyTranscription
+                throw WisprError.emptyTranscription
             }
             
             let transcribedText = results
@@ -462,7 +462,7 @@ actor WhisperService {
             
             // Requirement 3.4: Handle empty transcription
             if filteredText.isEmpty {
-                throw WispError.emptyTranscription
+                throw WisprError.emptyTranscription
             }
             
             // Extract detected language (for auto-detect mode)
@@ -483,13 +483,13 @@ actor WhisperService {
                 detectedLanguage: detectedLanguage,
                 duration: duration
             )
-        } catch let error as WispError {
+        } catch let error as WisprError {
             Log.whisperService.error("transcribe — error: \(error.localizedDescription)")
             throw error
         } catch {
             Log.whisperService.error("transcribe — error: \(error.localizedDescription)")
             // Requirement 3.5: Handle transcription failures
-            throw WispError.transcriptionFailed("Transcription failed: \(error.localizedDescription)")
+            throw WisprError.transcriptionFailed("Transcription failed: \(error.localizedDescription)")
         }
     }
     
@@ -505,10 +505,10 @@ actor WhisperService {
     /// (whisperKit set to nil) and surfaces the last error.
     ///
     /// - Parameter maxAttempts: Maximum number of reload attempts (default 3).
-    /// - Throws: WispError.modelLoadFailed if all retry attempts are exhausted.
+    /// - Throws: WisprError.modelLoadFailed if all retry attempts are exhausted.
     func reloadModelWithRetry(maxAttempts: Int = 3) async throws {
         guard let modelName = activeModelName else {
-            throw WispError.modelLoadFailed("No active model to reload")
+            throw WisprError.modelLoadFailed("No active model to reload")
         }
         
         var lastError: Error?
@@ -535,7 +535,7 @@ actor WhisperService {
         // All retries exhausted — enter degraded state
         whisperKit = nil
         let description = lastError?.localizedDescription ?? "Unknown error"
-        throw WispError.modelLoadFailed(
+        throw WisprError.modelLoadFailed(
             "Failed to reload model \(modelName) after \(maxAttempts) attempts: \(description)"
         )
     }

@@ -1,4 +1,4 @@
-# Wisp Codebase Modernization Audit
+# Wispr Codebase Modernization Audit
 
 > Generated: February 2026
 > Swift 6.0 · Strict Concurrency: complete · Default Actor Isolation: MainActor
@@ -52,10 +52,10 @@
 - Accessibility: `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` via `NotificationCenter.notifications(named:)` async sequence
 Eliminates unnecessary polling — updates are now instant and zero-cost when idle.
 
-### 2d. ~~`wispLog()` → `os.Logger`~~ ✅ DONE
+### 2d. ~~`wisprLog()` → `os.Logger`~~ ✅ DONE
 
 **Files:** `Logger.swift`, `wisprApp.swift`, `AudioEngine.swift`, `WhisperService.swift`, `StateManager.swift`, `AppStateType.swift`
-**Fix applied:** Replaced custom `wispLog()` (print-based, DEBUG-only) with `os.Logger` via a `nonisolated enum Log` with per-category loggers (`Log.app`, `Log.audioEngine`, `Log.whisperService`, `Log.stateManager`). 53 call sites migrated. Log levels now semantic: `.debug` for trace, `.warning` for non-fatal issues, `.error` for failures. Transcribed text marked `privacy: .private`. Added `CustomStringConvertible` to `AppStateType` for os.Logger interpolation.
+**Fix applied:** Replaced custom `wisprLog()` (print-based, DEBUG-only) with `os.Logger` via a `nonisolated enum Log` with per-category loggers (`Log.app`, `Log.audioEngine`, `Log.whisperService`, `Log.stateManager`). 53 call sites migrated. Log levels now semantic: `.debug` for trace, `.warning` for non-fatal issues, `.error` for failures. Transcribed text marked `privacy: .private`. Added `CustomStringConvertible` to `AppStateType` for os.Logger interpolation.
 
 ---
 

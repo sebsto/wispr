@@ -2,7 +2,7 @@
 //  wisprApp.swift
 //  wispr
 //
-//  Main entry point for the Wisp voice dictation application.
+//  Main entry point for the Wispr voice dictation application.
 //  Initializes all services, sets menu bar-only mode, and shows
 //  onboarding on first launch.
 //  Requirements: 5.6, 13.1, 13.12, 13.16
@@ -11,19 +11,19 @@
 import SwiftUI
 import os
 
-/// Main application entry point for Wisp.
+/// Main application entry point for Wispr.
 ///
 /// Sets `NSApplication.ActivationPolicy.accessory` so the app lives
 /// entirely in the menu bar with no Dock icon (Req 5.6).
 /// On first launch, presents the `OnboardingFlow` wizard (Req 13.1).
 /// On subsequent launches, the menu bar is the only visible UI.
 @main
-struct WispApp: App {
+struct WisprApp: App {
 
     // MARK: - App Delegate
 
     /// Adaptor that bootstraps services and manages the menu bar lifecycle.
-    @NSApplicationDelegateAdaptor(WispAppDelegate.self) private var appDelegate
+    @NSApplicationDelegateAdaptor(WisprAppDelegate.self) private var appDelegate
 
     // MARK: - Body
 
@@ -53,7 +53,7 @@ struct WispApp: App {
 /// before any SwiftUI scene body is evaluated, and provides a
 /// clean hook for the `applicationDidFinishLaunching` lifecycle event.
 @MainActor
-final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: - Services
 
@@ -256,7 +256,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let hostingController = NSHostingController(rootView: onboardingView)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Wisp Setup"
+        window.title = "Wispr Setup"
         window.styleMask = [.titled, .closable]
         window.setContentSize(NSSize(width: 600, height: 500))
         window.center()

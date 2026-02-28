@@ -325,10 +325,10 @@ struct WhisperServiceLanguageParameterTests {
         do {
             _ = try await service.transcribe(samples, language: .autoDetect)
             Issue.record("Expected modelNotDownloaded error")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             #expect(error == .modelNotDownloaded)
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 
@@ -341,10 +341,10 @@ struct WhisperServiceLanguageParameterTests {
         do {
             _ = try await service.transcribe(samples, language: .specific(code: "en"))
             Issue.record("Expected modelNotDownloaded error")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             #expect(error == .modelNotDownloaded)
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 
@@ -357,10 +357,10 @@ struct WhisperServiceLanguageParameterTests {
         do {
             _ = try await service.transcribe(samples, language: .pinned(code: "fr"))
             Issue.record("Expected modelNotDownloaded error")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             #expect(error == .modelNotDownloaded)
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 
@@ -383,10 +383,10 @@ struct WhisperServiceLanguageParameterTests {
             do {
                 _ = try await service.transcribe(samples, language: mode)
                 Issue.record("Expected error for mode \(mode)")
-            } catch let error as WispError {
+            } catch let error as WisprError {
                 #expect(error == .modelNotDownloaded, "Expected modelNotDownloaded for \(mode), got \(error)")
             } catch {
-                Issue.record("Expected WispError for \(mode), got \(error)")
+                Issue.record("Expected WisprError for \(mode), got \(error)")
             }
         }
     }

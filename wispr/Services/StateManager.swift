@@ -12,7 +12,7 @@ import Observation
 import AppKit
 import os
 
-/// The central coordinator for the Wisp application.
+/// The central coordinator for the Wispr application.
 ///
 /// `StateManager` owns the application state machine and orchestrates all services.
 /// It is `@MainActor` isolated because it drives UI updates, and uses `@Observable`
@@ -179,7 +179,7 @@ final class StateManager {
             // Requirement 2.1: Start audio capture
             let levelStream = try await audioEngine.startCapture()
             audioLevelStream = levelStream
-        } catch let error as WispError {
+        } catch let error as WisprError {
             await handleError(error)
         } catch {
             await handleError(.audioRecordingFailed(error.localizedDescription))
@@ -275,10 +275,10 @@ final class StateManager {
             )
             await resetToIdle()
 
-        } catch WispError.emptyTranscription {
+        } catch WisprError.emptyTranscription {
             // Requirement 3.4: Empty transcription — notify user and return to idle
             await handleError(.emptyTranscription)
-        } catch let error as WispError {
+        } catch let error as WisprError {
             await handleError(error)
         } catch {
             await handleError(.transcriptionFailed(error.localizedDescription))
@@ -291,7 +291,7 @@ final class StateManager {
     /// after ~5 seconds.
     ///
     /// **Validates**: Requirement 12.1
-    func handleError(_ error: WispError) async {
+    func handleError(_ error: WisprError) async {
         Log.stateManager.error("handleError — \(error.localizedDescription)")
 
         // Cancel any pending audio capture

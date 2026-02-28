@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// Welcome step that introduces the user to Wisp.
+/// Welcome step that introduces the user to Wispr.
 struct OnboardingWelcomeStep: View {
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
@@ -19,12 +19,12 @@ struct OnboardingWelcomeStep: View {
                 isLarge: true
             )
 
-            Text("Welcome to Wisp")
+            Text("Welcome to Wispr")
                 .font(.title)
                 .fontWeight(.bold)
                 .foregroundStyle(theme.primaryTextColor)
 
-            Text("Wisp lets you dictate text anywhere on your Mac using a global hotkey. All transcription happens on-device — your voice never leaves your computer.")
+            Text("Wispr lets you dictate text anywhere on your Mac using a global hotkey. All transcription happens on-device — your voice never leaves your computer.")
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
@@ -32,6 +32,6 @@ struct OnboardingWelcomeStep: View {
                 .lineSpacing(5)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Welcome to Wisp. Dictate text anywhere on your Mac. All transcription happens on-device.")
+        .accessibilityLabel("Welcome to Wispr. Dictate text anywhere on your Mac. All transcription happens on-device.")
     }
 }

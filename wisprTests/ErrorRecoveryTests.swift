@@ -26,14 +26,14 @@ struct WhisperServiceReloadRetryTests {
         do {
             try await service.reloadModelWithRetry(maxAttempts: 1)
             Issue.record("Expected reloadModelWithRetry to throw when no active model is set")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelLoadFailed(let message) = error {
                 #expect(message.contains("No active model"))
             } else {
                 Issue.record("Expected modelLoadFailed error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 
@@ -57,14 +57,14 @@ struct WhisperServiceReloadRetryTests {
         do {
             try await service.reloadModelWithRetry(maxAttempts: 2)
             Issue.record("Expected reloadModelWithRetry to throw")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelLoadFailed = error {
                 // Expected — either "No active model" or exhausted retries
             } else {
                 Issue.record("Expected modelLoadFailed error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 
@@ -78,14 +78,14 @@ struct WhisperServiceReloadRetryTests {
         do {
             try await service.reloadModelWithRetry(maxAttempts: 1)
             Issue.record("Expected error with single attempt")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelLoadFailed = error {
                 // Success — correctly reports failure
             } else {
                 Issue.record("Expected modelLoadFailed, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 

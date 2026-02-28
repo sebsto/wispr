@@ -181,7 +181,7 @@ struct SettingsView: View {
     private var languageSection: some View {
         Section {
             Toggle("Auto-Detect Language", isOn: autoDetectBinding)
-                .accessibilityHint("When enabled, Wisp automatically detects the spoken language")
+                .accessibilityHint("When enabled, Wispr automatically detects the spoken language")
 
             if !settingsStore.languageMode.isAutoDetect {
                 Picker("Language", selection: selectedLanguageCodeBinding) {
@@ -213,7 +213,7 @@ struct SettingsView: View {
                 .accessibilityHint("When enabled, a floating overlay appears while recording")
 
             Toggle("Launch at Login", isOn: $store.launchAtLogin)
-                .accessibilityHint("When enabled, Wisp starts automatically when you log in")
+                .accessibilityHint("When enabled, Wispr starts automatically when you log in")
         } header: {
             SectionHeader(
                 title: "General",

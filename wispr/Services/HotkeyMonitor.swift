@@ -71,8 +71,8 @@ final class HotkeyMonitor {
     /// - Parameters:
     ///   - keyCode: The virtual key code (e.g., 49 for Space).
     ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048).
-    /// - Throws: `WispError.hotkeyConflict` if the combination is system-reserved,
-    ///           `WispError.hotkeyRegistrationFailed` if Carbon registration fails.
+    /// - Throws: `WisprError.hotkeyConflict` if the combination is system-reserved,
+    ///           `WisprError.hotkeyRegistrationFailed` if Carbon registration fails.
     func register(keyCode: UInt32, modifiers: UInt32) throws {
         // Clean up any existing registration
         unregister()
@@ -80,7 +80,7 @@ final class HotkeyMonitor {
         // Check for system-reserved conflicts
         let shortcutKey = "\(keyCode)-\(modifiers)"
         if Self.reservedShortcuts.contains(shortcutKey) {
-            throw WispError.hotkeyConflict(
+            throw WisprError.hotkeyConflict(
                 "The shortcut conflicts with a system-reserved shortcut."
             )
         }
@@ -101,7 +101,7 @@ final class HotkeyMonitor {
 
         guard status == noErr, let ref = hotKeyRef else {
             removeEventHandler()
-            throw WispError.hotkeyRegistrationFailed
+            throw WisprError.hotkeyRegistrationFailed
         }
 
         self.hotkeyRef = ref
@@ -128,7 +128,7 @@ final class HotkeyMonitor {
     /// - Parameters:
     ///   - keyCode: The new virtual key code.
     ///   - modifiers: The new Carbon modifier flags.
-    /// - Throws: `WispError.hotkeyConflict` or `WispError.hotkeyRegistrationFailed`.
+    /// - Throws: `WisprError.hotkeyConflict` or `WisprError.hotkeyRegistrationFailed`.
     func updateHotkey(keyCode: UInt32, modifiers: UInt32) throws {
         let previousKeyCode = registeredKeyCode
         let previousModifiers = registeredModifiers
@@ -259,7 +259,7 @@ final class HotkeyMonitor {
         )
 
         guard status == noErr, let ref = handlerRef else {
-            throw WispError.hotkeyRegistrationFailed
+            throw WisprError.hotkeyRegistrationFailed
         }
 
         self.eventHandlerRef = ref

@@ -1,15 +1,15 @@
 //
-//  WispError.swift
+//  WisprError.swift
 //  wispr
 //
-//  Error types for the Wisp voice dictation application.
+//  Error types for the Wispr voice dictation application.
 //
 
 import Foundation
 
-/// Comprehensive error type for all Wisp operations.
+/// Comprehensive error type for all Wispr operations.
 /// Conforms to Error, Sendable (for Swift 6 concurrency), and Equatable.
-enum WispError: Error, Sendable, Equatable {
+enum WisprError: Error, Sendable, Equatable {
     // MARK: - Permissions
     
     /// Microphone permission has been denied by the user.
@@ -73,7 +73,7 @@ enum WispError: Error, Sendable, Equatable {
 
 // MARK: - LocalizedError
 
-extension WispError: LocalizedError {
+extension WisprError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .microphonePermissionDenied:

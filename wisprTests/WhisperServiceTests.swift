@@ -101,7 +101,7 @@ struct WhisperServiceTests {
                 // consume stream
             }
             // Expected to fail - model doesn't exist
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // Verify we get a proper error (either download failed or model not found)
             if case .modelDownloadFailed = error {
                 // Success - error handling works
@@ -111,7 +111,7 @@ struct WhisperServiceTests {
                 Issue.record("Expected modelDownloadFailed or modelValidationFailed error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -164,14 +164,14 @@ struct WhisperServiceTests {
         do {
             try await service.deleteModel("nonexistent-model-xyz")
             Issue.record("Expected deleteModel to throw error for non-existent model")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelDeletionFailed(let message) = error {
                 #expect(message.contains("not found"))
             } else {
                 Issue.record("Expected modelDeletionFailed error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -187,14 +187,14 @@ struct WhisperServiceTests {
         do {
             try await service.loadModel("nonexistent-model-xyz")
             Issue.record("Expected loadModel to throw error for non-existent model")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelLoadFailed = error {
                 // Success - expected error
             } else {
                 Issue.record("Expected modelLoadFailed error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -251,14 +251,14 @@ struct WhisperServiceTests {
         do {
             _ = try await service.transcribe(audioData, language: .autoDetect)
             Issue.record("Expected transcribe to throw error when no model is loaded")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelNotDownloaded = error {
                 // Success - expected error
             } else {
                 Issue.record("Expected modelNotDownloaded error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -273,7 +273,7 @@ struct WhisperServiceTests {
         // This will fail because no model is loaded, but we're testing the language parameter handling
         do {
             _ = try await service.transcribe(audioData, language: .autoDetect)
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // Expected to fail with modelNotDownloaded
             if case .modelNotDownloaded = error {
                 // Success - the language parameter was processed correctly
@@ -281,7 +281,7 @@ struct WhisperServiceTests {
                 Issue.record("Expected modelNotDownloaded error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -296,7 +296,7 @@ struct WhisperServiceTests {
         // This will fail because no model is loaded, but we're testing the language parameter handling
         do {
             _ = try await service.transcribe(audioData, language: .specific(code: "en"))
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // Expected to fail with modelNotDownloaded
             if case .modelNotDownloaded = error {
                 // Success - the language parameter was processed correctly
@@ -304,7 +304,7 @@ struct WhisperServiceTests {
                 Issue.record("Expected modelNotDownloaded error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -319,7 +319,7 @@ struct WhisperServiceTests {
         // This will fail because no model is loaded, but we're testing the language parameter handling
         do {
             _ = try await service.transcribe(audioData, language: .pinned(code: "fr"))
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // Expected to fail with modelNotDownloaded
             if case .modelNotDownloaded = error {
                 // Success - the language parameter was processed correctly
@@ -327,7 +327,7 @@ struct WhisperServiceTests {
                 Issue.record("Expected modelNotDownloaded error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     
@@ -344,14 +344,14 @@ struct WhisperServiceTests {
         // The fallback logic is tested indirectly through the deleteModel implementation
         do {
             try await service.deleteModel("nonexistent-model-xyz")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelDeletionFailed = error {
                 // Expected - model doesn't exist
             } else {
                 Issue.record("Expected modelDeletionFailed error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
     

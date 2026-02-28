@@ -118,7 +118,7 @@ struct AudioEngineTests {
             
             // Clean up
             await engine.cancelCapture()
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")
@@ -141,7 +141,7 @@ struct AudioEngineTests {
             do {
                 let _ = try await engine.startCapture()
                 Issue.record("Should not allow concurrent capture sessions")
-            } catch let error as WispError {
+            } catch let error as WisprError {
                 if case .audioRecordingFailed(let message) = error {
                     #expect(message.contains("Already capturing"), "Should report already capturing")
                 } else {
@@ -151,7 +151,7 @@ struct AudioEngineTests {
             
             // Clean up
             await engine.cancelCapture()
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")
@@ -179,7 +179,7 @@ struct AudioEngineTests {
             // Verify we got data (may be empty if no audio was captured)
             #expect(true, "Should return Data object")
             
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")
@@ -218,7 +218,7 @@ struct AudioEngineTests {
             // Clean up
             await engine.cancelCapture()
             
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")
@@ -269,7 +269,7 @@ struct AudioEngineTests {
             // Clean up
             await engine.cancelCapture()
             
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")
@@ -314,7 +314,7 @@ struct AudioEngineTests {
             
             #expect(count >= 0, "Stream should terminate after stopCapture")
             
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")
@@ -385,7 +385,7 @@ struct AudioEngineTests {
                 let _ = await engine.stopCapture()
                 #expect(true, "Should return data")
                 
-            } catch let error as WispError {
+            } catch let error as WisprError {
                 // In test environment without microphone permission, this is expected
                 if case .audioRecordingFailed = error {
                     #expect(true, "Audio recording may fail in test environment without permissions")
@@ -414,7 +414,7 @@ struct AudioEngineTests {
             
             #expect(true, "Should handle multiple cancel calls safely")
             
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // In test environment without microphone permission, this is expected
             if case .audioRecordingFailed = error {
                 #expect(true, "Audio recording may fail in test environment without permissions")

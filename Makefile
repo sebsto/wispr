@@ -2,7 +2,7 @@
 #
 # Handy targets for inspecting and cleaning local app data.
 
-BUNDLE_ID    := com.stormacq.app.macos.wispr
+BUNDLE_ID    := com.stormacq.mac.wispr
 CONTAINER    := $(HOME)/Library/Containers/$(BUNDLE_ID)/Data
 MODEL_DIR    := $(CONTAINER)/Library/Application Support/wispr
 

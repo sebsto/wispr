@@ -15,7 +15,7 @@ struct ContentView: View {
                 .foregroundStyle(.tint)
                 .accessibilityHidden(true)
 
-            Text("Wisp")
+            Text("Wispr")
                 .font(.largeTitle)
                 .fontWeight(.semibold)
 

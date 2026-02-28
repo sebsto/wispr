@@ -2,7 +2,7 @@ import SwiftUI
 import Observation
 import AppKit
 
-/// Manages visual theming for the Wisp application including Liquid Glass materials,
+/// Manages visual theming for the Wispr application including Liquid Glass materials,
 /// semantic colors, SF Symbols, system appearance detection, and accessibility adaptations.
 ///
 /// UIThemeEngine is the single source of truth for all visual styling decisions.

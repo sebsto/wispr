@@ -3,7 +3,7 @@ import AVFAudio
 import ApplicationServices
 import AppKit
 
-/// Manages microphone and accessibility permissions for the Wisp application.
+/// Manages microphone and accessibility permissions for the Wispr application.
 /// This class checks permission status, requests permissions, and monitors changes.
 @MainActor
 @Observable

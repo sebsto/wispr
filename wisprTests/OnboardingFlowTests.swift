@@ -390,12 +390,12 @@ struct OnboardingFlowAccessibilityTests {
     func testStepAccessibilityLabels() {
         // The OnboardingFlow uses these accessibility labels for step content:
         let expectedLabels: [OnboardingStep: String] = [
-            .welcome: "Welcome to Wisp. Dictate text anywhere on your Mac. All transcription happens on-device.",
+            .welcome: "Welcome to Wispr. Dictate text anywhere on your Mac. All transcription happens on-device.",
             .microphonePermission: "Microphone Permission step",
             .accessibilityPermission: "Accessibility Permission step",
             .modelSelection: "Model Selection step",
             .testDictation: "Test Dictation step",
-            .completion: "Setup complete. Wisp is ready. Press Option Space to start dictating.",
+            .completion: "Setup complete. Wispr is ready. Press Option Space to start dictating.",
         ]
 
         // Verify all steps have labels defined

@@ -1,4 +1,4 @@
-# Wisp Voice Dictation App - User Stories Specification
+# Wispr Voice Dictation App - User Stories Specification
 
 ## Core Functionality
 

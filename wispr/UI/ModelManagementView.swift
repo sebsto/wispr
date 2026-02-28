@@ -85,7 +85,7 @@ struct ModelManagementView: View {
         .alert("No Models Available", isPresented: $showNoModelsAlert) {
             Button("OK") {}
         } message: {
-            Text("All models have been removed. Please download a model to continue using Wisp.")
+            Text("All models have been removed. Please download a model to continue using Wispr.")
         }
         .alert("Error", isPresented: .init(
             get: { errorMessage != nil },

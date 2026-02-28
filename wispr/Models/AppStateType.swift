@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Represents the current state of the Wisp application
+/// Represents the current state of the Wispr application
 enum AppStateType: Sendable, Equatable, CustomStringConvertible {
     case idle
     case recording

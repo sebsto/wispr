@@ -297,14 +297,14 @@ struct EndToEndIntegrationTests {
         do {
             _ = try await services.whisperService.transcribe(audioData, language: .autoDetect)
             Issue.record("Expected transcribe to throw when no model is loaded")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelNotDownloaded = error {
                 // Expected — correct error for no loaded model
             } else {
                 Issue.record("Expected modelNotDownloaded error, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 

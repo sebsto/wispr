@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// Final step confirming that Wisp is configured and ready to use.
+/// Final step confirming that Wispr is configured and ready to use.
 struct OnboardingCompletionStep: View {
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
@@ -28,7 +28,7 @@ struct OnboardingCompletionStep: View {
                 .fontWeight(.bold)
                 .foregroundStyle(theme.primaryTextColor)
 
-            Text("Wisp is configured and ready to use. Press ⌥Space to start dictating at any time.")
+            Text("Wispr is configured and ready to use. Press ⌥Space to start dictating at any time.")
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
@@ -45,6 +45,6 @@ struct OnboardingCompletionStep: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Setup complete. Wisp is ready. Press Option Space to start dictating.")
+        .accessibilityLabel("Setup complete. Wispr is ready. Press Option Space to start dictating.")
     }
 }

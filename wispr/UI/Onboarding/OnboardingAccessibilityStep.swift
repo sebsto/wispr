@@ -26,7 +26,7 @@ struct OnboardingAccessibilityStep: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(theme.primaryTextColor)
 
-            Text("Wisp needs accessibility access to insert transcribed text directly at your cursor position in any application. This permission must be granted in System Settings.")
+            Text("Wispr needs accessibility access to insert transcribed text directly at your cursor position in any application. This permission must be granted in System Settings.")
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
@@ -49,7 +49,7 @@ struct OnboardingAccessibilityStep: View {
                 .accessibilityLabel("Open System Settings")
                 .accessibilityHint("Opens System Settings to the Accessibility privacy pane")
 
-                Text("After enabling Wisp in System Settings, return here to continue.")
+                Text("After enabling Wispr in System Settings, return here to continue.")
                     .font(.callout)
                     .foregroundStyle(theme.secondaryTextColor)
                     .multilineTextAlignment(.center)

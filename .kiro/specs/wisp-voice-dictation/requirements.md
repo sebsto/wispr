@@ -2,11 +2,11 @@
 
 ## Introduction
 
-Wisp is a privacy-first macOS menu bar application for voice dictation. It captures speech via the system microphone, transcribes it on-device using a Whisper model (WhisperKit), and inserts the resulting text at the user's cursor position in any application. All processing happens locally — no audio data leaves the machine. The app is activated via a configurable global hotkey (default ⌥Space) and lives entirely in the macOS menu bar.
+Wispr is a privacy-first macOS menu bar application for voice dictation. It captures speech via the system microphone, transcribes it on-device using a Whisper model (WhisperKit), and inserts the resulting text at the user's cursor position in any application. All processing happens locally — no audio data leaves the machine. The app is activated via a configurable global hotkey (default ⌥Space) and lives entirely in the macOS menu bar.
 
 ## Glossary
 
-- **Wisp**: The macOS menu bar voice dictation application described in this document.
+- **Wispr**: The macOS menu bar voice dictation application described in this document.
 - **Audio_Engine**: The component responsible for capturing microphone audio using AVAudioEngine.
 - **Whisper_Service**: The component responsible for on-device speech-to-text transcription using WhisperKit.
 - **Text_Insertion_Service**: The component responsible for inserting transcribed text at the active cursor position via macOS Accessibility APIs or clipboard fallback.
@@ -19,7 +19,7 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 - **Settings_Store**: The persistent storage for user preferences using UserDefaults/AppStorage.
 - **Recording_Overlay**: The floating UI window displayed during an active Recording_Session showing audio feedback.
 - **Onboarding_Flow**: The multi-step first-launch setup wizard that guides the user through permissions, model download, and an interactive test dictation before normal use.
-- **UI_Theme_Engine**: The component responsible for managing visual appearance, system appearance adaptation, Liquid Glass materials, and animation coordination across all Wisp views.
+- **UI_Theme_Engine**: The component responsible for managing visual appearance, system appearance adaptation, Liquid Glass materials, and animation coordination across all Wispr views.
 - **Liquid_Glass**: The translucent, glass-like design language introduced in macOS 26 (Tahoe) that uses layered translucency, vibrancy, and depth to create a fluid, premium visual aesthetic.
 
 ## Requirements
@@ -39,7 +39,7 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 ### Requirement 2: Audio Recording
 
-**User Story:** As a user, I want Wisp to capture my speech through the microphone so that it can be transcribed into text.
+**User Story:** As a user, I want Wispr to capture my speech through the microphone so that it can be transcribed into text.
 
 #### Acceptance Criteria
 
@@ -77,7 +77,7 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 ### Requirement 5: Menu Bar Interface
 
-**User Story:** As a user, I want Wisp to live in my menu bar so that it is always accessible without cluttering my dock or desktop.
+**User Story:** As a user, I want Wispr to live in my menu bar so that it is always accessible without cluttering my dock or desktop.
 
 #### Acceptance Criteria
 
@@ -85,16 +85,16 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 2. THE Menu_Bar_Controller SHALL display a microphone icon that reflects the current application state: idle, recording, or processing.
 3. WHEN the user clicks the menu bar icon, THE Menu_Bar_Controller SHALL display a dropdown menu with options: Start/Stop Recording, Settings, and Quit.
 4. WHEN the user selects "Start Recording" from the menu, THE Menu_Bar_Controller SHALL signal the State_Manager to begin a new Recording_Session.
-5. WHEN the user selects "Quit" from the menu, THE Wisp application SHALL clean up all resources (unregister hotkeys, stop audio engine, release Whisper_Model) and terminate.
-6. THE Wisp application SHALL set its activation policy to accessory (LSUIElement) so that it does not appear in the Dock.
+5. WHEN the user selects "Quit" from the menu, THE Wispr application SHALL clean up all resources (unregister hotkeys, stop audio engine, release Whisper_Model) and terminate.
+6. THE Wispr application SHALL set its activation policy to accessory (LSUIElement) so that it does not appear in the Dock.
 
 ### Requirement 6: Permission Management
 
-**User Story:** As a user, I want Wisp to guide me through granting necessary permissions so that all features work correctly on first launch.
+**User Story:** As a user, I want Wispr to guide me through granting necessary permissions so that all features work correctly on first launch.
 
 #### Acceptance Criteria
 
-1. WHEN Wisp launches for the first time, THE Permission_Manager SHALL check the status of microphone and accessibility permissions.
+1. WHEN Wispr launches for the first time, THE Permission_Manager SHALL check the status of microphone and accessibility permissions.
 2. IF microphone permission has not been granted, THEN THE Permission_Manager SHALL request microphone access through the system permission dialog.
 3. IF accessibility permission has not been granted, THEN THE Permission_Manager SHALL display instructions guiding the user to System Settings > Privacy & Security > Accessibility.
 4. WHILE any required permission is not granted, THE Permission_Manager SHALL prevent Recording_Sessions from starting and display a status message indicating which permission is missing.
@@ -146,15 +146,15 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 ### Requirement 10: Settings and Preferences
 
-**User Story:** As a user, I want a settings interface to configure hotkeys, audio devices, model selection, and launch behavior so that I can tailor Wisp to my workflow.
+**User Story:** As a user, I want a settings interface to configure hotkeys, audio devices, model selection, and launch behavior so that I can tailor Wispr to my workflow.
 
 #### Acceptance Criteria
 
-1. WHEN the user opens settings, THE Wisp application SHALL display a preferences window with sections for: Hotkey Configuration, Audio Device, Whisper Model, and General.
+1. WHEN the user opens settings, THE Wispr application SHALL display a preferences window with sections for: Hotkey Configuration, Audio Device, Whisper Model, and General.
 2. THE Settings_Store SHALL persist all user preferences using UserDefaults.
-3. WHEN the user enables "Launch at Login," THE Wisp application SHALL register itself to start automatically at macOS login using ServiceManagement.
-4. WHEN the user disables "Launch at Login," THE Wisp application SHALL unregister itself from macOS login items.
-5. WHEN the user changes any setting, THE Wisp application SHALL apply the change immediately without requiring an application restart.
+3. WHEN the user enables "Launch at Login," THE Wispr application SHALL register itself to start automatically at macOS login using ServiceManagement.
+4. WHEN the user disables "Launch at Login," THE Wispr application SHALL unregister itself from macOS login items.
+5. WHEN the user changes any setting, THE Wispr application SHALL apply the change immediately without requiring an application restart.
 
 ### Requirement 11: Privacy and Data Handling
 
@@ -162,14 +162,14 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 #### Acceptance Criteria
 
-1. THE Wisp application SHALL perform all audio capture, transcription, and text insertion without establishing any outbound network connections for data processing.
+1. THE Wispr application SHALL perform all audio capture, transcription, and text insertion without establishing any outbound network connections for data processing.
 2. WHEN a Recording_Session completes (successfully or with an error), THE Audio_Engine SHALL delete any temporary audio files from disk within 5 seconds.
-3. THE Wisp application SHALL function fully without an active internet connection, provided a Whisper_Model is already downloaded.
-4. THE Wisp application SHALL NOT log, persist, or transmit any transcribed text content beyond the immediate insertion operation.
+3. THE Wispr application SHALL function fully without an active internet connection, provided a Whisper_Model is already downloaded.
+4. THE Wispr application SHALL NOT log, persist, or transmit any transcribed text content beyond the immediate insertion operation.
 
 ### Requirement 12: Error Recovery and Resilience
 
-**User Story:** As a user, I want Wisp to handle errors gracefully so that temporary issues do not require restarting the application.
+**User Story:** As a user, I want Wispr to handle errors gracefully so that temporary issues do not require restarting the application.
 
 #### Acceptance Criteria
 
@@ -181,11 +181,11 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 ### Requirement 13: First-Launch Onboarding Experience
 
-**User Story:** As a new user, I want a guided, polished onboarding experience on first launch so that I can set up Wisp step by step and feel confident the app is ready to use.
+**User Story:** As a new user, I want a guided, polished onboarding experience on first launch so that I can set up Wispr step by step and feel confident the app is ready to use.
 
 #### Acceptance Criteria
 
-1. WHEN Wisp launches and no prior onboarding has been completed, THE Onboarding_Flow SHALL present a multi-step setup wizard as a dedicated window.
+1. WHEN Wispr launches and no prior onboarding has been completed, THE Onboarding_Flow SHALL present a multi-step setup wizard as a dedicated window.
 2. THE Onboarding_Flow SHALL display a step indicator showing the current step, total number of steps, and progress through the setup process.
 3. THE Onboarding_Flow SHALL present each permission request (microphone, accessibility) on its own dedicated step with a plain-language explanation of why the permission is needed and what functionality it enables.
 4. WHEN the user grants a permission during the Onboarding_Flow, THE Onboarding_Flow SHALL display a confirmation of the granted permission and enable the "Continue" action to proceed to the next step.
@@ -195,32 +195,32 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 8. WHILE the selected Whisper_Model is downloading, THE Onboarding_Flow SHALL keep the "Continue" action disabled until the download completes successfully.
 9. WHEN the model download completes, THE Onboarding_Flow SHALL present an interactive test-dictation step where the user can press the hotkey, speak a short phrase, and see the transcribed text appear in the onboarding window.
 10. THE Onboarding_Flow SHALL allow the user to skip the test-dictation step but SHALL NOT allow skipping the permission or model-download steps.
-11. WHEN all required onboarding steps are completed, THE Onboarding_Flow SHALL display a completion screen confirming that Wisp is configured and ready to use.
+11. WHEN all required onboarding steps are completed, THE Onboarding_Flow SHALL display a completion screen confirming that Wispr is configured and ready to use.
 12. WHEN the user dismisses the completion screen, THE Settings_Store SHALL persist the onboarding-completed flag and THE Onboarding_Flow SHALL not appear on subsequent launches.
 13. THE Onboarding_Flow SHALL use smooth animated transitions between steps and present a visually cohesive design consistent with macOS Human Interface Guidelines.
-14. IF the user force-quits Wisp during the Onboarding_Flow, THEN THE Onboarding_Flow SHALL resume from the last incomplete required step on the next launch.
+14. IF the user force-quits Wispr during the Onboarding_Flow, THEN THE Onboarding_Flow SHALL resume from the last incomplete required step on the next launch.
 15. IF a model download fails during the Onboarding_Flow, THEN THE Onboarding_Flow SHALL display the error and offer a retry action without leaving the current step.
-16. IF the user closes the Onboarding_Flow window without completing all required steps, THEN THE Wisp application SHALL terminate without persisting the onboarding-completed flag, ensuring the Onboarding_Flow appears again on the next launch.
+16. IF the user closes the Onboarding_Flow window without completing all required steps, THEN THE Wispr application SHALL terminate without persisting the onboarding-completed flag, ensuring the Onboarding_Flow appears again on the next launch.
 
 ### Requirement 14: Modern macOS Visual Design and UI Quality
 
-**User Story:** As a user, I want Wisp to look and feel like a premium, native macOS 26 application with a modern, polished interface so that it blends seamlessly into my desktop environment.
+**User Story:** As a user, I want Wispr to look and feel like a premium, native macOS 26 application with a modern, polished interface so that it blends seamlessly into my desktop environment.
 
 #### Acceptance Criteria
 
-1. THE UI_Theme_Engine SHALL use SF Symbols for all iconography throughout the Wisp application to maintain visual consistency with macOS system applications.
+1. THE UI_Theme_Engine SHALL use SF Symbols for all iconography throughout the Wispr application to maintain visual consistency with macOS system applications.
 2. THE Menu_Bar_Controller SHALL display a custom menu bar icon rendered as a template image that appears sharp at @1x, @2x, and @3x Retina resolutions.
 3. THE UI_Theme_Engine SHALL apply Liquid_Glass materials (.ultraThinMaterial, .regularMaterial) to all overlay and popover surfaces, consistent with the macOS 26 Tahoe design language.
-4. WHEN the macOS system appearance changes between light and dark mode, THE UI_Theme_Engine SHALL adapt all Wisp views to match the active system appearance without requiring an application restart.
+4. WHEN the macOS system appearance changes between light and dark mode, THE UI_Theme_Engine SHALL adapt all Wispr views to match the active system appearance without requiring an application restart.
 5. THE UI_Theme_Engine SHALL use semantic system colors (e.g., .primary, .secondary, .accent) for all text and UI elements so that colors adapt correctly to light mode, dark mode, and increased-contrast accessibility settings.
-6. THE Wisp application SHALL use SF Pro system fonts with Dynamic Type support for all text rendering, following the macOS typographic scale for consistent hierarchy.
-7. THE Wisp application SHALL build all user-facing views using SwiftUI, resorting to AppKit only for system-level integrations (NSStatusItem, global hotkey registration, accessibility API access).
+6. THE Wispr application SHALL use SF Pro system fonts with Dynamic Type support for all text rendering, following the macOS typographic scale for consistent hierarchy.
+7. THE Wispr application SHALL build all user-facing views using SwiftUI, resorting to AppKit only for system-level integrations (NSStatusItem, global hotkey registration, accessibility API access).
 8. WHEN the Recording_Overlay appears or dismisses, THE UI_Theme_Engine SHALL animate the transition using SwiftUI spring animations with a duration no longer than 300 milliseconds.
 9. WHEN the application state changes (idle, recording, processing), THE Menu_Bar_Controller icon and THE Recording_Overlay SHALL transition between visual states using smooth, interruptible SwiftUI animations.
 10. THE Recording_Overlay SHALL render as a compact, borderless floating window with rounded corners and a drop shadow consistent with macOS system window styling.
-11. THE Wisp application SHALL maintain consistent spacing using an 8-point grid system and standard macOS layout margins across all views.
+11. THE Wispr application SHALL maintain consistent spacing using an 8-point grid system and standard macOS layout margins across all views.
 12. THE Onboarding_Flow and Settings views SHALL apply Liquid_Glass translucency to their window backgrounds, matching the layered depth aesthetic of macOS 26 system preferences.
-13. WHEN the user interacts with buttons or controls in any Wisp view, THE UI_Theme_Engine SHALL provide visual feedback (highlight, scale, or opacity change) within 100 milliseconds of the interaction.
+13. WHEN the user interacts with buttons or controls in any Wispr view, THE UI_Theme_Engine SHALL provide visual feedback (highlight, scale, or opacity change) within 100 milliseconds of the interaction.
 
 ### Requirement 15: Technology Stack and Architecture Constraints
 
@@ -228,21 +228,21 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 #### Acceptance Criteria
 
-1. THE Wisp application SHALL compile under Swift 6 with strict concurrency checking enabled across all targets.
-2. THE Wisp application SHALL build all user-facing views exclusively with SwiftUI; AppKit types (such as NSStatusItem) SHALL only be used where SwiftUI provides no equivalent API.
-3. THE Wisp application SHALL use Swift Concurrency (async/await, actors, structured concurrency) for all asynchronous operations; Grand Central Dispatch, DispatchQueue, and Combine-based asynchronous flows SHALL NOT be used.
-4. THE Wisp application SHALL use structured concurrency patterns (async let, TaskGroup, AsyncStream) for all concurrent operations. Task {} inside AsyncStream closures is permitted as it represents structured concurrency (task is scoped to stream lifetime with automatic cancellation). Task.detached {} is prohibited.
-5. THE Wisp application SHALL use the swift-testing framework for all automated tests; XCTest SHALL NOT be used.
+1. THE Wispr application SHALL compile under Swift 6 with strict concurrency checking enabled across all targets.
+2. THE Wispr application SHALL build all user-facing views exclusively with SwiftUI; AppKit types (such as NSStatusItem) SHALL only be used where SwiftUI provides no equivalent API.
+3. THE Wispr application SHALL use Swift Concurrency (async/await, actors, structured concurrency) for all asynchronous operations; Grand Central Dispatch, DispatchQueue, and Combine-based asynchronous flows SHALL NOT be used.
+4. THE Wispr application SHALL use structured concurrency patterns (async let, TaskGroup, AsyncStream) for all concurrent operations. Task {} inside AsyncStream closures is permitted as it represents structured concurrency (task is scoped to stream lifetime with automatic cancellation). Task.detached {} is prohibited.
+5. THE Wispr application SHALL use the swift-testing framework for all automated tests; XCTest SHALL NOT be used.
 6. THE Whisper_Service SHALL use WhisperKit as the sole speech-to-text engine for on-device transcription.
-7. THE Wisp application SHALL contain no Objective-C bridging headers, no @objc annotations, and no NSObject subclasses unless a specific macOS system API has no pure-Swift alternative.
-8. THE Wisp application SHALL be written in 100% pure Swift, preferring Swift-native APIs over Foundation or AppKit equivalents where a Swift-native option exists.
-9. THE Wisp application SHALL use Swift Package Manager as the sole dependency management tool.
-10. THE Wisp application SHALL target macOS 26 (Tahoe) as the minimum deployment target.
-11. THE Wisp application SHALL use the @Observable macro (Observation framework) for all observable state; ObservableObject and Combine-based observation SHALL NOT be used.
+7. THE Wispr application SHALL contain no Objective-C bridging headers, no @objc annotations, and no NSObject subclasses unless a specific macOS system API has no pure-Swift alternative.
+8. THE Wispr application SHALL be written in 100% pure Swift, preferring Swift-native APIs over Foundation or AppKit equivalents where a Swift-native option exists.
+9. THE Wispr application SHALL use Swift Package Manager as the sole dependency management tool.
+10. THE Wispr application SHALL target macOS 26 (Tahoe) as the minimum deployment target.
+11. THE Wispr application SHALL use the @Observable macro (Observation framework) for all observable state; ObservableObject and Combine-based observation SHALL NOT be used.
 
 ### Requirement 16: Multi-Language Transcription Support
 
-**User Story:** As a multilingual user, I want Wisp to transcribe speech in multiple languages so that I can dictate in whichever language I am speaking without manual reconfiguration.
+**User Story:** As a multilingual user, I want Wispr to transcribe speech in multiple languages so that I can dictate in whichever language I am speaking without manual reconfiguration.
 
 #### Acceptance Criteria
 
@@ -260,26 +260,26 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 
 ### Requirement 17: Accessibility Support for Visually Impaired Users
 
-**User Story:** As a visually impaired user, I want all Wisp UI elements to be fully accessible so that I can use the application effectively with assistive technologies.
+**User Story:** As a visually impaired user, I want all Wispr UI elements to be fully accessible so that I can use the application effectively with assistive technologies.
 
 #### Acceptance Criteria
 
-1. THE Wisp application SHALL provide descriptive VoiceOver accessibility labels and hints on all UI elements, including buttons, controls, status indicators, and informational text.
-2. THE Wisp application SHALL make all interactive controls navigable via keyboard using Tab, arrow keys, Enter, and Escape without requiring a mouse or trackpad.
+1. THE Wispr application SHALL provide descriptive VoiceOver accessibility labels and hints on all UI elements, including buttons, controls, status indicators, and informational text.
+2. THE Wispr application SHALL make all interactive controls navigable via keyboard using Tab, arrow keys, Enter, and Escape without requiring a mouse or trackpad.
 3. WHEN the State_Manager transitions between states (recording, processing, idle, error), THE Recording_Overlay SHALL announce the state change (e.g., "Recording started," "Processing speech," "Text inserted") via VoiceOver accessibility notifications.
 4. WHEN the macOS Increase Contrast accessibility setting is enabled, THE UI_Theme_Engine SHALL render all UI elements with higher contrast borders, backgrounds, and text colors that meet the increased contrast requirements.
 5. WHILE the macOS Reduce Motion accessibility setting is enabled, THE UI_Theme_Engine SHALL disable all non-essential animations, including spring transitions, waveform animations, and overlay entrance effects.
 6. WHILE the macOS Reduce Transparency accessibility setting is enabled, THE UI_Theme_Engine SHALL replace all Liquid_Glass translucent materials with opaque background fills.
-7. THE Wisp application SHALL respect the macOS Dynamic Type and text size accessibility settings, scaling all text elements proportionally to the user-configured text size.
+7. THE Wispr application SHALL respect the macOS Dynamic Type and text size accessibility settings, scaling all text elements proportionally to the user-configured text size.
 8. WHILE keyboard navigation is active, THE UI_Theme_Engine SHALL display a visible focus indicator on the currently focused interactive element.
 9. THE Onboarding_Flow SHALL be fully navigable via VoiceOver, with each step, instruction, button, and progress indicator properly labeled and announced.
 10. THE Menu_Bar_Controller SHALL expose all menu bar interactions (icon activation, dropdown menu items, language selection) as accessible elements navigable via VoiceOver.
-11. WHEN an error message is displayed or a status change occurs, THE Wisp application SHALL post the message to assistive technologies using appropriate accessibility notification APIs so that screen readers announce the change.
-12. THE Wisp application SHALL size all interactive controls (buttons, toggles, menu items) to a minimum target size of 44×44 points, following Apple Human Interface Guidelines for accessibility.
+11. WHEN an error message is displayed or a status change occurs, THE Wispr application SHALL post the message to assistive technologies using appropriate accessibility notification APIs so that screen readers announce the change.
+12. THE Wispr application SHALL size all interactive controls (buttons, toggles, menu items) to a minimum target size of 44×44 points, following Apple Human Interface Guidelines for accessibility.
 
 ### Requirement 18: Xcode MCP Tool Integration for Development Workflow
 
-**User Story:** As a developer implementing Wisp, I want all code editing, building, testing, and debugging operations to be performed through the Xcode MCP tool starting from a user-provided Xcode project so that the development workflow is consistent and leverages Xcode's native capabilities.
+**User Story:** As a developer implementing Wispr, I want all code editing, building, testing, and debugging operations to be performed through the Xcode MCP tool starting from a user-provided Xcode project so that the development workflow is consistent and leverages Xcode's native capabilities.
 
 #### Acceptance Criteria
 
@@ -293,5 +293,5 @@ Wisp is a privacy-first macOS menu bar application for voice dictation. It captu
 8. THE implementation process SHALL use the Xcode MCP tool for debugging operations, including setting breakpoints, inspecting variables, and analyzing runtime behavior.
 9. THE implementation process SHALL NOT create or modify files directly in the filesystem outside of the Xcode MCP tool's file management capabilities.
 10. THE implementation process SHALL use the Xcode MCP tool to manage project configuration, including build settings, target configuration, and code signing settings.
-11. THE implementation process SHALL use the Xcode MCP tool to add and manage Swift Package Manager dependencies required by the Wisp application.
+11. THE implementation process SHALL use the Xcode MCP tool to add and manage Swift Package Manager dependencies required by the Wispr application.
 12. WHEN compilation errors or warnings occur, THE implementation process SHALL use the Xcode MCP tool to retrieve diagnostic information and resolve issues.

@@ -54,7 +54,7 @@ final class TextInsertionService: TextInserting {
     /// **Validates**: Requirement 4.1 (Accessibility API primary), 4.2 (clipboard fallback)
     ///
     /// - Parameter text: The text to insert
-    /// - Throws: `WispError.textInsertionFailed` if both methods fail
+    /// - Throws: `WisprError.textInsertionFailed` if both methods fail
     func insertText(_ text: String) async throws {
         // Try Accessibility API first (Requirement 4.1)
         do {
@@ -73,7 +73,7 @@ final class TextInsertionService: TextInserting {
     /// **Validates**: Requirement 4.1
     ///
     /// - Parameter text: The text to insert
-    /// - Throws: `WispError.textInsertionFailed` if AX insertion fails
+    /// - Throws: `WisprError.textInsertionFailed` if AX insertion fails
     private func insertViaAccessibility(_ text: String) throws {
         // Get the frontmost application
         let systemWideElement = AXUIElementCreateSystemWide()
@@ -86,12 +86,12 @@ final class TextInsertionService: TextInserting {
         )
         
         guard appResult == .success, let appElement = focusedApp else {
-            throw WispError.textInsertionFailed("Could not get frontmost application")
+            throw WisprError.textInsertionFailed("Could not get frontmost application")
         }
         
         // Safely cast to AXUIElement
         guard let appUIElement = castToAXUIElement(appElement) else {
-            throw WispError.textInsertionFailed("Invalid application element type")
+            throw WisprError.textInsertionFailed("Invalid application element type")
         }
         
         // Get the focused UI element within the app
@@ -103,12 +103,12 @@ final class TextInsertionService: TextInserting {
         )
         
         guard elementResult == .success, let element = focusedElement else {
-            throw WispError.textInsertionFailed("Could not get focused UI element")
+            throw WisprError.textInsertionFailed("Could not get focused UI element")
         }
         
         // Safely cast to AXUIElement
         guard let focusedUIElement = castToAXUIElement(element) else {
-            throw WispError.textInsertionFailed("Invalid focused element type")
+            throw WisprError.textInsertionFailed("Invalid focused element type")
         }
         
         // Check if the element supports text insertion
@@ -120,7 +120,7 @@ final class TextInsertionService: TextInserting {
         )
         
         guard settableResult == .success, isSettable.boolValue else {
-            throw WispError.textInsertionFailed("Focused element does not support text insertion")
+            throw WisprError.textInsertionFailed("Focused element does not support text insertion")
         }
         
         // Get current text value
@@ -177,7 +177,7 @@ final class TextInsertionService: TextInserting {
                 newText as CFTypeRef
             )
             guard insertResult == .success else {
-                throw WispError.textInsertionFailed("Failed to set text value via Accessibility API")
+                throw WisprError.textInsertionFailed("Failed to set text value via Accessibility API")
             }
             return
         }
@@ -192,7 +192,7 @@ final class TextInsertionService: TextInserting {
         )
         
         guard insertResult == .success else {
-            throw WispError.textInsertionFailed("Failed to set text value via Accessibility API")
+            throw WisprError.textInsertionFailed("Failed to set text value via Accessibility API")
         }
         
         // Move cursor to end of inserted text (UTF-16 offset for AX)
@@ -211,7 +211,7 @@ final class TextInsertionService: TextInserting {
     /// **Validates**: Requirement 4.2 (clipboard fallback), 4.5 (restore pasteboard)
     ///
     /// - Parameter text: The text to insert
-    /// - Throws: `WispError.textInsertionFailed` if clipboard insertion fails
+    /// - Throws: `WisprError.textInsertionFailed` if clipboard insertion fails
     private func insertViaClipboard(_ text: String) async throws {
         let pasteboard = NSPasteboard.general
         
@@ -221,14 +221,14 @@ final class TextInsertionService: TextInserting {
         // Clear and set new text
         pasteboard.clearContents()
         guard pasteboard.setString(text, forType: .string) else {
-            throw WispError.textInsertionFailed("Failed to copy text to pasteboard")
+            throw WisprError.textInsertionFailed("Failed to copy text to pasteboard")
         }
         
         // Simulate ⌘V keystroke
         let success = simulateCommandV()
         
         guard success else {
-            throw WispError.textInsertionFailed("Failed to simulate ⌘V keystroke")
+            throw WisprError.textInsertionFailed("Failed to simulate ⌘V keystroke")
         }
         
         // Restore original pasteboard contents after 2 seconds (Requirement 4.5)

@@ -36,7 +36,7 @@ actor AudioEngine {
     
     /// Sets the input device for audio capture
     /// - Parameter deviceID: The AudioDeviceID to use for input
-    /// - Throws: WispError if the device cannot be set
+    /// - Throws: WisprError if the device cannot be set
     func setInputDevice(_ deviceID: AudioDeviceID) throws {
         selectedDeviceID = deviceID
     }
@@ -59,10 +59,10 @@ actor AudioEngine {
     
     /// Starts audio capture and returns a stream of audio levels
     /// - Returns: AsyncStream of Float values representing audio levels (0.0 to 1.0)
-    /// - Throws: WispError if capture cannot be started
+    /// - Throws: WisprError if capture cannot be started
     func startCapture() async throws -> AsyncStream<Float> {
         guard !isCapturing else {
-            throw WispError.audioRecordingFailed("Already capturing")
+            throw WisprError.audioRecordingFailed("Already capturing")
         }
         
         // Create and configure the audio engine
@@ -79,12 +79,12 @@ actor AudioEngine {
             channels: 1,
             interleaved: false
         ) else {
-            throw WispError.audioRecordingFailed("Failed to create 16kHz target format")
+            throw WisprError.audioRecordingFailed("Failed to create 16kHz target format")
         }
         
         // Create converter from system sample rate to 16kHz
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
-            throw WispError.audioRecordingFailed(
+            throw WisprError.audioRecordingFailed(
                 "Failed to create audio converter from \(inputFormat.sampleRate)Hz to 16kHz"
             )
         }
@@ -153,7 +153,7 @@ actor AudioEngine {
             levelContinuation?.finish()
             levelContinuation = nil
             self.engine = nil
-            throw WispError.audioRecordingFailed("Failed to start audio engine: \(error.localizedDescription)")
+            throw WisprError.audioRecordingFailed("Failed to start audio engine: \(error.localizedDescription)")
         }
         
         return stream

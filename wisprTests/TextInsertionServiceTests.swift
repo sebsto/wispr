@@ -17,7 +17,7 @@ import AppKit
 @MainActor
 final class MockTextInsertionService: TextInserting {
     var insertedTexts: [String] = []
-    var shouldThrow: WispError?
+    var shouldThrow: WisprError?
 
     func insertText(_ text: String) async throws {
         if let error = shouldThrow {
@@ -48,7 +48,7 @@ struct TextInsertionServiceTests {
         let mock = MockTextInsertionService()
         mock.shouldThrow = .textInsertionFailed("Simulated failure")
 
-        await #expect(throws: WispError.self) {
+        await #expect(throws: WisprError.self) {
             try await mock.insertText("Should fail")
         }
         #expect(mock.insertedTexts.isEmpty)

@@ -60,7 +60,7 @@ final class MenuBarController {
     private var observationTask: Task<Void, Never>?
 
     /// Key used for the Core Animation pulse on the status button during processing.
-    private static let processingAnimationKey = "wisp.processing.pulse"
+    private static let processingAnimationKey = "wispr.processing.pulse"
 
     /// Retained reference to the settings window.
     private var settingsWindow: NSWindow?
@@ -121,11 +121,11 @@ final class MenuBarController {
         let symbolName = themeEngine.menuBarSymbol(for: .idle)
         let image = NSImage(
             systemSymbolName: symbolName,
-            accessibilityDescription: "Wisp Voice Dictation"
+            accessibilityDescription: "Wispr Voice Dictation"
         )
         image?.isTemplate = true
         button.image = image
-        button.toolTip = "Wisp — Voice Dictation"
+        button.toolTip = "Wispr — Voice Dictation"
 
         statusItem.menu = menu
     }
@@ -185,7 +185,7 @@ final class MenuBarController {
 
         // Quit
         let quitItem = NSMenuItem(
-            title: "Quit Wisp",
+            title: "Quit Wispr",
             action: #selector(MenuBarActionHandler.quitApp(_:)),
             keyEquivalent: "q"
         )
@@ -304,13 +304,13 @@ final class MenuBarController {
         let description: String
         switch state {
         case .idle:
-            description = "Wisp — Idle"
+            description = "Wispr — Idle"
         case .recording:
-            description = "Wisp — Recording"
+            description = "Wispr — Recording"
         case .processing:
-            description = "Wisp — Processing"
+            description = "Wispr — Processing"
         case .error:
-            description = "Wisp — Error"
+            description = "Wispr — Error"
         }
 
         let image = NSImage(
@@ -437,7 +437,7 @@ final class MenuBarController {
 
         let hostingController = NSHostingController(rootView: settingsView)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Wisp Settings"
+        window.title = "Wispr Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.setContentSize(NSSize(width: 560, height: 580))
         window.center()

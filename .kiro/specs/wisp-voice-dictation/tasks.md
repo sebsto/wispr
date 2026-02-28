@@ -1,8 +1,8 @@
-# Implementation Plan: Wisp Voice Dictation
+# Implementation Plan: Wispr Voice Dictation
 
 ## Overview
 
-This implementation plan breaks down the Wisp voice dictation application into discrete, incremental coding tasks. Each task builds on previous work, with early validation through code and testing. The app will be built using Swift 6, SwiftUI, Swift Concurrency, and WhisperKit, targeting macOS 26 (Tahoe).
+This implementation plan breaks down the Wispr voice dictation application into discrete, incremental coding tasks. Each task builds on previous work, with early validation through code and testing. The app will be built using Swift 6, SwiftUI, Swift Concurrency, and WhisperKit, targeting macOS 26 (Tahoe).
 
 **IMPORTANT:** The user will manually create the initial Xcode project and skeleton app structure before starting Task 1. All subsequent tasks use the Xcode MCP tool for file operations, building, testing, and debugging.
 
@@ -26,7 +26,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
     - Use Xcode MCP tool to build and verify compilation
     - _Requirements: 1.1, 2.1, 3.1, 7.1, 8.1, 16.1_
   
-  - [x] 2.2 Create WispError enum using Xcode MCP tool
+  - [x] 2.2 Create WisprError enum using Xcode MCP tool
     - Use Xcode MCP tool to create new Swift file in Models/ directory
     - Define all error cases: permissions, audio, transcription, text insertion, hotkey, model management
     - Conform to `Error`, `Sendable`, `Equatable`
@@ -367,7 +367,7 @@ This implementation plan breaks down the Wisp voice dictation application into d
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 20. Implement application lifecycle and wiring
-  - [x] 20.1 Create WispApp main entry point using Xcode MCP tool
+  - [x] 20.1 Create WisprApp main entry point using Xcode MCP tool
     - Use Xcode MCP tool to create or modify main App file
     - Create SwiftUI App struct with @main
     - Set NSApplication.ActivationPolicy.accessory for menu bar-only mode

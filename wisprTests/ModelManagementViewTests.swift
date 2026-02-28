@@ -224,14 +224,14 @@ struct ModelDeletionFallbackLogicTests {
         do {
             try await service.deleteModel("nonexistent-model-xyz")
             Issue.record("Expected deleteModel to throw for non-existent model")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelDeletionFailed(let message) = error {
                 #expect(message.contains("not found"))
             } else {
                 Issue.record("Expected modelDeletionFailed, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
     }
 
@@ -262,14 +262,14 @@ struct ModelDeletionFallbackLogicTests {
         do {
             try await service.switchModel(to: "nonexistent-model-xyz")
             Issue.record("Expected switchModel to throw for non-existent model")
-        } catch let error as WispError {
+        } catch let error as WisprError {
             if case .modelLoadFailed = error {
                 // Expected — model doesn't exist on disk
             } else {
                 Issue.record("Expected modelLoadFailed, got \(error)")
             }
         } catch {
-            Issue.record("Expected WispError, got \(error)")
+            Issue.record("Expected WisprError, got \(error)")
         }
 
         // After failed switch, no model should be active

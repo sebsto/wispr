@@ -131,7 +131,7 @@ struct MenuBarControllerMenuTests {
         // 4: Settings…
         // 5: Model Management…
         // 6: Separator
-        // 7: Quit Wisp
+        // 7: Quit Wispr
         // Total: 8 items (5 actionable + 3 separators)
         // Verified by successful init — menu is built in buildMenu().
         controller.stopObserving()
@@ -216,10 +216,10 @@ struct MenuBarControllerAccessibilityTests {
         let symbol = themeEngine.menuBarSymbol(for: .idle)
         let image = NSImage(
             systemSymbolName: symbol,
-            accessibilityDescription: "Wisp Voice Dictation"
+            accessibilityDescription: "Wispr Voice Dictation"
         )
         #expect(image != nil, "SF Symbol image should be created for idle state")
-        #expect(image?.accessibilityDescription == "Wisp Voice Dictation")
+        #expect(image?.accessibilityDescription == "Wispr Voice Dictation")
     }
 
     @Test("Status item icon has accessibility description for recording state")
@@ -228,10 +228,10 @@ struct MenuBarControllerAccessibilityTests {
         let symbol = themeEngine.menuBarSymbol(for: .recording)
         let image = NSImage(
             systemSymbolName: symbol,
-            accessibilityDescription: "Wisp — Recording"
+            accessibilityDescription: "Wispr — Recording"
         )
         #expect(image != nil, "SF Symbol image should be created for recording state")
-        #expect(image?.accessibilityDescription == "Wisp — Recording")
+        #expect(image?.accessibilityDescription == "Wispr — Recording")
     }
 
     @Test("Status item icon has accessibility description for processing state")
@@ -240,10 +240,10 @@ struct MenuBarControllerAccessibilityTests {
         let symbol = themeEngine.menuBarSymbol(for: .processing)
         let image = NSImage(
             systemSymbolName: symbol,
-            accessibilityDescription: "Wisp — Processing"
+            accessibilityDescription: "Wispr — Processing"
         )
         #expect(image != nil, "SF Symbol image should be created for processing state")
-        #expect(image?.accessibilityDescription == "Wisp — Processing")
+        #expect(image?.accessibilityDescription == "Wispr — Processing")
     }
 
     @Test("Status item icon has accessibility description for error state")
@@ -252,10 +252,10 @@ struct MenuBarControllerAccessibilityTests {
         let symbol = themeEngine.menuBarSymbol(for: .error("Test error"))
         let image = NSImage(
             systemSymbolName: symbol,
-            accessibilityDescription: "Wisp — Error"
+            accessibilityDescription: "Wispr — Error"
         )
         #expect(image != nil, "SF Symbol image should be created for error state")
-        #expect(image?.accessibilityDescription == "Wisp — Error")
+        #expect(image?.accessibilityDescription == "Wispr — Error")
     }
 
     @Test("All SF Symbol names used in menu items resolve to valid images")
@@ -280,7 +280,7 @@ struct MenuBarControllerAccessibilityTests {
         let symbol = themeEngine.menuBarSymbol(for: .idle)
         let image = NSImage(
             systemSymbolName: symbol,
-            accessibilityDescription: "Wisp Voice Dictation"
+            accessibilityDescription: "Wispr Voice Dictation"
         )
         image?.isTemplate = true
         #expect(image?.isTemplate == true, "Menu bar icon should be a template image")

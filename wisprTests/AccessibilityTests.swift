@@ -2,7 +2,7 @@
 //  AccessibilityTests.swift
 //  wispr
 //
-//  Accessibility tests for Wisp voice dictation application.
+//  Accessibility tests for Wispr voice dictation application.
 //  Tests VoiceOver labels, keyboard navigation modifiers, accessibility
 //  setting adaptations, and state change announcement text generation.
 //  Requirements: 17.1, 17.2, 17.4, 17.5, 17.6
@@ -81,13 +81,13 @@ struct AccessibilityLabelGenerationTests {
     private func menuBarIconDescription(for state: AppStateType) -> String {
         switch state {
         case .idle:
-            "Wisp — Idle"
+            "Wispr — Idle"
         case .recording:
-            "Wisp — Recording"
+            "Wispr — Recording"
         case .processing:
-            "Wisp — Processing"
+            "Wispr — Processing"
         case .error:
-            "Wisp — Error"
+            "Wispr — Error"
         }
     }
 
@@ -100,12 +100,12 @@ struct AccessibilityLabelGenerationTests {
                 "Each state should have a unique accessibility description")
     }
 
-    @Test("Menu bar icon descriptions all contain 'Wisp'")
+    @Test("Menu bar icon descriptions all contain 'Wispr'")
     func testMenuBarIconDescriptionsContainAppName() {
         let states: [AppStateType] = [.idle, .recording, .processing, .error("test")]
         for state in states {
             let desc = menuBarIconDescription(for: state)
-            #expect(desc.contains("Wisp"), "Description for \(state) should contain app name")
+            #expect(desc.contains("Wispr"), "Description for \(state) should contain app name")
         }
     }
 
@@ -444,7 +444,7 @@ struct MenuBarAccessibilityTests {
         // Verify NSImage can be created with accessibility description
         let image = NSImage(
             systemSymbolName: symbolName,
-            accessibilityDescription: "Wisp status"
+            accessibilityDescription: "Wispr status"
         )
         #expect(image != nil, "NSImage should be creatable for symbol: \(symbolName)")
     }
@@ -473,15 +473,15 @@ struct MenuBarAccessibilityTests {
     }
 }
 
-// MARK: - WispError Accessibility Description Tests
+// MARK: - WisprError Accessibility Description Tests
 
 @MainActor
-@Suite("WispError Accessibility Descriptions")
-struct WispErrorAccessibilityTests {
+@Suite("WisprrError Accessibility Descriptions")
+struct WisprErrorAccessibilityTests {
 
-    @Test("All WispError cases produce non-empty localized descriptions",
+    @Test("All WisprError cases produce non-empty localized descriptions",
           arguments: [
-            WispError.microphonePermissionDenied,
+            WisprError.microphonePermissionDenied,
             .accessibilityPermissionDenied,
             .noAudioDeviceAvailable,
             .audioDeviceDisconnected,
@@ -498,7 +498,7 @@ struct WispErrorAccessibilityTests {
             .modelDeletionFailed("test"),
             .noModelsAvailable
           ])
-    func testWispErrorDescriptions(error: WispError) {
+    func testWisprErrorDescriptions(error: WisprError) {
         let description = error.localizedDescription
         #expect(!description.isEmpty,
                 "Error \(error) should have a non-empty localized description for VoiceOver")
@@ -506,7 +506,7 @@ struct WispErrorAccessibilityTests {
 
     @Test("Error announcement text includes error description")
     func testErrorAnnouncementIncludesDescription() {
-        let error = WispError.noAudioDeviceAvailable
+        let error = WisprError.noAudioDeviceAvailable
         let message = error.localizedDescription
         let announcement = "Error: \(message)"
         #expect(announcement.contains(message),

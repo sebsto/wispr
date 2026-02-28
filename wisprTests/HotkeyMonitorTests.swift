@@ -22,7 +22,7 @@ struct HotkeyMonitorTests {
     func testConflictCmdSpace() async {
         let monitor = HotkeyMonitor()
         // keyCode 49 = Space, modifiers 256 = ⌘ (cmdKey)
-        #expect(throws: WispError.hotkeyConflict(
+        #expect(throws: WisprError.hotkeyConflict(
             "The shortcut conflicts with a system-reserved shortcut."
         )) {
             try monitor.register(keyCode: 49, modifiers: 256)
@@ -33,7 +33,7 @@ struct HotkeyMonitorTests {
     func testConflictCmdOptSpace() async {
         let monitor = HotkeyMonitor()
         // keyCode 49 = Space, modifiers 4352 = ⌘⌥
-        #expect(throws: WispError.hotkeyConflict(
+        #expect(throws: WisprError.hotkeyConflict(
             "The shortcut conflicts with a system-reserved shortcut."
         )) {
             try monitor.register(keyCode: 49, modifiers: 4352)
@@ -44,7 +44,7 @@ struct HotkeyMonitorTests {
     func testConflictCtrlSpace() async {
         let monitor = HotkeyMonitor()
         // keyCode 49 = Space, modifiers 1280 = ⌃ (controlKey)
-        #expect(throws: WispError.hotkeyConflict(
+        #expect(throws: WisprError.hotkeyConflict(
             "The shortcut conflicts with a system-reserved shortcut."
         )) {
             try monitor.register(keyCode: 49, modifiers: 1280)
@@ -55,18 +55,18 @@ struct HotkeyMonitorTests {
     func testNonReservedOptionSpace() async {
         let monitor = HotkeyMonitor()
         // keyCode 49 = Space, modifiers 2048 = ⌥ (optionKey)
-        // This is the default Wisp hotkey — not system-reserved.
+        // This is the default Wispr hotkey — not system-reserved.
         // It will fail at Carbon registration (no app event target in tests)
         // but should NOT throw hotkeyConflict.
         do {
             try monitor.register(keyCode: 49, modifiers: 2048)
             // If Carbon works in test env, that's fine
-        } catch let error as WispError {
+        } catch let error as WisprError {
             // Should fail with registrationFailed, NOT conflict
             #expect(error == .hotkeyRegistrationFailed,
                     "Non-reserved shortcut should not throw hotkeyConflict")
         } catch {
-            Issue.record("Unexpected non-WispError thrown: \(error)")
+            Issue.record("Unexpected non-WisprError thrown: \(error)")
         }
     }
 
@@ -76,11 +76,11 @@ struct HotkeyMonitorTests {
         // keyCode 0 = 'A', modifiers 2048 = ⌥
         do {
             try monitor.register(keyCode: 0, modifiers: 2048)
-        } catch let error as WispError {
+        } catch let error as WisprError {
             #expect(error == .hotkeyRegistrationFailed,
                     "Arbitrary combo should not throw hotkeyConflict")
         } catch {
-            Issue.record("Unexpected non-WispError thrown: \(error)")
+            Issue.record("Unexpected non-WisprError thrown: \(error)")
         }
     }
 
@@ -156,7 +156,7 @@ struct HotkeyMonitorTests {
     func testUpdateHotkeyConflict() async {
         let monitor = HotkeyMonitor()
         // Try to update to ⌘Space (reserved)
-        #expect(throws: WispError.hotkeyConflict(
+        #expect(throws: WisprError.hotkeyConflict(
             "The shortcut conflicts with a system-reserved shortcut."
         )) {
             try monitor.updateHotkey(keyCode: 49, modifiers: 256)
@@ -166,7 +166,7 @@ struct HotkeyMonitorTests {
     @Test("updateHotkey() throws hotkeyConflict for ⌃Space")
     func testUpdateHotkeyConflictCtrlSpace() async {
         let monitor = HotkeyMonitor()
-        #expect(throws: WispError.hotkeyConflict(
+        #expect(throws: WisprError.hotkeyConflict(
             "The shortcut conflicts with a system-reserved shortcut."
         )) {
             try monitor.updateHotkey(keyCode: 49, modifiers: 1280)
