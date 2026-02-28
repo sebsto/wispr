@@ -97,23 +97,28 @@ struct SettingsView: View {
                 tint: .orange
             )
         }
-        .animation(.smooth, value: hotkeyError)
+        .motionRespectingAnimation(value: hotkeyError)
     }
 
     // MARK: - Audio Device Section
 
     private var audioDeviceSection: some View {
         Section {
-            @Bindable var store = settingsStore
-            Picker("Input Device", selection: $store.selectedAudioDeviceUID) {
-                Text("System Default")
-                    .tag(nil as String?)
-                ForEach(audioDevices) { device in
-                    Text(device.name)
-                        .tag(device.uid as String?)
+            if audioDevices.isEmpty {
+                Text("No audio input devices found")
+                    .foregroundStyle(.secondary)
+            } else {
+                @Bindable var store = settingsStore
+                Picker("Input Device", selection: $store.selectedAudioDeviceUID) {
+                    Text("System Default")
+                        .tag(nil as String?)
+                    ForEach(audioDevices) { device in
+                        Text(device.name)
+                            .tag(device.uid as String?)
+                    }
                 }
+                .accessibilityHint("Select the microphone to use for recording")
             }
-            .accessibilityHint("Select the microphone to use for recording")
         } header: {
             SectionHeader(
                 title: "Audio Device",
@@ -125,34 +130,28 @@ struct SettingsView: View {
 
     // MARK: - Whisper Model Section
 
+    private var availableModels: [WhisperModelInfo] {
+        whisperModels.filter { $0.status == .downloaded || $0.status == .active }
+    }
+
     private var whisperModelSection: some View {
         Section {
-            @Bindable var store = settingsStore
-            Picker("Active Model", selection: $store.activeModelName) {
-                ForEach(whisperModels) { model in
-                    let isAvailable = model.status == .downloaded || model.status == .active
-                    HStack {
-                        Text(model.displayName)
-                        Text("(\(model.sizeDescription))")
-                            .foregroundStyle(.secondary)
-                        if !isAvailable {
-                            Text("— Not Downloaded")
-                                .foregroundStyle(.secondary.opacity(0.6))
-                                .font(.caption)
+            if availableModels.isEmpty {
+                Text("No models downloaded")
+                    .foregroundStyle(.secondary)
+            } else {
+                @Bindable var store = settingsStore
+                Picker("Active Model", selection: $store.activeModelName) {
+                    ForEach(availableModels) { model in
+                        HStack {
+                            Text(model.displayName)
+                            Text("(\(model.sizeDescription))")
+                                .foregroundStyle(.secondary)
                         }
+                        .tag(model.id)
                     }
-                    .tag(model.id)
-                    .opacity(isAvailable ? 1.0 : 0.4)
                 }
-            }
-            .accessibilityHint("Select the speech recognition model to use")
-            .onChange(of: settingsStore.activeModelName) { _, newValue in
-                let isValid = whisperModels.contains { model in
-                    model.id == newValue && (model.status == .downloaded || model.status == .active)
-                }
-                if !isValid, let fallback = whisperModels.first(where: { $0.status == .downloaded || $0.status == .active }) {
-                    settingsStore.activeModelName = fallback.id
-                }
+                .accessibilityHint("Select the speech recognition model to use")
             }
         } header: {
             SectionHeader(
@@ -178,8 +177,8 @@ struct SettingsView: View {
                 }
                 .accessibilityHint("Select the language for speech transcription")
 
-                Toggle("Pin Language", isOn: pinLanguageBinding)
-                    .accessibilityHint("When enabled, locks transcription to the selected language")
+                Toggle("Always use this language", isOn: pinLanguageBinding)
+                    .accessibilityHint("When enabled, always transcribes in the selected language instead of detecting per-recording")
             }
         } header: {
             SectionHeader(
@@ -188,7 +187,7 @@ struct SettingsView: View {
                 tint: .green
             )
         }
-        .animation(.smooth, value: settingsStore.languageMode.isAutoDetect)
+        .motionRespectingAnimation(value: settingsStore.languageMode.isAutoDetect)
     }
 
     // MARK: - General Section
@@ -232,7 +231,7 @@ struct SettingsView: View {
         Binding<Bool>(
             get: { settingsStore.languageMode.isAutoDetect },
             set: { newValue in
-                withAnimation(.smooth) {
+                withAnimation(theme.standardSpringAnimation) {
                     if newValue {
                         settingsStore.languageMode = .autoDetect
                     } else {

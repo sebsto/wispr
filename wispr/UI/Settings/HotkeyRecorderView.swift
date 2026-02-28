@@ -46,8 +46,8 @@ struct HotkeyRecorderView: View {
         }
         .buttonStyle(.bordered)
         .clipShape(.rect(cornerRadius: 8))
-        .scaleEffect(isHovering ? 1.02 : 1.0)
-        .animation(.smooth(duration: 0.15), value: isHovering)
+        .scaleEffect(isHovering && !theme.reduceMotion ? 1.02 : 1.0)
+        .animation(theme.reduceMotion ? nil : .smooth(duration: 0.15), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
         }
