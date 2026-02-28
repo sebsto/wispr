@@ -253,6 +253,9 @@ private struct ModelRowView: View {
     let onSetActive: () async -> Void
     let onDelete: () -> Void
 
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 32
+    @State private var isHovered = false
+
     /// Whether this model is the active one.
     private var isActive: Bool {
         if case .active = model.status { return true }
@@ -300,20 +303,28 @@ private struct ModelRowView: View {
             // Bottom row: action buttons aligned trailing
             actionButtons
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
         .background {
             if isHighlighted {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(theme.successColor.opacity(0.06))
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(theme.successColor.opacity(0.08))
                     .matchedGeometryEffect(id: "activeHighlight", in: namespace)
+            } else if isHovered {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(theme.primaryTextColor.opacity(0.04))
             }
         }
         .overlay {
             if isHighlighted {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(theme.successColor.opacity(0.5), lineWidth: 1.5)
                     .matchedGeometryEffect(id: "activeHighlightBorder", in: namespace)
+            }
+        }
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) {
+                isHovered = hovering
             }
         }
         .accessibilityElement(children: .combine)
@@ -327,27 +338,32 @@ private struct ModelRowView: View {
         Group {
             switch model.status {
             case .active:
-                Image(systemName: theme.actionSymbol(.checkmark))
-                    .foregroundStyle(theme.successColor)
-                    .font(.title2)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: iconSize, height: iconSize)
+                    .background(theme.successColor.gradient, in: Circle())
 
             case .downloaded:
-                Image(systemName: "arrow.down.circle.fill")
-                    .foregroundStyle(theme.accentColor)
-                    .font(.title2)
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: iconSize, height: iconSize)
+                    .background(theme.accentColor.gradient, in: Circle())
 
             case .notDownloaded:
-                Image(systemName: "circle.dashed")
+                Image(systemName: "icloud.and.arrow.down")
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(theme.secondaryTextColor.opacity(0.5))
-                    .font(.title2)
+                    .frame(width: iconSize, height: iconSize)
+                    .background(theme.secondaryTextColor.opacity(0.08), in: Circle())
 
             case .downloading:
                 ProgressView()
                     .controlSize(.small)
-                    .frame(width: 22, height: 22)
+                    .frame(width: iconSize, height: iconSize)
             }
         }
-        .frame(width: 28, alignment: .center)
     }
 
     // MARK: - Status Badge
@@ -573,5 +589,24 @@ private struct ModelRowPreviewWrapper: View {
     ModelRowPreviewWrapper(theme: theme, models: models)
         .environment(settingsStore)
         .environment(theme)
+}
+
+#Preview("Model Management (Dark Mode)") {
+    let theme = PreviewMocks.makeTheme()
+    let settingsStore = PreviewMocks.makeSettingsStore()
+    let models: [WhisperModelInfo] = [
+        WhisperModelInfo(id: "tiny", displayName: "Tiny", sizeDescription: "~75 MB",
+                         qualityDescription: "Fastest, lower accuracy", status: .active),
+        WhisperModelInfo(id: "base", displayName: "Base", sizeDescription: "~140 MB",
+                         qualityDescription: "Fast, moderate accuracy", status: .downloaded),
+        WhisperModelInfo(id: "small", displayName: "Small", sizeDescription: "~460 MB",
+                         qualityDescription: "Balanced speed and accuracy", status: .notDownloaded),
+        WhisperModelInfo(id: "large-v3", displayName: "Large v3", sizeDescription: "~3 GB",
+                         qualityDescription: "Slowest, highest accuracy", status: .notDownloaded),
+    ]
+    ModelRowPreviewWrapper(theme: theme, models: models)
+        .environment(settingsStore)
+        .environment(theme)
+        .preferredColorScheme(.dark)
 }
 #endif

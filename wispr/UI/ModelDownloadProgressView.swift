@@ -58,9 +58,10 @@ struct ModelDownloadProgressView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             if isComplete {
                 completionView
+                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
             } else if let error {
                 errorView(error: error)
             } else if isLoadingModel {
@@ -71,6 +72,7 @@ struct ModelDownloadProgressView: View {
                 idleView
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: isComplete)
         .accessibilityElement(children: .contain)
         .task {
             if autoStart && !isDownloading && !isComplete && error == nil {
@@ -114,8 +116,8 @@ struct ModelDownloadProgressView: View {
                     .foregroundStyle(theme.accentColor)
             }
 
-            ProgressView(value: progress)
-                .progressViewStyle(.linear)
+            GradientProgressBar(progress: progress, accentColor: theme.accentColor)
+                .animation(.easeInOut(duration: 0.3), value: progress)
                 .accessibilityLabel("Download progress")
                 .accessibilityValue("\(Int(progress * 100)) percent")
 
@@ -201,9 +203,12 @@ struct ModelDownloadProgressView: View {
     // MARK: - Completion
 
     private var completionView: some View {
-        HStack(spacing: 8) {
-            Image(systemName: SFSymbols.checkmark)
-                .foregroundStyle(theme.successColor)
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(theme.successColor.gradient, in: Circle())
             Text("\(model.displayName) downloaded successfully")
                 .font(.headline)
                 .foregroundStyle(theme.successColor)
@@ -264,12 +269,39 @@ struct ModelDownloadProgressView: View {
 
     // MARK: - Helpers
 
-    private func formattedBytes(_ bytes: Int64) -> String {
+    private static let byteFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
+        return formatter
+    }()
+
+    private func formattedBytes(_ bytes: Int64) -> String {
+        Self.byteFormatter.string(fromByteCount: bytes)
     }
 }
+// MARK: - GradientProgressBar
+
+/// A capsule-shaped progress bar with a gradient fill for richer visual feedback.
+private struct GradientProgressBar: View {
+    let progress: Double
+    let accentColor: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(accentColor.opacity(0.15))
+
+                Capsule()
+                    .fill(accentColor.gradient)
+                    .frame(width: max(geometry.size.width * progress, geometry.size.height))
+            }
+        }
+        .frame(height: 8)
+        .clipShape(Capsule())
+    }
+}
+
 // MARK: - Preview Support
 
 #if DEBUG
@@ -377,6 +409,22 @@ private struct DownloadProgressPreview: View {
 
 #Preview("Loading Model") {
     DownloadProgressPreview(variant: .loadingModel)
+}
+
+#Preview("All Download States") {
+    ScrollView {
+        VStack(spacing: 24) {
+            DownloadProgressPreview(variant: .progress)
+            Divider()
+            DownloadProgressPreview(variant: .complete)
+            Divider()
+            DownloadProgressPreview(variant: .error)
+            Divider()
+            DownloadProgressPreview(variant: .loadingModel)
+        }
+        .padding()
+    }
+    .frame(width: 420, height: 600)
 }
 #endif
 
