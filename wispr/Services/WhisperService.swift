@@ -9,7 +9,6 @@
 import Foundation
 import WhisperKit
 import AVFoundation
-import Darwin
 import os
 
 /// Actor managing WhisperKit model lifecycle, downloads, and transcription.
@@ -45,21 +44,15 @@ actor WhisperService {
     /// WhisperKit / HubApi stores models under this path as:
     ///   `<downloadBase>/models/argmaxinc/whisperkit-coreml/<variant>/`
     ///
-    /// Hardcoded to `~/.wispr` so models are stored in a predictable,
-    /// user-visible location independent of App Sandbox or HubApi defaults.
-    ///
-    /// Uses `getpwuid` to resolve the real home directory even when
-    /// running inside App Sandbox (where `FileManager.homeDirectoryForCurrentUser`
-    /// returns the container path instead).
+    /// Uses the app's Application Support directory, which the OS maps to:
+    /// - Sandboxed: `~/Library/Containers/<bundle-id>/Data/Library/Application Support/wispr/`
+    /// - Non-sandboxed (dev): `~/Library/Application Support/wispr/`
     private var modelDownloadBase: URL {
-        let home: String
-        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
-            home = String(cString: dir)
-        } else {
-            home = FileManager.default.homeDirectoryForCurrentUser.path
-        }
-        return URL(fileURLWithPath: home)
-            .appendingPathComponent(".wispr", isDirectory: true)
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first!
+        return appSupport.appendingPathComponent("wispr", isDirectory: true)
     }
     
     /// Ensures the `modelDownloadBase` directory exists on disk.
@@ -152,7 +145,7 @@ actor WhisperService {
             }
             
             do {
-                // Ensure ~/.wispr exists before downloading
+                // Ensure model directory exists before downloading
                 try self.ensureModelDirectoryExists()
                 
                 Log.whisperService.debug("downloadModel — starting download for '\(model.id)'")
@@ -560,7 +553,7 @@ actor WhisperService {
         
         // Check that model files actually exist on disk before reporting
         // .active or .downloaded. This prevents stale UserDefaults state
-        // (e.g. activeModelName still set after ~/.wispr was deleted)
+        // (e.g. activeModelName still set after model directory was deleted)
         // from incorrectly showing a model as available.
         do {
             let modelPath = try getModelPath(for: modelName)

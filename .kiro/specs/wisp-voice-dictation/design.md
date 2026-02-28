@@ -42,7 +42,7 @@ graph TB
 
     subgraph Storage["Persistence"]
         SS[Settings Store<br/>UserDefaults / @AppStorage]
-        FS[File System<br/>~/.wispr/models]
+        FS[File System<br/>Application Support/wispr/models]
     end
 
     subgraph System["macOS System APIs"]
@@ -196,7 +196,7 @@ struct AudioInputDevice: Identifiable, Sendable, Codable {
 
 ### 3. WhisperService
 
-An actor managing WhisperKit model lifecycle, downloads, and transcription. Downloaded models are stored under `~/.wispr/models/argmaxinc/whisperkit-coreml/<variant>/` — a fixed, user-visible location independent of App Sandbox or HubApi defaults.
+An actor managing WhisperKit model lifecycle, downloads, and transcription. Downloaded models are stored under `Application Support/wispr/models/argmaxinc/whisperkit-coreml/<variant>/` — a sandbox-compatible location managed by the OS.
 
 ```swift
 actor WhisperService {
