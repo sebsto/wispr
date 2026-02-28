@@ -69,21 +69,21 @@ struct OnboardingFlow: View {
     var body: some View {
         VStack(spacing: 0) {
             stepIndicator
-                .padding(.top, 24)
-                .padding(.bottom, 16)
+                .padding(.top, 28)
+                .padding(.bottom, 20)
 
-            Divider()
-
-            stepContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .id(currentStep)
-
-            Divider()
+            ZStack {
+                stepContent
+                    .id(currentStep)
+                    .transition(stepTransition)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
 
             navigationBar
-                .padding(24)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 20)
         }
-//        .frame(width: 620, height: 580)
         .liquidGlassPanel()
         .highContrastBorder(cornerRadius: 12)
         .motionRespectingAnimation(value: currentStep)
@@ -97,26 +97,60 @@ struct OnboardingFlow: View {
         .accessibilityLabel("Wisp Setup")
     }
 
+    /// Direction-aware slide + fade transition for step changes.
+    private var stepTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: transitionDirection == .forward ? .trailing : .leading)
+                .combined(with: .opacity),
+            removal: .move(edge: transitionDirection == .forward ? .leading : .trailing)
+                .combined(with: .opacity)
+        )
+    }
+
     // MARK: - Step Indicator
 
-    /// Displays dots representing each step with the current step highlighted.
+    /// Displays connected dots representing each step with the current step highlighted.
     private var stepIndicator: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Text("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
-                .font(.callout)
+                .font(.caption)
+                .fontWeight(.medium)
                 .foregroundStyle(theme.secondaryTextColor)
-                .accessibilityLabel("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
 
-            HStack(spacing: 8) {
+            HStack(spacing: 0) {
                 ForEach(OnboardingStep.allCases, id: \.rawValue) { step in
-                    Circle()
-                        .fill(dotColor(for: step))
-                        .frame(width: 8, height: 8)
-                        .scaleEffect(step == currentStep ? 1.3 : 1.0)
-                        .accessibilityHidden(true)
+                    stepDot(for: step)
+
+                    if step != .completion {
+                        Capsule()
+                            .fill(step.rawValue < currentStep.rawValue
+                                  ? theme.successColor.opacity(0.5)
+                                  : theme.borderColor.opacity(0.25))
+                            .frame(width: 20, height: 2)
+                    }
                 }
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
+    }
+
+    /// A single dot in the step indicator with a ring highlight for the current step.
+    private func stepDot(for step: OnboardingStep) -> some View {
+        ZStack {
+            Circle()
+                .stroke(theme.accentColor.opacity(0.4), lineWidth: 1.5)
+                .frame(width: 16, height: 16)
+                .scaleEffect(step == currentStep ? 1 : 0.5)
+                .opacity(step == currentStep ? 1 : 0)
+
+            Circle()
+                .fill(dotColor(for: step))
+                .frame(width: step == currentStep ? 10 : 7,
+                       height: step == currentStep ? 10 : 7)
+        }
+        .frame(width: 16, height: 16)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Step Content
@@ -126,7 +160,7 @@ struct OnboardingFlow: View {
     /// or navigation bar off-screen.
     private var stepContent: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
                 switch currentStep {
                 case .welcome:
                     OnboardingWelcomeStep()
@@ -152,9 +186,12 @@ struct OnboardingFlow: View {
                     OnboardingCompletionStep()
                 }
             }
-            .padding(32)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
             .frame(maxWidth: .infinity)
         }
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - Placeholder Step Content
@@ -186,14 +223,12 @@ struct OnboardingFlow: View {
     /// Bottom bar with Back and Continue/Skip/Done buttons.
     private var navigationBar: some View {
         HStack {
-            // Back button (hidden on first step)
             if currentStep != .welcome {
                 Button(action: goBack) {
                     Label("Back", systemImage: SFSymbols.chevronLeft)
                 }
                 .keyboardShortcut(.cancelAction)
-                .buttonStyle(.plain)
-                .foregroundStyle(theme.secondaryTextColor)
+                .buttonStyle(OnboardingSecondaryButtonStyle())
                 .accessibilityLabel("Go back to previous step")
                 .accessibilityHint("Returns to the previous onboarding step")
             }
@@ -205,8 +240,7 @@ struct OnboardingFlow: View {
                     completeOnboarding()
                 }
                 .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(OnboardingContinueButtonStyle())
                 .accessibilityLabel("Done")
                 .accessibilityHint("Completes setup and closes the onboarding window")
             } else if currentStep.isSkippable && !isCurrentStepComplete {
@@ -214,8 +248,7 @@ struct OnboardingFlow: View {
                     Button("Skip") {
                         goForward()
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(theme.secondaryTextColor)
+                    .buttonStyle(OnboardingSecondaryButtonStyle())
                     .accessibilityLabel("Skip this step")
                     .accessibilityHint("Skips the test dictation step")
 
@@ -223,8 +256,7 @@ struct OnboardingFlow: View {
                         goForward()
                     }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(OnboardingContinueButtonStyle())
                     .disabled(!isCurrentStepComplete)
                     .accessibilityLabel("Continue")
                     .accessibilityHint(isCurrentStepComplete ? "Proceeds to the next step" : "Complete this step to continue")
@@ -234,8 +266,7 @@ struct OnboardingFlow: View {
                     goForward()
                 }
                 .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(OnboardingContinueButtonStyle())
                 .disabled(!isCurrentStepComplete)
                 .accessibilityLabel("Continue")
                 .accessibilityHint(isCurrentStepComplete ? "Proceeds to the next step" : "Complete this step to continue")

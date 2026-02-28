@@ -25,11 +25,17 @@ struct OnboardingTestDictationStep: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: SFSymbols.onboardingTestDictation)
-                .font(.system(size: 48))
-                .foregroundStyle(testDictationIconColor)
-                .symbolEffect(.variableColor.iterative, isActive: isTestRecording && !theme.reduceMotion)
-                .accessibilityHidden(true)
+            OnboardingIconBadge(
+                systemName: SFSymbols.onboardingTestDictation,
+                color: testDictationIconColor
+            )
+            .scaleEffect(isTestRecording && !theme.reduceMotion ? 1.05 : 1.0)
+            .animation(
+                isTestRecording && !theme.reduceMotion
+                    ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                    : .default,
+                value: isTestRecording
+            )
 
             Text("Test Dictation")
                 .font(.title2)
@@ -40,10 +46,9 @@ struct OnboardingTestDictationStep: View {
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-                .lineSpacing(4)
+                .frame(maxWidth: 420)
+                .lineSpacing(5)
 
-            // State-dependent content
             if isTestProcessing {
                 ProgressView()
                     .controlSize(.regular)
@@ -63,8 +68,7 @@ struct OnboardingTestDictationStep: View {
                 }
                 .accessibilityLabel("Recording in progress")
             } else if !testTranscriptionResult.isEmpty {
-                // Show the transcribed text
-                VStack(spacing: 8) {
+                VStack(spacing: 10) {
                     Label("Transcription", systemImage: theme.actionSymbol(.checkmark))
                         .font(.headline)
                         .foregroundStyle(theme.successColor)
@@ -72,16 +76,20 @@ struct OnboardingTestDictationStep: View {
                     Text(testTranscriptionResult)
                         .font(.body)
                         .foregroundStyle(theme.primaryTextColor)
-                        .padding(12)
-                        .frame(maxWidth: 400, minHeight: 60, alignment: .topLeading)
+                        .padding(14)
+                        .frame(maxWidth: 420, minHeight: 60, alignment: .topLeading)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(theme.accentColor.opacity(0.08))
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(theme.successColor.opacity(0.06))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(theme.successColor.opacity(0.15), lineWidth: 1)
                         )
                         .accessibilityLabel("Transcribed text: \(testTranscriptionResult)")
                 }
+                .transition(.scale.combined(with: .opacity))
             } else {
-                // Idle — prompt the user to try
                 Text("Press the hotkey to begin")
                     .font(.callout)
                     .foregroundStyle(theme.secondaryTextColor)

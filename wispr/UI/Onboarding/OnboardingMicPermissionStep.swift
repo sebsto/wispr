@@ -15,10 +15,11 @@ struct OnboardingMicPermissionStep: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: theme.actionSymbol(.microphone))
-                .font(.system(size: 48))
-                .foregroundStyle(permissionManager.microphoneStatus == .authorized ? theme.successColor : theme.accentColor)
-                .accessibilityHidden(true)
+            OnboardingIconBadge(
+                systemName: theme.actionSymbol(.microphone),
+                color: permissionManager.microphoneStatus == .authorized
+                    ? theme.successColor : theme.accentColor
+            )
 
             Text("Microphone Access")
                 .font(.title2)
@@ -29,13 +30,14 @@ struct OnboardingMicPermissionStep: View {
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-                .lineSpacing(4)
+                .frame(maxWidth: 420)
+                .lineSpacing(5)
 
             if permissionManager.microphoneStatus == .authorized {
                 Label("Microphone Access Granted", systemImage: theme.actionSymbol(.checkmark))
                     .font(.headline)
                     .foregroundStyle(theme.successColor)
+                    .transition(.scale.combined(with: .opacity))
                     .accessibilityLabel("Microphone access granted")
             } else {
                 Button {
@@ -45,8 +47,7 @@ struct OnboardingMicPermissionStep: View {
                 } label: {
                     Label("Grant Microphone Access", systemImage: theme.actionSymbol(.microphone))
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(OnboardingContinueButtonStyle())
                 .accessibilityLabel("Grant Microphone Access")
                 .accessibilityHint("Opens the system dialog to allow microphone access")
             }

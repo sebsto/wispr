@@ -15,10 +15,11 @@ struct OnboardingAccessibilityStep: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: theme.actionSymbol(.accessibility))
-                .font(.system(size: 48))
-                .foregroundStyle(permissionManager.accessibilityStatus == .authorized ? theme.successColor : theme.accentColor)
-                .accessibilityHidden(true)
+            OnboardingIconBadge(
+                systemName: theme.actionSymbol(.accessibility),
+                color: permissionManager.accessibilityStatus == .authorized
+                    ? theme.successColor : theme.accentColor
+            )
 
             Text("Accessibility Access")
                 .font(.title2)
@@ -29,13 +30,14 @@ struct OnboardingAccessibilityStep: View {
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-                .lineSpacing(4)
+                .frame(maxWidth: 420)
+                .lineSpacing(5)
 
             if permissionManager.accessibilityStatus == .authorized {
                 Label("Accessibility Access Granted", systemImage: theme.actionSymbol(.checkmark))
                     .font(.headline)
                     .foregroundStyle(theme.successColor)
+                    .transition(.scale.combined(with: .opacity))
                     .accessibilityLabel("Accessibility access granted")
             } else {
                 Button {
@@ -43,8 +45,7 @@ struct OnboardingAccessibilityStep: View {
                 } label: {
                     Label("Open System Settings", systemImage: SFSymbols.settings)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(OnboardingContinueButtonStyle())
                 .accessibilityLabel("Open System Settings")
                 .accessibilityHint("Opens System Settings to the Accessibility privacy pane")
 
@@ -52,7 +53,7 @@ struct OnboardingAccessibilityStep: View {
                     .font(.callout)
                     .foregroundStyle(theme.secondaryTextColor)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 360)
+                    .frame(maxWidth: 380)
             }
         }
         .accessibilityElement(children: .contain)

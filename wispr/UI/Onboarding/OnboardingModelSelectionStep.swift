@@ -30,11 +30,11 @@ struct OnboardingModelSelectionStep: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: theme.actionSymbol(.model))
-                .font(.system(size: 48))
-                .foregroundStyle(downloadComplete ? theme.successColor : theme.accentColor)
-                .accessibilityHidden(true)
+        VStack(spacing: 20) {
+            OnboardingIconBadge(
+                systemName: theme.actionSymbol(.model),
+                color: downloadComplete ? theme.successColor : theme.accentColor
+            )
 
             Text("Choose a Model")
                 .font(.title2)
@@ -45,10 +45,10 @@ struct OnboardingModelSelectionStep: View {
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-                .lineSpacing(4)
+                .frame(maxWidth: 420)
+                .lineSpacing(5)
 
-            if downloadComplete || isShowingDownload,
+            if isShowingDownload,
                let modelId = selectedModelId,
                let selectedModel = availableModels.first(where: { $0.id == modelId }) {
                 // Self-contained download progress view
@@ -60,6 +60,15 @@ struct OnboardingModelSelectionStep: View {
                         settingsStore.activeModelName = completedModelId
                         downloadComplete = true
                         isShowingDownload = false
+
+                        // Update model statuses so the row icons/labels refresh
+                        for index in availableModels.indices {
+                            if availableModels[index].id == completedModelId {
+                                availableModels[index].status = .active
+                            } else if availableModels[index].status == .active {
+                                availableModels[index].status = .downloaded
+                            }
+                        }
                     },
                     onCancel: {
                         isShowingDownload = false
@@ -86,62 +95,138 @@ struct OnboardingModelSelectionStep: View {
             ForEach(availableModels) { model in
                 modelRow(model)
             }
-
-            if selectedModelId != nil {
-                Button {
-                    isShowingDownload = true
-                } label: {
-                    Label("Download", systemImage: theme.actionSymbol(.download))
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding(.top, 8)
-                .accessibilityLabel("Download selected model")
-                .accessibilityHint("Downloads the selected Whisper model to your Mac")
-            }
         }
     }
 
-    /// A single row in the model list.
+    /// A single row showing model info, a status icon, and an inline action button.
     private func modelRow(_ model: WhisperModelInfo) -> some View {
         let isSelected = selectedModelId == model.id
         let isOnDisk = model.status == .downloaded || model.status == .active
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(model.displayName)
-                        .font(.headline)
-                        .foregroundStyle(theme.primaryTextColor)
-                    if isOnDisk {
-                        Text("Downloaded")
-                            .font(.caption2)
-                            .foregroundStyle(theme.successColor)
+
+        return Button {
+            selectedModelId = model.id
+            if isOnDisk {
+                settingsStore.activeModelName = model.id
+                downloadComplete = true
+                Task {
+                    if await whisperService.activeModel() != model.id {
+                        try? await whisperService.loadModel(model.id)
                     }
                 }
-                Text("\(model.sizeDescription) · \(model.qualityDescription)")
-                    .font(.caption)
-                    .foregroundStyle(theme.secondaryTextColor)
+            } else {
+                downloadComplete = false
             }
-            Spacer()
-            if isSelected {
-                Image(systemName: theme.actionSymbol(.checkmark))
-                    .foregroundStyle(theme.accentColor)
+        } label: {
+            HStack(spacing: 10) {
+                // Status icon
+                modelStatusIcon(for: model)
+
+                // Model info
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(model.displayName)
+                        .font(.headline)
+                        .foregroundStyle(isOnDisk ? theme.primaryTextColor : theme.secondaryTextColor)
+
+                    Text("\(model.sizeDescription) · \(model.qualityDescription)")
+                        .font(.caption)
+                        .foregroundStyle(theme.secondaryTextColor)
+                }
+
+                Spacer()
+
+                // Trailing action / status
+                if isSelected && !isOnDisk {
+                    Button {
+                        isShowingDownload = true
+                    } label: {
+                        Label("Download", systemImage: theme.actionSymbol(.download))
+                            .font(.callout.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityLabel("Download \(model.displayName)")
+                } else if isOnDisk {
+                    statusPill(
+                        label: model.status == .active ? "Active" : "Downloaded",
+                        color: model.status == .active ? theme.successColor : theme.accentColor
+                    )
+                }
             }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? theme.accentColor.opacity(0.1) : Color.primary.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? theme.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
+            .highContrastBorder(cornerRadius: 12)
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? theme.accentColor.opacity(0.12) : Color.clear)
-        )
-        .highContrastBorder(cornerRadius: 8)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            selectedModelId = model.id
-        }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(model.displayName), \(model.sizeDescription), \(model.qualityDescription)")
+        .accessibilityLabel(modelAccessibilityLabel(model, isOnDisk: isOnDisk))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityHint("Tap to select this model")
+        .accessibilityHint(isOnDisk ? "Select this downloaded model" : "Select this model, then download")
+    }
+
+    // MARK: - Row Subviews
+
+    /// Leading status icon matching the ModelManagement style.
+    @ScaledMetric(relativeTo: .body) private var statusIconSize: CGFloat = 28
+
+    private func modelStatusIcon(for model: WhisperModelInfo) -> some View {
+        Group {
+            switch model.status {
+            case .active:
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: statusIconSize, height: statusIconSize)
+                    .background(theme.successColor.gradient, in: Circle())
+
+            case .downloaded:
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: statusIconSize, height: statusIconSize)
+                    .background(theme.accentColor.gradient, in: Circle())
+
+            case .notDownloaded:
+                Image(systemName: "icloud.and.arrow.down")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.secondaryTextColor.opacity(0.5))
+                    .frame(width: statusIconSize, height: statusIconSize)
+                    .background(theme.secondaryTextColor.opacity(0.08), in: Circle())
+
+            case .downloading:
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: statusIconSize, height: statusIconSize)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// A small pill showing status text.
+    private func statusPill(label: String, color: Color) -> some View {
+        Text(label)
+            .font(.caption2)
+            .fontWeight(.medium)
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(color.opacity(0.12)))
+    }
+
+    private func modelAccessibilityLabel(_ model: WhisperModelInfo, isOnDisk: Bool) -> String {
+        var parts = [model.displayName, model.sizeDescription, model.qualityDescription]
+        if isOnDisk {
+            parts.append(model.status == .active ? "Active" : "Downloaded")
+        } else {
+            parts.append("Not downloaded")
+        }
+        return parts.joined(separator: ", ")
     }
 
     // MARK: - Model Download Logic
