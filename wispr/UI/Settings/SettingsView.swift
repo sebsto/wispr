@@ -40,6 +40,7 @@ struct SettingsView: View {
     @State private var whisperModels: [WhisperModelInfo] = []
     @State private var isRecordingHotkey = false
     @State private var hotkeyError: String?
+    @State private var showRestoreDefaultsAlert = false
 
     private let audioEngine: AudioEngine
     private let whisperService: WhisperService
@@ -56,12 +57,25 @@ struct SettingsView: View {
             whisperModelSection
             languageSection
             generalSection
+
+            Section {
+                Button("Restore Defaults") {
+                    showRestoreDefaultsAlert = true
+                }
+                .accessibilityHint("Resets all settings to their original values")
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
         .liquidGlassPanel()
+        .alert("Restore Defaults?", isPresented: $showRestoreDefaultsAlert) {
+            Button("Restore", role: .destructive, action: restoreDefaults)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All settings will be reset to their original values. This cannot be undone.")
+        }
         .task {
             await loadAudioDevices()
             await loadWhisperModels()
@@ -221,6 +235,20 @@ struct SettingsView: View {
             models[index].status = await whisperService.modelStatus(models[index].id)
         }
         whisperModels = models
+    }
+
+    // MARK: - Restore Defaults
+
+    private func restoreDefaults() {
+        settingsStore.hotkeyKeyCode = 49        // Space
+        settingsStore.hotkeyModifiers = 2048    // Option
+        settingsStore.selectedAudioDeviceUID = nil
+        settingsStore.activeModelName = "tiny"
+        settingsStore.languageMode = .autoDetect
+        settingsStore.showRecordingOverlay = true
+        settingsStore.launchAtLogin = false
+        hotkeyError = nil
+        isRecordingHotkey = false
     }
 
     // MARK: - Bindings
