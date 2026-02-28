@@ -6,7 +6,18 @@ BUNDLE_ID    := com.stormacq.app.macos.wispr
 CONTAINER    := $(HOME)/Library/Containers/$(BUNDLE_ID)/Data
 MODEL_DIR    := $(CONTAINER)/Library/Application Support/wispr
 
-.PHONY: help list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-onboarding
+SCHEME       := wispr
+XCODEPROJ    := wispr.xcodeproj
+
+.PHONY: help bump-build archive list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-onboarding
+
+bump-build: ## Set build number to YYMMDD-<commit count>
+	$(eval BUILD_NUM := $(shell date +%y%m%d)-$(shell git rev-list --count HEAD))
+	@xcrun agvtool new-version -all $(BUILD_NUM) > /dev/null
+	@echo "Build number set to $(BUILD_NUM)"
+
+archive: bump-build ## Bump build number and create Release archive
+	xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Release archive
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
