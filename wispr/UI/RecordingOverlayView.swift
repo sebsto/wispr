@@ -256,9 +256,21 @@ private struct RecordingOverlayPreview: View {
     @State private var stateManager: StateManager
     @State private var theme = PreviewMocks.makeTheme()
 
-    init() {
+    let state: AppStateType
+
+    init(state: AppStateType = .recording) {
+        self.state = state
         let sm = PreviewMocks.makeStateManager()
-        sm.appState = .recording
+        sm.appState = state
+        // Provide a fake audio level stream so the preview renders bars
+        if state == .recording {
+            sm.audioLevelStream = AsyncStream { continuation in
+                for level in stride(from: Float(0.1), through: 0.9, by: 0.04) {
+                    continuation.yield(level)
+                }
+                continuation.finish()
+            }
+        }
         _stateManager = State(initialValue: sm)
     }
 
@@ -271,7 +283,15 @@ private struct RecordingOverlayPreview: View {
     }
 }
 
-#Preview("Recording Overlay") {
-    RecordingOverlayPreview()
+#Preview("Recording") {
+    RecordingOverlayPreview(state: .recording)
+}
+
+#Preview("Processing") {
+    RecordingOverlayPreview(state: .processing)
+}
+
+#Preview("Error") {
+    RecordingOverlayPreview(state: .error("Microphone access denied"))
 }
 #endif
