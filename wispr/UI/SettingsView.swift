@@ -332,6 +332,17 @@ struct SettingsView: View {
     /// Requirements 10.3, 10.4: Launch at Login toggle using ServiceManagement.
     private var generalSection: some View {
         Section {
+            Toggle(isOn: Binding(
+                get: { settingsStore.showRecordingOverlay },
+                set: { settingsStore.showRecordingOverlay = $0 }
+            )) {
+                Label("Show Recording Overlay", systemImage: SFSymbols.recordingMicrophone)
+                    .foregroundStyle(theme.primaryTextColor)
+            }
+            .padding(.vertical, 4)
+            .accessibilityLabel("Show recording overlay")
+            .accessibilityHint("When enabled, a floating overlay appears while recording")
+
             Toggle(isOn: launchAtLoginBinding) {
                 Label("Launch at Login", systemImage: theme.actionSymbol(.launchAtLogin))
                     .foregroundStyle(theme.primaryTextColor)

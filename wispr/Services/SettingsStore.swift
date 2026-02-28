@@ -37,6 +37,10 @@ final class SettingsStore {
     }
     
     // MARK: - General Settings
+    var showRecordingOverlay: Bool {
+        didSet { save() }
+    }
+
     var launchAtLogin: Bool {
         didSet {
             save()
@@ -59,6 +63,7 @@ final class SettingsStore {
         static let selectedAudioDeviceUID = "selectedAudioDeviceUID"
         static let activeModelName = "activeModelName"
         static let languageMode = "languageMode"
+        static let showRecordingOverlay = "showRecordingOverlay"
         static let launchAtLogin = "launchAtLogin"
         static let onboardingCompleted = "onboardingCompleted"
         static let onboardingLastStep = "onboardingLastStep"
@@ -78,6 +83,7 @@ final class SettingsStore {
         self.selectedAudioDeviceUID = nil
         self.activeModelName = "tiny"
         self.languageMode = .autoDetect
+        self.showRecordingOverlay = true
         self.launchAtLogin = false
         self.onboardingCompleted = false
         self.onboardingLastStep = 0
@@ -95,6 +101,7 @@ final class SettingsStore {
         defaults.set(Int(hotkeyModifiers), forKey: Keys.hotkeyModifiers)
         defaults.set(selectedAudioDeviceUID, forKey: Keys.selectedAudioDeviceUID)
         defaults.set(activeModelName, forKey: Keys.activeModelName)
+        defaults.set(showRecordingOverlay, forKey: Keys.showRecordingOverlay)
         defaults.set(launchAtLogin, forKey: Keys.launchAtLogin)
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
@@ -135,6 +142,9 @@ final class SettingsStore {
         }
         
         // Load general settings
+        if defaults.object(forKey: Keys.showRecordingOverlay) != nil {
+            self.showRecordingOverlay = defaults.bool(forKey: Keys.showRecordingOverlay)
+        }
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
         self.onboardingCompleted = defaults.bool(forKey: Keys.onboardingCompleted)
         

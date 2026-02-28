@@ -284,6 +284,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 await withCheckedContinuation { continuation in
                     withObservationTracking {
                         _ = sm.appState
+                        _ = self.settingsStore.showRecordingOverlay
                     } onChange: {
                         // Fire on main queue synchronously so we don't miss
                         // short-lived states like .recording
@@ -301,9 +302,11 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func updateOverlayVisibility(for state: AppStateType) {
         switch state {
         case .recording, .processing, .error:
-            if let overlay = overlayPanel, !overlay.isVisible {
+            if settingsStore.showRecordingOverlay, let overlay = overlayPanel, !overlay.isVisible {
                 wispLog("App", "overlayObservation — showing overlay for state: \(state)")
                 overlay.show()
+            } else if !settingsStore.showRecordingOverlay, let overlay = overlayPanel, overlay.isVisible {
+                overlay.dismiss()
             }
         case .idle:
             if let overlay = overlayPanel, overlay.isVisible {
