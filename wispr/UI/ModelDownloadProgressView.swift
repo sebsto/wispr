@@ -39,6 +39,7 @@ struct ModelDownloadProgressView: View {
     @State private var isComplete: Bool = false
     @State private var isDownloading: Bool = false
     @State private var isLoadingModel: Bool = false
+    @State private var isWarmingUp: Bool = false
     @State private var lastProgressUpdate: Date = .now
 
     // MARK: - Init
@@ -64,6 +65,8 @@ struct ModelDownloadProgressView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
             } else if let error {
                 errorView(error: error)
+            } else if isWarmingUp {
+                warmingUpView
             } else if isLoadingModel {
                 loadingModelView
             } else if isDownloading {
@@ -173,6 +176,29 @@ struct ModelDownloadProgressView: View {
         .accessibilityLabel("Preparing \(model.displayName). Loading model into memory.")
     }
 
+    // MARK: - Warming Up
+
+    private var warmingUpView: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Warming up \(model.displayName)…")
+                    .font(.headline)
+                    .foregroundStyle(theme.primaryTextColor)
+            }
+
+            Text("Running first inference to optimize performance. This only happens once.")
+                .font(.callout)
+                .foregroundStyle(theme.secondaryTextColor)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Warming up \(model.displayName). Running first inference to optimize performance.")
+    }
+
     // MARK: - Error
 
     private func errorView(error: String) -> some View {
@@ -222,6 +248,7 @@ struct ModelDownloadProgressView: View {
     private func startDownload() {
         isDownloading = true
         isLoadingModel = false
+        isWarmingUp = false
         progress = 0
         downloadedBytes = 0
         totalBytes = 0
@@ -244,9 +271,15 @@ struct ModelDownloadProgressView: View {
                     case .loadingModel:
                         isDownloading = false
                         isLoadingModel = true
+                        isWarmingUp = false
+                    case .warmingUp:
+                        isDownloading = false
+                        isLoadingModel = false
+                        isWarmingUp = true
                     }
                 }
                 isLoadingModel = false
+                isWarmingUp = false
                 isComplete = true
                 isDownloading = false
                 onComplete?(model.id)
@@ -254,6 +287,7 @@ struct ModelDownloadProgressView: View {
                 self.error = error.localizedDescription
                 isDownloading = false
                 isLoadingModel = false
+                isWarmingUp = false
             }
         }
     }
@@ -261,6 +295,7 @@ struct ModelDownloadProgressView: View {
     private func cancelDownload() {
         isDownloading = false
         isLoadingModel = false
+        isWarmingUp = false
         progress = 0
         downloadedBytes = 0
         totalBytes = 0
@@ -316,7 +351,8 @@ extension ModelDownloadProgressView {
         previewError: String? = nil,
         previewIsComplete: Bool = false,
         previewIsDownloading: Bool = false,
-        previewIsLoadingModel: Bool = false
+        previewIsLoadingModel: Bool = false,
+        previewIsWarmingUp: Bool = false
     ) {
         self.whisperService = whisperService
         self.model = model
@@ -330,6 +366,7 @@ extension ModelDownloadProgressView {
         _isComplete = State(initialValue: previewIsComplete)
         _isDownloading = State(initialValue: previewIsDownloading)
         _isLoadingModel = State(initialValue: previewIsLoadingModel)
+        _isWarmingUp = State(initialValue: previewIsWarmingUp)
         _lastProgressUpdate = State(initialValue: .now)
     }
 }
@@ -346,6 +383,7 @@ private struct DownloadProgressPreview: View {
         case error
         case complete
         case loadingModel
+        case warmingUp
     }
 
     var body: some View {
@@ -386,6 +424,15 @@ private struct DownloadProgressPreview: View {
                     previewTotalBytes: 460_000_000,
                     previewIsLoadingModel: true
                 )
+            case .warmingUp:
+                ModelDownloadProgressView(
+                    whisperService: whisperService,
+                    model: sampleModel,
+                    previewProgress: 1.0,
+                    previewDownloadedBytes: 460_000_000,
+                    previewTotalBytes: 460_000_000,
+                    previewIsWarmingUp: true
+                )
             }
         }
         .environment(settingsStore)
@@ -411,6 +458,10 @@ private struct DownloadProgressPreview: View {
     DownloadProgressPreview(variant: .loadingModel)
 }
 
+#Preview("Warming Up") {
+    DownloadProgressPreview(variant: .warmingUp)
+}
+
 #Preview("All Download States") {
     ScrollView {
         VStack(spacing: 24) {
@@ -421,10 +472,12 @@ private struct DownloadProgressPreview: View {
             DownloadProgressPreview(variant: .error)
             Divider()
             DownloadProgressPreview(variant: .loadingModel)
+            Divider()
+            DownloadProgressPreview(variant: .warmingUp)
         }
         .padding()
     }
-    .frame(width: 420, height: 600)
+    .frame(width: 420, height: 700)
 }
 #endif
 

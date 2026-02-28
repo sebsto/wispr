@@ -197,17 +197,27 @@ actor WhisperService {
                 // Step 3: Store the loaded instance — avoids redundant validation load
                 self.whisperKit = kit
                 self.activeModelName = model.id
-                
+
                 Log.whisperService.debug("downloadModel — whisperKit and activeModelName set to '\(model.id)'")
-                
-                // Yield 100% completion
+
+                // Step 4: Warm up the CoreML pipeline
                 continuation.yield(DownloadProgress(
-                    phase: .loadingModel,
+                    phase: .warmingUp,
                     fractionCompleted: 1.0,
                     bytesDownloaded: totalBytes,
                     totalBytes: totalBytes
                 ))
-                
+
+                await self.warmupModel()
+
+                // Yield final completion
+                continuation.yield(DownloadProgress(
+                    phase: .warmingUp,
+                    fractionCompleted: 1.0,
+                    bytesDownloaded: totalBytes,
+                    totalBytes: totalBytes
+                ))
+
                 continuation.finish()
             } catch is CancellationError {
                 continuation.finish(throwing: WisprError.modelDownloadFailed("Download of \(model.displayName) was cancelled"))
@@ -327,7 +337,9 @@ actor WhisperService {
             )
             whisperKit = try await WhisperKit(config)
             activeModelName = modelName
-            Log.whisperService.debug("loadModel — '\(modelName)' loaded successfully")
+            Log.whisperService.debug("loadModel — '\(modelName)' loaded, starting warmup")
+            await warmupModel()
+            Log.whisperService.debug("loadModel — '\(modelName)' loaded and warmed up successfully")
         } catch {
             throw WisprError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
         }
@@ -540,6 +552,27 @@ actor WhisperService {
         )
     }
     
+    // MARK: - Warmup
+
+    /// Runs a short silent transcription to force CoreML Neural Engine pipeline compilation.
+    ///
+    /// The first real inference through CoreML can be slow or fail because the model
+    /// hasn't been compiled/cached yet. Transcribing ~1 second of silence triggers
+    /// this compilation so subsequent transcriptions work immediately.
+    private func warmupModel() async {
+        guard let whisperKit else { return }
+        Log.whisperService.debug("warmupModel — starting warmup transcription")
+        do {
+            let silence = [Float](repeating: 0, count: 16000)
+            _ = try await whisperKit.transcribe(audioArray: silence)
+            Log.whisperService.debug("warmupModel — warmup completed successfully")
+        } catch {
+            // Expected — silent audio often produces empty/hallucination results.
+            // The point is to trigger CoreML compilation, not get useful output.
+            Log.whisperService.debug("warmupModel — warmup finished (ignored error: \(error.localizedDescription))")
+        }
+    }
+
     // MARK: - Queries
     
     /// Returns the status of a specific model.

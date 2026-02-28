@@ -27,6 +27,9 @@ struct OnboardingModelSelectionStep: View {
     /// Whether the download progress view is currently shown.
     @State private var isShowingDownload = false
 
+    /// Whether an already-downloaded model is being loaded and warmed up.
+    @State private var isPreparingModel = false
+
     // MARK: - Body
 
     var body: some View {
@@ -78,6 +81,10 @@ struct OnboardingModelSelectionStep: View {
             } else {
                 // Model list for selection
                 modelListView
+
+                if isPreparingModel {
+                    preparingModelIndicator
+                }
             }
         }
         .task {
@@ -98,6 +105,18 @@ struct OnboardingModelSelectionStep: View {
         }
     }
 
+    /// Spinner shown while an already-downloaded model is being loaded and warmed up.
+    private var preparingModelIndicator: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Preparing model…")
+                .font(.callout)
+                .foregroundStyle(theme.secondaryTextColor)
+        }
+        .padding(.top, 4)
+    }
+
     /// A single row showing model info, a status icon, and an inline action button.
     private func modelRow(_ model: WhisperModelInfo) -> some View {
         let isSelected = selectedModelId == model.id
@@ -106,12 +125,20 @@ struct OnboardingModelSelectionStep: View {
         return Button {
             selectedModelId = model.id
             if isOnDisk {
-                settingsStore.activeModelName = model.id
-                downloadComplete = true
+                downloadComplete = false
+                isPreparingModel = true
                 Task {
                     if await whisperService.activeModel() != model.id {
-                        try? await whisperService.loadModel(model.id)
+                        do {
+                            try await whisperService.loadModel(model.id)
+                        } catch {
+                            isPreparingModel = false
+                            return
+                        }
                     }
+                    settingsStore.activeModelName = model.id
+                    downloadComplete = true
+                    isPreparingModel = false
                 }
             } else {
                 downloadComplete = false

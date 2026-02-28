@@ -68,6 +68,10 @@ struct OnboardingMicPermissionStep: View {
                 Button {
                     Task {
                         await permissionManager.requestMicrophoneAccess()
+                        // The system permission dialog steals focus from this
+                        // accessory app. Re-activate so the onboarding window
+                        // regains key/focus after the dialog dismisses.
+                        NSApp.activate()
                     }
                 } label: {
                     Label("Grant Microphone Access", systemImage: theme.actionSymbol(.microphone))

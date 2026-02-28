@@ -15,6 +15,8 @@ struct DownloadProgress: Sendable {
         case downloading
         /// Download finished; loading model into memory (CoreML compile, etc.).
         case loadingModel
+        /// Model loaded; running a warmup transcription to compile the CoreML pipeline.
+        case warmingUp
     }
 
     let phase: Phase
