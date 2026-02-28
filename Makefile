@@ -28,12 +28,12 @@ _setup-api-key:
 _cleanup-api-key:
 	@rm -f $(API_KEY_PATH)
 
-bump-build: ## Set build number to YYMMDD-<commit count>
-	$(eval BUILD_NUM := $(shell date +%y%m%d).$(shell git rev-list --count HEAD))
+bump-build: ## Set build number (CFBundleVersion) to git commit count
+	$(eval BUILD_NUM := $(shell git rev-list --count HEAD))
 	@xcrun agvtool new-version -all $(BUILD_NUM) > /dev/null
 	@echo "Build number set to $(BUILD_NUM)"
 
-archive: bump-build ## Bump build number and create Release archive
+archive: bump-build ## Bump build number and create Release archive (version is unchanged)
 	xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Release \
 		-archivePath $(ARCHIVE_PATH) archive | xcbeautify
 
