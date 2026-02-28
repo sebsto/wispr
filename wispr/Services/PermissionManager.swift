@@ -22,23 +22,27 @@ final class PermissionManager {
     }
     
     // MARK: - Initialization
-    
+
     init() {
-        checkPermissions()
+        // Only check accessibility synchronously (fast, no hardware access).
+        // Microphone status is left as .notDetermined and picked up by
+        // startMonitoringPermissionChanges() within ~2 seconds. This avoids
+        // calling AVAudioApplication.shared.recordPermission during bootstrap,
+        // which blocks the main thread when the audio subsystem hasn't been
+        // initialized (e.g. permission not yet granted).
+        checkAccessibilityPermission()
     }
-    
+
     // MARK: - Permission Checking
-    
-    /// Checks the current status of all required permissions
+
+    /// Checks the current status of all required permissions.
     func checkPermissions() {
         checkMicrophonePermission()
         checkAccessibilityPermission()
     }
-    
-    /// Checks microphone permission status
+
     private func checkMicrophonePermission() {
         let status = AVAudioApplication.shared.recordPermission
-        
         switch status {
         case .undetermined:
             microphoneStatus = .notDetermined
@@ -50,8 +54,7 @@ final class PermissionManager {
             microphoneStatus = .notDetermined
         }
     }
-    
-    /// Checks accessibility permission status
+
     private func checkAccessibilityPermission() {
         let trusted = AXIsProcessTrusted()
         accessibilityStatus = trusted ? .authorized : .denied
@@ -63,12 +66,8 @@ final class PermissionManager {
     /// - Returns: True if permission was granted, false otherwise
     @discardableResult
     func requestMicrophoneAccess() async -> Bool {
-        // Request permission
         await AVAudioApplication.requestRecordPermission()
-        
-        // Check the updated status
         checkMicrophonePermission()
-        
         return microphoneStatus == .authorized
     }
     

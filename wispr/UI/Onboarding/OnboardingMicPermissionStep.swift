@@ -33,13 +33,38 @@ struct OnboardingMicPermissionStep: View {
                 .frame(maxWidth: 420)
                 .lineSpacing(5)
 
-            if permissionManager.microphoneStatus == .authorized {
+            switch permissionManager.microphoneStatus {
+            case .authorized:
                 Label("Microphone Access Granted", systemImage: theme.actionSymbol(.checkmark))
                     .font(.headline)
                     .foregroundStyle(theme.successColor)
                     .transition(.scale.combined(with: .opacity))
                     .accessibilityLabel("Microphone access granted")
-            } else {
+
+            case .denied:
+                VStack(spacing: 12) {
+                    Label("Microphone Access Denied", systemImage: "xmark.circle")
+                        .font(.headline)
+                        .foregroundStyle(.red)
+
+                    Text("Wisp cannot work without microphone access. Please enable it in System Settings, then return here.")
+                        .font(.callout)
+                        .foregroundStyle(theme.secondaryTextColor)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 380)
+
+                    Button {
+                        NSWorkspace.shared.open(
+                            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+                        )
+                    } label: {
+                        Label("Open System Settings", systemImage: "gear")
+                    }
+                    .buttonStyle(OnboardingContinueButtonStyle())
+                    .accessibilityHint("Opens Privacy & Security settings to enable microphone access")
+                }
+
+            case .notDetermined:
                 Button {
                     Task {
                         await permissionManager.requestMicrophoneAccess()

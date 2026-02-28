@@ -6,7 +6,7 @@ BUNDLE_ID    := com.stormacq.app.macos.wispr
 CONTAINER    := $(HOME)/Library/Containers/$(BUNDLE_ID)/Data
 MODEL_DIR    := $(CONTAINER)/Library/Application Support/wispr
 
-.PHONY: help list-downloads clean-downloads list-container list-prefs clean-prefs
+.PHONY: help list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-onboarding
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -44,3 +44,17 @@ clean-prefs: ## Delete all UserDefaults for the app
 	@echo "Removing preferences for $(BUNDLE_ID) …"
 	@defaults delete $(BUNDLE_ID) 2>/dev/null || true
 	@echo "Done."
+
+reset-permissions: ## Reset microphone and accessibility permissions for the app
+	@echo "Resetting Microphone permission …"
+	@tccutil reset Microphone $(BUNDLE_ID) 2>/dev/null || true
+	@echo "Resetting Accessibility permission …"
+	@tccutil reset Accessibility $(BUNDLE_ID) 2>/dev/null || true
+	@echo "Done. Restart the app to be prompted again."
+
+reset-onboarding: ## Full onboarding reset (permissions + prefs + models)
+	@echo "=== Full onboarding reset ==="
+	@$(MAKE) -s reset-permissions
+	@$(MAKE) -s clean-prefs
+	@$(MAKE) -s clean-downloads
+	@echo "=== Ready to re-test onboarding ==="
