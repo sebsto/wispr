@@ -208,8 +208,12 @@ final class MenuBarController {
     /// Updates the recording menu item title and action based on current state.
     private func updateRecordingMenuItem() {
         let isRecording = stateManager.appState == .recording
-
-        recordingMenuItem.title = isRecording ? "Stop Recording" : "Start Recording"
+        let shortcut = KeyCodeMapping.hotkeyDisplayString(
+            keyCode: settingsStore.hotkeyKeyCode,
+            modifiers: settingsStore.hotkeyModifiers
+        )
+        let label = isRecording ? "Stop Recording" : "Start Recording"
+        recordingMenuItem.title = "\(label)\t\(shortcut)"
         recordingMenuItem.action = #selector(MenuBarActionHandler.toggleRecording(_:))
         recordingMenuItem.target = MenuBarActionHandler.shared
 
@@ -378,6 +382,8 @@ final class MenuBarController {
                     withObservationTracking {
                         _ = self.stateManager.appState
                         _ = self.settingsStore.languageMode
+                        _ = self.settingsStore.hotkeyKeyCode
+                        _ = self.settingsStore.hotkeyModifiers
                     } onChange: {
                         continuation.resume()
                     }
