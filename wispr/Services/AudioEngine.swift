@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import CoreAudio
+import os
 
 /// Actor responsible for audio capture using AVAudioEngine.
 /// Provides real-time audio level streaming and recorded audio data.
@@ -89,7 +90,7 @@ actor AudioEngine {
         }
         self.audioConverter = converter
         
-        wispLog("AudioEngine", "startCapture — inputFormat sampleRate: \(inputFormat.sampleRate), targetFormat: 16kHz mono Float32, converter created: true")
+        Log.audioEngine.debug("startCapture — inputFormat sampleRate: \(inputFormat.sampleRate), targetFormat: 16kHz mono Float32, converter created: true")
         
         // Reset audio buffer
         audioBuffer.removeAll()
@@ -134,12 +135,10 @@ actor AudioEngine {
             
             let bufferCopy = Array(UnsafeBufferPointer(start: channelData, count: Int(outputBuffer.frameLength)))
             
-            #if DEBUG
             if !hasLoggedFirstBuffer {
                 hasLoggedFirstBuffer = true
-                wispLog("AudioEngine", "First buffer — inputFrames: \(buffer.frameLength), outputFrames: \(outputBuffer.frameLength)")
+                Log.audioEngine.debug("First buffer — inputFrames: \(buffer.frameLength), outputFrames: \(outputBuffer.frameLength)")
             }
-            #endif
             
             Task {
                 await self.processAudioBufferData(bufferCopy)
@@ -169,11 +168,9 @@ actor AudioEngine {
         
         let capturedAudio = audioBuffer
         
-        #if DEBUG
         let sampleCount = capturedAudio.count
         let duration = Double(sampleCount) / 16000.0
-        wispLog("AudioEngine", "stopCapture — samples: \(sampleCount), duration: \(String(format: "%.2f", duration))s")
-        #endif
+        Log.audioEngine.debug("stopCapture — samples: \(sampleCount), duration: \(duration, format: .fixed(precision: 2))s")
         
         teardownEngine()
         return capturedAudio
@@ -181,7 +178,7 @@ actor AudioEngine {
     
     /// Cancels the current capture session and cleans up resources
     func cancelCapture() {
-        wispLog("AudioEngine", "cancelCapture — discarding audio buffer")
+        Log.audioEngine.debug("cancelCapture — discarding audio buffer")
         teardownEngine()
     }
     

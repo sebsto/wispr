@@ -2,20 +2,23 @@
 //  Logger.swift
 //  wispr
 //
-//  Lightweight debug logging helper.
+//  Structured logging via os.Logger.
 //
 
-import Foundation
+import os
 
-/// Logs a debug message to the console in DEBUG builds only.
+/// Centralized loggers for each subsystem category.
+/// Use `Log.category.debug(...)` / `.info(...)` / `.error(...)` at call sites.
 ///
-/// Usage: `wispLog("AudioEngine", "startCapture — sample rate: \(rate)")`
-///
-/// In release builds this compiles to nothing thanks to `@inlinable`
-/// and the `#if DEBUG` guard inside the function body.
-@inlinable
-nonisolated func wispLog(_ tag: String, _ message: @autoclosure () -> String) {
-    #if DEBUG
-    print("[Wisp:\(tag)] \(message())")
-    #endif
+/// Logs are visible in Console.app and persist according to the os_log level:
+/// - `.debug`: Not persisted by default, visible during debugging
+/// - `.info`: Persisted during log collect
+/// - `.error`: Persisted, visible in Console.app
+nonisolated enum Log {
+    private static let subsystem = "com.stormacq.app.macos.wispr"
+
+    static let app = Logger(subsystem: subsystem, category: "App")
+    static let audioEngine = Logger(subsystem: subsystem, category: "AudioEngine")
+    static let whisperService = Logger(subsystem: subsystem, category: "WhisperService")
+    static let stateManager = Logger(subsystem: subsystem, category: "StateManager")
 }

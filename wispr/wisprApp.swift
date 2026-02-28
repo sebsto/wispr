@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import os
 
 /// Main application entry point for Wisp.
 ///
@@ -105,13 +106,13 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Creates the `StateManager` with all dependencies, sets up the menu bar,
     /// registers the hotkey, and starts monitoring tasks.
     private func bootstrap() {
-        wispLog("App", "bootstrap — creating services")
-        wispLog("App", "bootstrap — SettingsStore created")
-        wispLog("App", "bootstrap — PermissionManager created")
-        wispLog("App", "bootstrap — AudioEngine created")
-        wispLog("App", "bootstrap — WhisperService created")
-        wispLog("App", "bootstrap — TextInsertionService created")
-        wispLog("App", "bootstrap — HotkeyMonitor created")
+        Log.app.debug("bootstrap — creating services")
+        Log.app.debug("bootstrap — SettingsStore created")
+        Log.app.debug("bootstrap — PermissionManager created")
+        Log.app.debug("bootstrap — AudioEngine created")
+        Log.app.debug("bootstrap — WhisperService created")
+        Log.app.debug("bootstrap — TextInsertionService created")
+        Log.app.debug("bootstrap — HotkeyMonitor created")
 
         // Build the StateManager with all injected dependencies
         let sm = StateManager(
@@ -124,7 +125,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         stateManager = sm
 
-        wispLog("App", "bootstrap — StateManager initialized")
+        Log.app.debug("bootstrap — StateManager initialized")
 
         // Create menu bar controller (Req 5.1)
         menuBarController = MenuBarController(
@@ -171,11 +172,11 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let modelName = settingsStore.activeModelName
             Task {
                 do {
-                    wispLog("App", "bootstrap — loading active model '\(modelName)'")
+                    Log.app.debug("bootstrap — loading active model '\(modelName)'")
                     try await whisperService.loadModel(modelName)
-                    wispLog("App", "bootstrap — model '\(modelName)' loaded successfully")
+                    Log.app.debug("bootstrap — model '\(modelName)' loaded successfully")
                 } catch {
-                    wispLog("App", "bootstrap — failed to load model '\(modelName)': \(error.localizedDescription)")
+                    Log.app.error("bootstrap — failed to load model '\(modelName)': \(error.localizedDescription)")
                 }
             }
         }
@@ -186,7 +187,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Persists the onboarding-completed flag (Req 13.12) and
     /// dismisses the onboarding window.
     func completeOnboarding() {
-        wispLog("App", "completeOnboarding — onboarding finished")
+        Log.app.debug("completeOnboarding — onboarding finished")
 
         settingsStore.onboardingCompleted = true
         onboardingWindow?.close()
@@ -199,15 +200,15 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Task {
             let currentModel = await whisperService.activeModel()
             guard currentModel != modelName else {
-                wispLog("App", "completeOnboarding — model '\(modelName)' already active")
+                Log.app.debug("completeOnboarding — model '\(modelName)' already active")
                 return
             }
             do {
-                wispLog("App", "completeOnboarding — loading model '\(modelName)'")
+                Log.app.debug("completeOnboarding — loading model '\(modelName)'")
                 try await whisperService.loadModel(modelName)
-                wispLog("App", "completeOnboarding — model '\(modelName)' loaded successfully")
+                Log.app.debug("completeOnboarding — model '\(modelName)' loaded successfully")
             } catch {
-                wispLog("App", "completeOnboarding — failed to load model: \(error.localizedDescription)")
+                Log.app.error("completeOnboarding — failed to load model: \(error.localizedDescription)")
             }
         }
     }
@@ -233,7 +234,7 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     ///
     /// Requirement 13.1: Present a multi-step setup wizard on first launch.
     private func showOnboardingWindow(stateManager sm: StateManager) {
-        wispLog("App", "showOnboardingWindow — presenting onboarding wizard")
+        Log.app.debug("showOnboardingWindow — presenting onboarding wizard")
 
         let onboardingView = OnboardingFlow(
             whisperService: whisperService,
@@ -300,14 +301,14 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         switch state {
         case .recording, .processing, .error:
             if settingsStore.showRecordingOverlay, let overlay = overlayPanel, !overlay.isVisible {
-                wispLog("App", "overlayObservation — showing overlay for state: \(state)")
+                Log.app.debug("overlayObservation — showing overlay for state: \(state)")
                 overlay.show()
             } else if !settingsStore.showRecordingOverlay, let overlay = overlayPanel, overlay.isVisible {
                 overlay.dismiss()
             }
         case .idle:
             if let overlay = overlayPanel, overlay.isVisible {
-                wispLog("App", "overlayObservation — dismissing overlay")
+                Log.app.debug("overlayObservation — dismissing overlay")
                 overlay.dismiss()
             }
         }

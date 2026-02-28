@@ -44,21 +44,18 @@
 **File:** `WhisperService.swift` → `reloadModelWithRetry()`
 **Fix applied:** Replaced `Task.sleep(nanoseconds:)` with `Task.sleep(for: .seconds(...))`. Now consistent with rest of codebase.
 
-### 2c. Polling Timer → KVO / Notification Observation
+### 2c. ~~Polling Timer → KVO / Notification Observation~~ ✅ DONE
 
 **File:** `UIThemeEngine.swift`
-**Current:** Polls `NSWorkspace` accessibility settings and `NSApp.effectiveAppearance` every 1 second via `Task.sleep`.
-**Fix:**
-- Accessibility: Use `NSWorkspace.didChangeAccessibilityDisplayOptionsNotification` via `NotificationCenter.notifications(named:)` async sequence.
-- Appearance: Use KVO on `NSApp.observe(\.effectiveAppearance)` or wrap in `AsyncStream`.
-**Effort:** Low. Eliminates unnecessary polling.
+**Fix applied:** Replaced 1-second polling loop with two event-driven observers:
+- Appearance: KVO on `NSApp.effectiveAppearance` wrapped in `AsyncStream`
+- Accessibility: `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` via `NotificationCenter.notifications(named:)` async sequence
+Eliminates unnecessary polling — updates are now instant and zero-cost when idle.
 
-### 2d. `wispLog()` → `os.Logger`
+### 2d. ~~`wispLog()` → `os.Logger`~~ ✅ DONE
 
-**File:** `Utilities/Logger.swift`
-**Current:** Custom `print()`-based logging gated by `#if DEBUG`.
-**Fix:** Use `os.Logger` with subsystem/category for structured logging. Enables filtering in Console.app and works in release builds with appropriate log levels.
-**Effort:** Low-medium (touch many call sites, but mechanical).
+**Files:** `Logger.swift`, `wisprApp.swift`, `AudioEngine.swift`, `WhisperService.swift`, `StateManager.swift`, `AppStateType.swift`
+**Fix applied:** Replaced custom `wispLog()` (print-based, DEBUG-only) with `os.Logger` via a `nonisolated enum Log` with per-category loggers (`Log.app`, `Log.audioEngine`, `Log.whisperService`, `Log.stateManager`). 53 call sites migrated. Log levels now semantic: `.debug` for trace, `.warning` for non-fatal issues, `.error` for failures. Transcribed text marked `privacy: .private`. Added `CustomStringConvertible` to `AppStateType` for os.Logger interpolation.
 
 ---
 
@@ -85,11 +82,10 @@
 
 `withObservationTracking` loops in `wisprApp.swift`, `MenuBarController.swift`, `StateManager.swift` are the correct idiomatic pattern for observing `@Observable` outside SwiftUI views. Verbose but no simpler API exists yet.
 
-### 3d. `RecordingSession.audioData` — Unnecessary `var`
+### 3d. ~~`RecordingSession.audioData` — Unnecessary `var`~~ ✅ DONE
 
 **File:** `Models/RecordingSession.swift`
-**Current:** `var audioData: Data?`
-**Note:** Never mutated after creation. Could be `let` for clarity.
+**Fix applied:** Deleted the entire file — `RecordingSession` was unused anywhere in the codebase.
 
 ---
 

@@ -10,6 +10,7 @@ import Foundation
 import WhisperKit
 import AVFoundation
 import Darwin
+import os
 
 /// Actor managing WhisperKit model lifecycle, downloads, and transcription.
 ///
@@ -154,7 +155,7 @@ actor WhisperService {
                 // Ensure ~/.wispr exists before downloading
                 try self.ensureModelDirectoryExists()
                 
-                wispLog("WhisperService", "downloadModel — starting download for '\(model.id)'")
+                Log.whisperService.debug("downloadModel — starting download for '\(model.id)'")
                 
                 // Yield initial 0% progress
                 continuation.yield(DownloadProgress(
@@ -180,7 +181,7 @@ actor WhisperService {
                     }
                 )
                 
-                wispLog("WhisperService", "downloadModel — WhisperKit.download() returned modelFolder: \(modelFolder.path)")
+                Log.whisperService.debug("downloadModel — WhisperKit.download() returned modelFolder: \(modelFolder.path)")
                 
                 // Signal the UI that we're now loading the model into memory
                 continuation.yield(DownloadProgress(
@@ -198,13 +199,13 @@ actor WhisperService {
                 )
                 let kit = try await WhisperKit(config)
                 
-                wispLog("WhisperService", "downloadModel — WhisperKit init completed for '\(model.id)'")
+                Log.whisperService.debug("downloadModel — WhisperKit init completed for '\(model.id)'")
                 
                 // Step 3: Store the loaded instance — avoids redundant validation load
                 self.whisperKit = kit
                 self.activeModelName = model.id
                 
-                wispLog("WhisperService", "downloadModel — whisperKit and activeModelName set to '\(model.id)'")
+                Log.whisperService.debug("downloadModel — whisperKit and activeModelName set to '\(model.id)'")
                 
                 // Yield 100% completion
                 continuation.yield(DownloadProgress(
@@ -324,7 +325,7 @@ actor WhisperService {
     /// - Parameter modelName: The name of the model to load
     /// - Throws: WispError.modelLoadFailed if loading fails
     func loadModel(_ modelName: String) async throws {
-        wispLog("WhisperService", "loadModel — loading '\(modelName)'")
+        Log.whisperService.debug("loadModel — loading '\(modelName)'")
         do {
             let config = WhisperKitConfig(
                 model: modelName,
@@ -333,7 +334,7 @@ actor WhisperService {
             )
             whisperKit = try await WhisperKit(config)
             activeModelName = modelName
-            wispLog("WhisperService", "loadModel — '\(modelName)' loaded successfully")
+            Log.whisperService.debug("loadModel — '\(modelName)' loaded successfully")
         } catch {
             throw WispError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
         }
@@ -394,20 +395,18 @@ actor WhisperService {
     ) async throws -> TranscriptionResult {
         // Requirement 3.1: Check that a model is loaded
         guard let whisperKit = whisperKit else {
-            wispLog("WhisperService", "transcribe — whisperKit is nil, no model loaded")
+            Log.whisperService.error("transcribe — whisperKit is nil, no model loaded")
             throw WispError.modelNotDownloaded
         }
         
-        #if DEBUG
         let sampleCount = audioSamples.count
         let audioDuration = Double(sampleCount) / 16000.0
-        wispLog("WhisperService", "transcribe — samples: \(sampleCount), duration: \(String(format: "%.2f", audioDuration))s")
-        #endif
+        Log.whisperService.debug("transcribe — samples: \(sampleCount), duration: \(audioDuration, format: .fixed(precision: 2))s")
         
         // Guard against audio too short for meaningful transcription.
         // WhisperKit needs at least ~0.5s of audio to produce results.
         guard audioSamples.count >= 8000 else {
-            wispLog("WhisperService", "transcribe — audio too short (\(audioSamples.count) samples), skipping")
+            Log.whisperService.debug("transcribe — audio too short (\(audioSamples.count) samples), skipping")
             throw WispError.emptyTranscription
         }
         
@@ -439,10 +438,10 @@ actor WhisperService {
                 )
             )
             
+            Log.whisperService.debug("transcribe — WhisperKit returned \(results.count) segment(s)")
             #if DEBUG
-            wispLog("WhisperService", "transcribe — WhisperKit returned \(results.count) segment(s)")
             for (i, segment) in results.enumerated() {
-                wispLog("WhisperService", "transcribe — segment[\(i)]: \"\(segment.text)\"")
+                Log.whisperService.debug("transcribe — segment[\(i)]: \"\(segment.text, privacy: .private)\"")
             }
             #endif
             
@@ -464,7 +463,7 @@ actor WhisperService {
             
             #if DEBUG
             if filteredText != transcribedText {
-                wispLog("WhisperService", "transcribe — filtered hallucinations: \"\(transcribedText)\" → \"\(filteredText)\"")
+                Log.whisperService.debug("transcribe — filtered hallucinations: \"\(transcribedText, privacy: .private)\" → \"\(filteredText, privacy: .private)\"")
             }
             #endif
             
@@ -482,7 +481,7 @@ actor WhisperService {
             
             #if DEBUG
             let preview = String(filteredText.prefix(50))
-            wispLog("WhisperService", "transcribe — result: \"\(preview)\" (len=\(filteredText.count), \(String(format: "%.2f", duration))s)")
+            Log.whisperService.debug("transcribe — result: \"\(preview, privacy: .private)\" (len=\(filteredText.count), \(duration, format: .fixed(precision: 2))s)")
             #endif
             
             // Requirement 3.3: Return TranscriptionResult
@@ -492,10 +491,10 @@ actor WhisperService {
                 duration: duration
             )
         } catch let error as WispError {
-            wispLog("WhisperService", "transcribe — error: \(error.localizedDescription)")
+            Log.whisperService.error("transcribe — error: \(error.localizedDescription)")
             throw error
         } catch {
-            wispLog("WhisperService", "transcribe — error: \(error.localizedDescription)")
+            Log.whisperService.error("transcribe — error: \(error.localizedDescription)")
             // Requirement 3.5: Handle transcription failures
             throw WispError.transcriptionFailed("Transcription failed: \(error.localizedDescription)")
         }
@@ -555,7 +554,7 @@ actor WhisperService {
     /// Requirement 7.7: Query model status (not downloaded, downloading, downloaded, active).
     func modelStatus(_ modelName: String) -> ModelStatus {
         if downloadTasks[modelName] != nil {
-            wispLog("WhisperService", "modelStatus('\(modelName)') → .downloading")
+            Log.whisperService.debug("modelStatus('\(modelName)') → .downloading")
             return .downloading(progress: 0.0)
         }
         
@@ -567,10 +566,10 @@ actor WhisperService {
             let modelPath = try getModelPath(for: modelName)
             if FileManager.default.fileExists(atPath: modelPath.path) {
                 if modelName == activeModelName {
-                    wispLog("WhisperService", "modelStatus('\(modelName)') → .active")
+                    Log.whisperService.debug("modelStatus('\(modelName)') → .active")
                     return .active
                 }
-                wispLog("WhisperService", "modelStatus('\(modelName)') → .downloaded")
+                Log.whisperService.debug("modelStatus('\(modelName)') → .downloaded")
                 return .downloaded
             }
         } catch {
@@ -581,12 +580,12 @@ actor WhisperService {
         // clear the stale reference so the app doesn't keep assuming
         // a model is loaded.
         if modelName == activeModelName {
-            wispLog("WhisperService", "modelStatus('\(modelName)') — files missing, clearing stale active model")
+            Log.whisperService.warning("modelStatus('\(modelName)') — files missing, clearing stale active model")
             activeModelName = nil
             whisperKit = nil
         }
         
-        wispLog("WhisperService", "modelStatus('\(modelName)') → .notDownloaded")
+        Log.whisperService.debug("modelStatus('\(modelName)') → .notDownloaded")
         return .notDownloaded
     }
     
