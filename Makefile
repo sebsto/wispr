@@ -10,42 +10,43 @@ SCHEME       := wispr
 XCODEPROJ    := wispr.xcodeproj
 ARCHIVE_PATH := $(CURDIR)/build/wispr.xcarchive
 EXPORT_DIR   := $(CURDIR)/build/export
-PKG_PATH     := $(EXPORT_DIR)/wispr.pkg
 
 # App Store Connect API key (read from secrets/asc-api-key.json)
 SECRETS_JSON   := $(CURDIR)/secrets/asc-api-key.json
-API_KEYS_DIR   := $(CURDIR)/build/private_keys
+API_KEYS_DIR   := $(CURDIR)/private_keys
+API_KEY_ID     := $(shell jq -r .apple_api_key_id $(CURDIR)/secrets/asc-api-key.json 2>/dev/null)
+API_ISSUER     := $(shell jq -r .apple_api_issuer_id $(CURDIR)/secrets/asc-api-key.json 2>/dev/null)
+API_KEY_PATH   := $(API_KEYS_DIR)/AuthKey_$(API_KEY_ID).p8
 
-.PHONY: help bump-build archive export upload list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-onboarding
+.PHONY: help bump-build archive upload list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-onboarding
+
+_setup-api-key:
+	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
+	@mkdir -p $(API_KEYS_DIR)
+	@jq -r .apple_api_key $(SECRETS_JSON) | base64 -d > $(API_KEY_PATH)
+
+_cleanup-api-key:
+	@rm -f $(API_KEY_PATH)
 
 bump-build: ## Set build number to YYMMDD-<commit count>
-	$(eval BUILD_NUM := $(shell date +%y%m%d)-$(shell git rev-list --count HEAD))
+	$(eval BUILD_NUM := $(shell date +%y%m%d).$(shell git rev-list --count HEAD))
 	@xcrun agvtool new-version -all $(BUILD_NUM) > /dev/null
 	@echo "Build number set to $(BUILD_NUM)"
 
 archive: bump-build ## Bump build number and create Release archive
 	xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Release \
-		-archivePath $(ARCHIVE_PATH) archive
+		-archivePath $(ARCHIVE_PATH) archive | xcbeautify
 
-export: archive ## Archive and export a signed .pkg for App Store upload
+upload: archive _setup-api-key ## Archive and upload to App Store Connect
 	xcodebuild -exportArchive \
 		-archivePath $(ARCHIVE_PATH) \
 		-exportPath $(EXPORT_DIR) \
-		-exportOptionsPlist ExportOptions.plist
-
-upload: export ## Archive, export, and upload to App Store Connect
-	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
-	$(eval API_KEY_ID := $(shell jq -r .apple_api_key_id $(SECRETS_JSON)))
-	$(eval API_ISSUER := $(shell jq -r .apple_api_issuer_id $(SECRETS_JSON)))
-	@mkdir -p $(API_KEYS_DIR)
-	@jq -r .apple_api_key $(SECRETS_JSON) | base64 -d > $(API_KEYS_DIR)/AuthKey_$(API_KEY_ID).p8
-	xcrun altool --validate-app -f $(PKG_PATH) -t macos \
-		--apiKey $(API_KEY_ID) --apiIssuer $(API_ISSUER) \
-		--private-key-dir $(API_KEYS_DIR)
-	xcrun altool --upload-app -f $(PKG_PATH) -t macos \
-		--apiKey $(API_KEY_ID) --apiIssuer $(API_ISSUER) \
-		--private-key-dir $(API_KEYS_DIR)
-	@rm -f $(API_KEYS_DIR)/AuthKey_$(API_KEY_ID).p8
+		-exportOptionsPlist ExportOptions.plist \
+		-allowProvisioningUpdates \
+		-authenticationKeyPath $(API_KEY_PATH) \
+		-authenticationKeyID $(API_KEY_ID) \
+		-authenticationKeyIssuerID $(API_ISSUER) | xcbeautify
+	@$(MAKE) _cleanup-api-key
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
