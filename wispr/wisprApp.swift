@@ -286,11 +286,8 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         _ = sm.appState
                         _ = self.settingsStore.showRecordingOverlay
                     } onChange: {
-                        // Fire on main queue synchronously so we don't miss
-                        // short-lived states like .recording
-                        DispatchQueue.main.async {
-                            self.updateOverlayVisibility(for: sm.appState)
-                        }
+                        // Resume immediately; the next loop iteration
+                        // calls updateOverlayVisibility on @MainActor.
                         continuation.resume()
                     }
                 }

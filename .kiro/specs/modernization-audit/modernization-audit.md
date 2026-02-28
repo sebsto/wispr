@@ -125,3 +125,17 @@ try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
 3. **Nice to have:** Item 2d — migrate to `os.Logger`.
 4. **Track externally:** Item 3a — `nonisolated(unsafe)` on `WhisperService.whisperKit` pending WhisperKit `Sendable` support.
 5. **Minor cleanup:** Item 3d — `RecordingSession.audioData` `var` → `let`.
+
+---
+
+## 6. DispatchQueue / GCD Audit
+
+### Status: ✅ Resolved
+
+**Single occurrence found and removed:**
+
+| File | Line | Old Code | Resolution |
+|---|---|---|---|
+| `wisprApp.swift` | ~291 | `DispatchQueue.main.async { self.updateOverlayVisibility(...) }` inside `withObservationTracking` `onChange` | Removed. The `onChange` closure now just resumes the continuation; the next `while` loop iteration calls `updateOverlayVisibility` on `@MainActor`, making the GCD dispatch redundant. |
+
+**No other GCD primitives found:** No `DispatchSemaphore`, `DispatchGroup`, `DispatchWorkItem`, or `DispatchQueue.global()` usage anywhere in the codebase. The project is fully on Swift Concurrency.
