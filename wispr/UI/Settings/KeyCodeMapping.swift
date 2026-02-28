@@ -38,13 +38,38 @@ enum KeyCodeMapping {
     ]
 
     /// Derived reverse mapping: lowercase character → virtual key code.
-    /// Only maps single-character key names (letters, digits, punctuation).
+    /// Includes single-character key names (letters, digits, punctuation)
+    /// and SwiftUI KeyEquivalent special characters (arrows, return, tab, etc.).
     private static let charToKeyCode: [Character: UInt32] = {
         var map: [Character: UInt32] = [:]
         for (code, name) in keyNames where name.count == 1 {
             map[Character(name.lowercased())] = code
         }
-        map[" "] = 49 // Space
+        map[" "] = 49  // Space
+        // SwiftUI KeyEquivalent uses these Unicode characters for special keys
+        map["\r"] = 36                  // Return
+        map["\t"] = 48                  // Tab
+        map["\u{7F}"] = 51             // Delete (backspace)
+        map[Character("\u{F700}")] = 126 // Up arrow
+        map[Character("\u{F701}")] = 125 // Down arrow
+        map[Character("\u{F702}")] = 123 // Left arrow
+        map[Character("\u{F703}")] = 124 // Right arrow
+        map[Character("\u{F704}")] = 122 // F1
+        map[Character("\u{F705}")] = 120 // F2
+        map[Character("\u{F706}")] = 99  // F3
+        map[Character("\u{F707}")] = 118 // F4
+        map[Character("\u{F708}")] = 96  // F5
+        map[Character("\u{F709}")] = 97  // F6
+        map[Character("\u{F70A}")] = 98  // F7
+        map[Character("\u{F70B}")] = 100 // F8
+        map[Character("\u{F70C}")] = 101 // F9
+        map[Character("\u{F70D}")] = 109 // F10
+        map[Character("\u{F70E}")] = 103 // F11
+        map[Character("\u{F70F}")] = 111 // F12
+        map[Character("\u{F729}")] = 115 // Home
+        map[Character("\u{F72B}")] = 119 // End
+        map[Character("\u{F72C}")] = 116 // Page Up
+        map[Character("\u{F72D}")] = 121 // Page Down
         return map
     }()
 

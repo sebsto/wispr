@@ -93,8 +93,11 @@ struct HotkeyRecorderView: View {
             return
         }
 
-        guard let char = keyPress.characters.lowercased().first,
-              let newKeyCode = KeyCodeMapping.keyCode(for: char) else {
+        // Use keyPress.key.character (unmodified logical key) instead of
+        // keyPress.characters (which is altered by modifiers, e.g. Option+Space
+        // produces non-breaking space, Option+A produces "å").
+        let logicalChar = Character(String(keyPress.key.character).lowercased())
+        guard let newKeyCode = KeyCodeMapping.keyCode(for: logicalChar) else {
             errorMessage = "Unsupported key. Use a standard letter, number, or punctuation key."
             return
         }

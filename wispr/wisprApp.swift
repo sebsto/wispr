@@ -90,6 +90,9 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Task observing StateManager.appState to drive overlay visibility.
     private var overlayObservationTask: Task<Void, Never>?
 
+    /// Task observing hotkey settings changes to re-register the global hotkey.
+    private var hotkeyObservationTask: Task<Void, Never>?
+
     /// Retained reference to the onboarding window.
     private var onboardingWindow: NSWindow?
 
@@ -158,6 +161,9 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Start observing state to drive overlay visibility (Req 9.1, 9.3, 9.4, 9.5)
         startOverlayObservation(stateManager: sm)
+
+        // Re-register hotkey whenever the user changes it in settings
+        startHotkeyObservation()
 
         // Start permission monitoring
         Task {
@@ -259,6 +265,46 @@ final class WispAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         window.delegate = self
         onboardingWindow = window
+    }
+
+    // MARK: - Hotkey Settings Observation
+
+    /// Observes `settingsStore.hotkeyKeyCode` and `hotkeyModifiers` and
+    /// re-registers the global hotkey whenever the user changes either value.
+    private func startHotkeyObservation() {
+        hotkeyObservationTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                let currentKeyCode = self.settingsStore.hotkeyKeyCode
+                let currentModifiers = self.settingsStore.hotkeyModifiers
+
+                await withCheckedContinuation { continuation in
+                    withObservationTracking {
+                        _ = self.settingsStore.hotkeyKeyCode
+                        _ = self.settingsStore.hotkeyModifiers
+                    } onChange: {
+                        continuation.resume()
+                    }
+                }
+
+                // Values changed — re-register with the new combination
+                let newKeyCode = self.settingsStore.hotkeyKeyCode
+                let newModifiers = self.settingsStore.hotkeyModifiers
+                guard newKeyCode != currentKeyCode || newModifiers != currentModifiers else {
+                    continue
+                }
+
+                do {
+                    try self.hotkeyMonitor.updateHotkey(
+                        keyCode: newKeyCode,
+                        modifiers: newModifiers
+                    )
+                    Log.app.debug("hotkeyObservation — re-registered hotkey")
+                } catch {
+                    Log.app.error("hotkeyObservation — failed to re-register hotkey: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     // MARK: - Overlay State Observation
