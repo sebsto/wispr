@@ -269,35 +269,18 @@ final class MenuBarController {
 
         languageSubmenu.addItem(NSMenuItem.separator())
 
-        // Common languages
-        let commonLanguages: [(code: String, name: String)] = [
-            ("en", "English"),
-            ("es", "Spanish"),
-            ("fr", "French"),
-            ("de", "German"),
-            ("it", "Italian"),
-            ("pt", "Portuguese"),
-            ("nl", "Dutch"),
-            ("ja", "Japanese"),
-            ("ko", "Korean"),
-            ("zh", "Chinese"),
-            ("ru", "Russian"),
-            ("ar", "Arabic"),
-            ("hi", "Hindi"),
-        ]
-
-        for lang in commonLanguages {
+        for lang in SupportedLanguage.all {
             let item = NSMenuItem(
                 title: lang.name,
                 action: #selector(MenuBarActionHandler.selectLanguage(_:)),
                 keyEquivalent: ""
             )
             item.target = MenuBarActionHandler.shared
-            item.representedObject = lang.code
+            item.representedObject = lang.id
 
             // Mark the currently selected language
             if let currentCode = settingsStore.languageMode.languageCode,
-               currentCode == lang.code {
+               currentCode == lang.id {
                 item.state = .on
             }
             languageSubmenu.addItem(item)
