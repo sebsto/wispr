@@ -43,23 +43,25 @@ struct PermissionManagerTests {
     @Test("PermissionManager checkPermissions updates status")
     func testCheckPermissions() async {
         let manager = PermissionManager()
-        
-        // Store initial status
-        let initialMicStatus = manager.microphoneStatus
-        let initialAccessStatus = manager.accessibilityStatus
-        
-        // Call checkPermissions
+
+        // init() only checks accessibility (fast), mic is left as .notDetermined
+        #expect(manager.microphoneStatus == .notDetermined, "Mic status should be .notDetermined before checkPermissions")
+
+        // checkPermissions queries both mic and accessibility from the system
         manager.checkPermissions()
-        
-        // Status should be set (may be same or different depending on system state)
-        // We verify the method completes without crashing
-        let _ = manager.microphoneStatus
+
+        // After checkPermissions, mic status should reflect the actual system state
+        #expect(manager.microphoneStatus != .notDetermined, "Mic status should be determined after checkPermissions")
+
+        // Accessibility status should be valid
         let _ = manager.accessibilityStatus
-        
-        // The values should be consistent with the initial check
-        // (they shouldn't randomly change unless system state actually changed)
-        #expect(manager.microphoneStatus == initialMicStatus, "Microphone status should remain consistent")
-        #expect(manager.accessibilityStatus == initialAccessStatus, "Accessibility status should remain consistent")
+
+        // Calling again should be idempotent
+        let micAfterFirst = manager.microphoneStatus
+        let accessAfterFirst = manager.accessibilityStatus
+        manager.checkPermissions()
+        #expect(manager.microphoneStatus == micAfterFirst, "Mic status should remain consistent on repeated calls")
+        #expect(manager.accessibilityStatus == accessAfterFirst, "Accessibility status should remain consistent on repeated calls")
     }
     
     // MARK: - Permission Request Tests
