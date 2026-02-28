@@ -448,6 +448,7 @@ private struct ModelRowView: View {
                     Label("Delete", systemImage: theme.actionSymbol(.delete))
                 }
                 .buttonStyle(.bordered)
+                .tint(.red)
                 .highContrastBorder(cornerRadius: 6)
                 .keyboardFocusRing()
                 .disabled(isActivating)
@@ -464,6 +465,7 @@ private struct ModelRowView: View {
                     Label("Delete", systemImage: theme.actionSymbol(.delete))
                 }
                 .buttonStyle(.bordered)
+                .tint(.red)
                 .highContrastBorder(cornerRadius: 6)
                 .keyboardFocusRing()
                 .accessibilityLabel("Delete \(model.displayName) model")
