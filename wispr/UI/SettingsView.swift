@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  wispr
 //
-//  SwiftUI Form-based settings view with sections for Hotkey Configuration,
+//  SwiftUI settings view with sections for Hotkey Configuration,
 //  Audio Device, Whisper Model, Language, and General.
 //  Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 14.3, 14.5, 14.12,
 //                16.3, 16.4, 16.5, 16.6, 16.9, 16.10, 16.11
@@ -122,9 +122,31 @@ struct SupportedLanguage: Identifiable, Sendable {
     ]
 }
 
+// MARK: - Reusable Components
+
+private struct SectionHeader: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 18.0
+
+    var body: some View {
+        Label {
+            Text(title)
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(.primary)
+        } icon: {
+            Image(systemName: systemImage)
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundStyle(tint.gradient)
+        }
+    }
+}
+
 // MARK: - SettingsView
 
-/// The main settings view presenting a Form with all configurable preferences.
+/// The main settings view presenting configurable preferences in a native grouped form.
 ///
 /// Requirement 10.1: Preferences window with sections for Hotkey, Audio Device, Model, General.
 /// Requirement 10.5: All changes apply immediately without restart.
@@ -134,22 +156,12 @@ struct SettingsView: View {
     @Environment(SettingsStore.self) private var settingsStore: SettingsStore
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
-    /// Available audio input devices, fetched from AudioEngine.
     @State private var audioDevices: [AudioInputDevice] = []
-
-    /// Available Whisper models, fetched from WhisperService.
     @State private var whisperModels: [WhisperModelInfo] = []
-
-    /// Whether the hotkey recorder is actively listening for a new key combination.
     @State private var isRecordingHotkey = false
-
-    /// Error message for hotkey conflicts.
     @State private var hotkeyError: String?
 
-    /// The AudioEngine used to query available devices.
     private let audioEngine: AudioEngine
-
-    /// The WhisperService used to query available models.
     private let whisperService: WhisperService
 
     init(audioEngine: AudioEngine, whisperService: WhisperService) {
@@ -166,8 +178,9 @@ struct SettingsView: View {
             generalSection
         }
         .formStyle(.grouped)
-        .font(.body)
-        .frame(minWidth: 520, idealWidth: 560, minHeight: 520, idealHeight: 580)
+        .scrollDisabled(true)
+        .frame(width: 520)
+        .fixedSize(horizontal: false, vertical: true)
         .liquidGlassPanel()
         .task {
             await loadAudioDevices()
@@ -178,14 +191,9 @@ struct SettingsView: View {
     // MARK: - Hotkey Configuration Section
 
     /// Requirement 10.1: Hotkey Configuration section.
-    /// Displays the current hotkey and allows recording a new one.
     private var hotkeySection: some View {
         Section {
-            HStack {
-                Label("Shortcut", systemImage: SFSymbols.keyboard)
-                    .font(.body)
-                    .foregroundStyle(theme.primaryTextColor)
-                Spacer()
+            LabeledContent("Shortcut") {
                 HotkeyRecorderView(
                     keyCode: Bindable(settingsStore).hotkeyKeyCode,
                     modifiers: Bindable(settingsStore).hotkeyModifiers,
@@ -193,7 +201,6 @@ struct SettingsView: View {
                     errorMessage: $hotkeyError
                 )
             }
-            .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Hotkey shortcut")
             .accessibilityHint("Activate to record a new hotkey combination")
@@ -202,11 +209,16 @@ struct SettingsView: View {
                 Label(error, systemImage: theme.actionSymbol(.warning))
                     .foregroundStyle(theme.errorColor)
                     .font(.callout)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         } header: {
-            Text("Hotkey Configuration")
-                .font(.headline)
+            SectionHeader(
+                title: "Hotkey Configuration",
+                systemImage: SFSymbols.keyboard,
+                tint: .orange
+            )
         }
+        .animation(.smooth, value: hotkeyError)
     }
 
     // MARK: - Audio Device Section
@@ -215,56 +227,47 @@ struct SettingsView: View {
     private var audioDeviceSection: some View {
         Section {
             @Bindable var store = settingsStore
-            Picker(selection: $store.selectedAudioDeviceUID) {
+            Picker("Input Device", selection: $store.selectedAudioDeviceUID) {
                 Text("System Default")
                     .tag(nil as String?)
                 ForEach(audioDevices) { device in
                     Text(device.name)
                         .tag(device.uid as String?)
                 }
-            } label: {
-                Label("Input Device", systemImage: theme.actionSymbol(.microphone))
-                    .font(.body)
-                    .foregroundStyle(theme.primaryTextColor)
             }
-            .padding(.vertical, 4)
-            .accessibilityLabel("Audio input device")
             .accessibilityHint("Select the microphone to use for recording")
         } header: {
-            Text("Audio Device")
-                .font(.headline)
+            SectionHeader(
+                title: "Audio Device",
+                systemImage: theme.actionSymbol(.microphone),
+                tint: .blue
+            )
         }
     }
 
     // MARK: - Whisper Model Section
 
-    /// Requirement 10.1: Whisper Model section with picker and link to Model Management.
+    /// Requirement 10.1: Whisper Model section with picker.
     private var whisperModelSection: some View {
         Section {
             @Bindable var store = settingsStore
-            Picker(selection: $store.activeModelName) {
+            Picker("Active Model", selection: $store.activeModelName) {
                 ForEach(whisperModels) { model in
                     let isAvailable = model.status == .downloaded || model.status == .active
                     HStack {
                         Text(model.displayName)
                         Text("(\(model.sizeDescription))")
-                            .foregroundStyle(theme.secondaryTextColor)
+                            .foregroundStyle(.secondary)
                         if !isAvailable {
                             Text("— Not Downloaded")
-                                .foregroundStyle(theme.secondaryTextColor.opacity(0.6))
+                                .foregroundStyle(.secondary.opacity(0.6))
                                 .font(.caption)
                         }
                     }
                     .tag(model.id)
                     .opacity(isAvailable ? 1.0 : 0.4)
                 }
-            } label: {
-                Label("Active Model", systemImage: theme.actionSymbol(.model))
-                    .font(.body)
-                    .foregroundStyle(theme.primaryTextColor)
             }
-            .padding(.vertical, 4)
-            .accessibilityLabel("Whisper model")
             .accessibilityHint("Select the speech recognition model to use")
             .onChange(of: settingsStore.activeModelName) { _, newValue in
                 let isValid = whisperModels.contains { model in
@@ -275,8 +278,11 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("Whisper Model")
-                .font(.headline)
+            SectionHeader(
+                title: "Whisper Model",
+                systemImage: theme.actionSymbol(.model),
+                tint: .purple
+            )
         }
     }
 
@@ -286,73 +292,47 @@ struct SettingsView: View {
     /// Language selection with auto-detect toggle, language picker, and pin language toggle.
     private var languageSection: some View {
         Section {
-            // Auto-detect toggle
-            // Requirement 16.3: Default to auto-detect mode.
-            // Requirement 16.11: Enabling auto-detect clears pinned language.
-            Toggle(isOn: autoDetectBinding) {
-                Label("Auto-Detect Language", systemImage: theme.actionSymbol(.language))
-                    .foregroundStyle(theme.primaryTextColor)
-            }
-            .padding(.vertical, 4)
-            .accessibilityLabel("Auto-detect language")
-            .accessibilityHint("When enabled, Wisp automatically detects the spoken language")
+            Toggle("Auto-Detect Language", isOn: autoDetectBinding)
+                .accessibilityHint("When enabled, Wisp automatically detects the spoken language")
 
-            // Language picker (shown when auto-detect is off)
-            // Requirement 16.4: Select a specific language for transcription.
             if !settingsStore.languageMode.isAutoDetect {
-                Picker(selection: selectedLanguageCodeBinding) {
+                Picker("Language", selection: selectedLanguageCodeBinding) {
                     ForEach(SupportedLanguage.all) { lang in
                         Text(lang.name).tag(lang.id)
                     }
-                } label: {
-                    Label("Language", systemImage: SFSymbols.characterBubble)
-                        .foregroundStyle(theme.primaryTextColor)
                 }
-                .accessibilityLabel("Transcription language")
                 .accessibilityHint("Select the language for speech transcription")
 
-                // Pin language toggle
-                // Requirement 16.10: Pin language disables auto-detect and locks transcription.
-                Toggle(isOn: pinLanguageBinding) {
-                    Label("Pin Language", systemImage: SFSymbols.pin)
-                        .foregroundStyle(theme.primaryTextColor)
-                }
-                .padding(.vertical, 4)
-                .accessibilityLabel("Pin language")
-                .accessibilityHint("When enabled, locks transcription to the selected language")
+                Toggle("Pin Language", isOn: pinLanguageBinding)
+                    .accessibilityHint("When enabled, locks transcription to the selected language")
             }
         } header: {
-            Text("Language")
-                .font(.headline)
+            SectionHeader(
+                title: "Language",
+                systemImage: theme.actionSymbol(.language),
+                tint: .green
+            )
         }
+        .animation(.smooth, value: settingsStore.languageMode.isAutoDetect)
     }
 
     // MARK: - General Section
 
-    /// Requirements 10.3, 10.4: Launch at Login toggle using ServiceManagement.
+    /// Requirements 10.3, 10.4: General toggles for overlay and launch at login.
     private var generalSection: some View {
         Section {
-            Toggle(isOn: Binding(
-                get: { settingsStore.showRecordingOverlay },
-                set: { settingsStore.showRecordingOverlay = $0 }
-            )) {
-                Label("Show Recording Overlay", systemImage: SFSymbols.recordingMicrophone)
-                    .foregroundStyle(theme.primaryTextColor)
-            }
-            .padding(.vertical, 4)
-            .accessibilityLabel("Show recording overlay")
-            .accessibilityHint("When enabled, a floating overlay appears while recording")
+            @Bindable var store = settingsStore
+            Toggle("Show Recording Overlay", isOn: $store.showRecordingOverlay)
+                .accessibilityHint("When enabled, a floating overlay appears while recording")
 
-            Toggle(isOn: launchAtLoginBinding) {
-                Label("Launch at Login", systemImage: theme.actionSymbol(.launchAtLogin))
-                    .foregroundStyle(theme.primaryTextColor)
-            }
-            .padding(.vertical, 4)
-            .accessibilityLabel("Launch at login")
-            .accessibilityHint("When enabled, Wisp starts automatically when you log in")
+            Toggle("Launch at Login", isOn: $store.launchAtLogin)
+                .accessibilityHint("When enabled, Wisp starts automatically when you log in")
         } header: {
-            Text("General")
-                .font(.headline)
+            SectionHeader(
+                title: "General",
+                systemImage: SFSymbols.settings,
+                tint: .secondary
+            )
         }
     }
 
@@ -378,11 +358,12 @@ struct SettingsView: View {
         Binding<Bool>(
             get: { settingsStore.languageMode.isAutoDetect },
             set: { newValue in
-                if newValue {
-                    settingsStore.languageMode = .autoDetect
-                } else {
-                    // Default to English when disabling auto-detect
-                    settingsStore.languageMode = .specific(code: "en")
+                withAnimation(.smooth) {
+                    if newValue {
+                        settingsStore.languageMode = .autoDetect
+                    } else {
+                        settingsStore.languageMode = .specific(code: "en")
+                    }
                 }
             }
         )
@@ -420,17 +401,6 @@ struct SettingsView: View {
             }
         )
     }
-
-    /// Binding for Launch at Login.
-    /// Requirements 10.3, 10.4: Register/unregister handled by SettingsStore.
-    private var launchAtLoginBinding: Binding<Bool> {
-        Binding<Bool>(
-            get: { settingsStore.launchAtLogin },
-            set: { newValue in
-                settingsStore.launchAtLogin = newValue
-            }
-        )
-    }
 }
 
 // MARK: - HotkeyRecorderView
@@ -447,30 +417,41 @@ struct HotkeyRecorderView: View {
 
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
+    @State private var isHovering = false
+
     var body: some View {
         Button {
-            isRecording.toggle()
-            if !isRecording {
-                errorMessage = nil
+            withAnimation(.smooth(duration: 0.2)) {
+                isRecording.toggle()
+                if !isRecording {
+                    errorMessage = nil
+                }
             }
         } label: {
-            if isRecording {
-                HStack(spacing: 4) {
+            HStack(spacing: 6) {
+                if isRecording {
                     Image(systemName: SFSymbols.recordCircle)
                         .foregroundStyle(theme.errorColor)
-                    Text("Press keys…")
-                        .foregroundStyle(theme.secondaryTextColor)
+                        .symbolEffect(.pulse, isActive: true)
+                    Text("Press keys\u{2026}")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(hotkeyDisplayString)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-            } else {
-                Text(hotkeyDisplayString)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
         .buttonStyle(.bordered)
-        .highContrastBorder(cornerRadius: 6)
+        .clipShape(.rect(cornerRadius: 8))
+        .scaleEffect(isHovering ? 1.02 : 1.0)
+        .animation(.smooth(duration: 0.15), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .highContrastBorder(cornerRadius: 8)
         .keyboardFocusRing()
         .accessibilityLabel(isRecording ? "Recording hotkey, press desired key combination" : "Current hotkey: \(hotkeyDisplayString)")
         .accessibilityHint("Click to record a new hotkey")
@@ -481,9 +462,7 @@ struct HotkeyRecorderView: View {
         }
     }
 
-    /// Handles a key press event during hotkey recording.
     private func handleKeyPress(_ keyPress: KeyPress) {
-        // Convert SwiftUI key modifiers to Carbon modifier flags
         var carbonModifiers: UInt32 = 0
         if keyPress.modifiers.contains(.command) {
             carbonModifiers |= UInt32(cmdKey)
@@ -498,13 +477,11 @@ struct HotkeyRecorderView: View {
             carbonModifiers |= UInt32(shiftKey)
         }
 
-        // Require at least one modifier key
         guard carbonModifiers != 0 else {
-            errorMessage = "Hotkey must include at least one modifier key (⌘, ⌥, ⌃, or ⇧)"
+            errorMessage = "Hotkey must include at least one modifier key (\u{2318}, \u{2325}, \u{2303}, or \u{21E7})"
             return
         }
 
-        // Map the key character to a virtual key code
         let newKeyCode = virtualKeyCode(from: keyPress)
 
         keyCode = newKeyCode
@@ -513,9 +490,7 @@ struct HotkeyRecorderView: View {
         errorMessage = nil
     }
 
-    /// Maps a SwiftUI KeyPress to a Carbon virtual key code.
     private func virtualKeyCode(from keyPress: KeyPress) -> UInt32 {
-        // Common key mappings from character to Carbon virtual key code
         let keyMap: [Character: UInt32] = [
             "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7,
             "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14, "r": 15,
@@ -531,18 +506,16 @@ struct HotkeyRecorderView: View {
             return code
         }
 
-        // Fallback: return Space key code
         return 49
     }
 
-    /// Formats the current hotkey as a human-readable string (e.g., "⌥Space").
     private var hotkeyDisplayString: String {
         var parts: [String] = []
 
-        if modifiers & UInt32(controlKey) != 0 { parts.append("⌃") }
-        if modifiers & UInt32(optionKey) != 0 { parts.append("⌥") }
-        if modifiers & UInt32(shiftKey) != 0 { parts.append("⇧") }
-        if modifiers & UInt32(cmdKey) != 0 { parts.append("⌘") }
+        if modifiers & UInt32(controlKey) != 0 { parts.append("\u{2303}") }
+        if modifiers & UInt32(optionKey) != 0 { parts.append("\u{2325}") }
+        if modifiers & UInt32(shiftKey) != 0 { parts.append("\u{21E7}") }
+        if modifiers & UInt32(cmdKey) != 0 { parts.append("\u{2318}") }
 
         let keyName = keyCodeToString(keyCode)
         parts.append(keyName)
@@ -550,7 +523,6 @@ struct HotkeyRecorderView: View {
         return parts.joined()
     }
 
-    /// Converts a Carbon virtual key code to a display string.
     private func keyCodeToString(_ code: UInt32) -> String {
         let keyNames: [UInt32: String] = [
             0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X",
@@ -564,7 +536,7 @@ struct HotkeyRecorderView: View {
             98: "F7", 99: "F3", 100: "F8", 101: "F9", 103: "F11", 105: "F13",
             109: "F10", 111: "F12", 113: "F14", 115: "Home", 116: "PageUp",
             117: "Forward Delete", 118: "F4", 119: "End", 120: "F2",
-            121: "PageDown", 122: "F1", 123: "←", 124: "→", 125: "↓", 126: "↑",
+            121: "PageDown", 122: "F1", 123: "\u{2190}", 124: "\u{2192}", 125: "\u{2193}", 126: "\u{2191}",
         ]
         return keyNames[code] ?? "Key \(code)"
     }
@@ -584,11 +556,15 @@ private struct SettingsPreview: View {
         )
         .environment(settingsStore)
         .environment(theme)
-        .frame(width: 560, height: 580)
     }
 }
 
 #Preview("Settings") {
     SettingsPreview()
+}
+
+#Preview("Settings - Dark") {
+    SettingsPreview()
+        .preferredColorScheme(.dark)
 }
 #endif
