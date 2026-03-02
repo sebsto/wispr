@@ -26,7 +26,7 @@
 - [X] Global hotkey — uses `RegisterEventHotKey` (Carbon), **not** CGEvent taps. Works in App Sandbox without special entitlements. No `temporary-exception.apple-events` needed.
 
 ## 4. Privacy & Permissions
-- [X] `NSMicrophoneUsageDescription` in Info.plist — "Wispr uses your microphone to capture speech for on-device transcription. Audio never leaves your Mac."
+- [X] `NSMicrophoneUsageDescription` in Info.plist — "Wispr uses your microphone to convert speech to text entirely on your Mac. For example, hold the keyboard shortcut, dictate a message or email, and Wispr transcribes your words and inserts the text into any app. Audio is processed locally and is never sent to a server."
 - [X] Apple Events — **not used**. No `NSAppleEventsUsageDescription` needed. *(Original checklist item was misleading — the app uses Accessibility APIs for text insertion, not Apple Events. These are separate permission domains.)*
 - [ ] Privacy Nutrition Label filled out in App Store Connect:
   - [ ] Confirm **no data collected** (all processing is local)
@@ -101,7 +101,7 @@
 - [ ] Test with Increase Contrast, Reduce Motion, Reduce Transparency
 - [ ] Test with the app sandboxed (Archive build, not debug)
 - [X] Test full flow: launch → onboarding → download model → grant permissions → record → transcribe → paste
-- [ ] Test launch at login via `SMAppService`
+- [X] Test launch at login via `SMAppService` — fixed Guideline 2.4.5(iii) rejection: no longer auto-registers on startup
 - [X] Test with microphone permission denied
 - [ ] Test with no internet (model download should fail gracefully)
 - [ ] TestFlight for Mac — distribute a beta build to external testers
@@ -113,6 +113,7 @@
 | ~~`~/.wispr` model storage via `getpwuid`~~ | **Fixed** — models now stored in Application Support (sandbox container) |
 | Global hotkey via `Carbon` APIs | **Verified** — `RegisterEventHotKey` works in sandbox, no special entitlements needed |
 | `ServiceManagement` (`SMAppService`) | **Verified** — uses modern `SMAppService.mainApp` API (not deprecated `SMLoginItemSetEnabled`), sandbox-compatible |
+| ~~Auto-launch without user consent (Guideline 2.4.5(iii))~~ | **Fixed** — `updateLaunchAtLogin()` is now guarded by `isLoading` in `didSet`, so `SMAppService.register()` is never called during `load()`. `launchAtLogin` reads from `SMAppService.mainApp.status` (system source of truth) instead of UserDefaults. |
 | ~~WhisperKit model download to arbitrary path~~ | **Fixed** — downloads to `Application Support/wispr/` inside sandbox container |
 
 ## 14. Post-Submission

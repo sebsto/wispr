@@ -18,7 +18,7 @@ API_KEY_ID     := $(shell jq -r .apple_api_key_id $(CURDIR)/secrets/asc-api-key.
 API_ISSUER     := $(shell jq -r .apple_api_issuer_id $(CURDIR)/secrets/asc-api-key.json 2>/dev/null)
 API_KEY_PATH   := $(API_KEYS_DIR)/AuthKey_$(API_KEY_ID).p8
 
-.PHONY: help bump-build archive upload list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-onboarding
+.PHONY: help bump-build archive upload list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-login-item reset-onboarding
 
 _setup-api-key:
 	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
@@ -92,9 +92,15 @@ reset-permissions: ## Reset microphone and accessibility permissions for the app
 	@tccutil reset Accessibility $(BUNDLE_ID) 2>/dev/null || true
 	@echo "Done. Restart the app to be prompted again."
 
-reset-onboarding: ## Full onboarding reset (permissions + prefs + models)
+reset-login-item: ## Reset Background Task Management database (clears all login items)
+	@echo "Resetting BTM database (clears all SMAppService login items) …"
+	@sfltool resetbtm 2>/dev/null || true
+	@echo "Done. The app will no longer launch at login."
+
+reset-onboarding: ## Full onboarding reset (permissions + prefs + models + login item)
 	@echo "=== Full onboarding reset ==="
 	@$(MAKE) -s reset-permissions
 	@$(MAKE) -s clean-prefs
 	@$(MAKE) -s clean-downloads
+	@$(MAKE) -s reset-login-item
 	@echo "=== Ready to re-test onboarding ==="

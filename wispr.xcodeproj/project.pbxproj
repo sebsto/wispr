@@ -431,7 +431,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wispr uses your microphone to capture speech for on-device transcription. Audio never leaves your Mac.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wispr uses your microphone to convert speech to text entirely on your Mac. For example, hold the keyboard shortcut, dictate a message or email, and Wispr transcribes your words and inserts the text into any app. Audio is processed locally and is never sent to a server.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -474,7 +474,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wispr uses your microphone to capture speech for on-device transcription. Audio never leaves your Mac.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wispr uses your microphone to convert speech to text entirely on your Mac. For example, hold the keyboard shortcut, dictate a message or email, and Wispr transcribes your words and inserts the text into any app. Audio is processed locally and is never sent to a server.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

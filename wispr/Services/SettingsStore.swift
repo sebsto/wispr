@@ -44,6 +44,7 @@ final class SettingsStore {
     var launchAtLogin: Bool {
         didSet {
             save()
+            guard !isLoading else { return }
             updateLaunchAtLogin(launchAtLogin)
         }
     }
@@ -102,7 +103,6 @@ final class SettingsStore {
         defaults.set(selectedAudioDeviceUID, forKey: Keys.selectedAudioDeviceUID)
         defaults.set(activeModelName, forKey: Keys.activeModelName)
         defaults.set(showRecordingOverlay, forKey: Keys.showRecordingOverlay)
-        defaults.set(launchAtLogin, forKey: Keys.launchAtLogin)
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
         
@@ -145,7 +145,7 @@ final class SettingsStore {
         if defaults.object(forKey: Keys.showRecordingOverlay) != nil {
             self.showRecordingOverlay = defaults.bool(forKey: Keys.showRecordingOverlay)
         }
-        self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
+        self.launchAtLogin = SMAppService.mainApp.status == .enabled
         self.onboardingCompleted = defaults.bool(forKey: Keys.onboardingCompleted)
         
         self.onboardingLastStep = defaults.integer(forKey: Keys.onboardingLastStep)

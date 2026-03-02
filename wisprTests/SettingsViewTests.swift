@@ -260,17 +260,6 @@ struct SettingsViewPersistenceTests {
         #expect(store2.activeModelName == "large-v3")
     }
 
-    @Test("Launch at login changes persist immediately")
-    func testLaunchAtLoginPersistence() {
-        let suite = "test.wispr.persist.login.\(UUID().uuidString)"
-        let store1 = makeStore(suiteName: suite)
-
-        store1.launchAtLogin = true
-
-        let store2 = makeStore(suiteName: suite)
-        #expect(store2.launchAtLogin == true)
-    }
-
     @Test("Audio device UID changes persist immediately")
     func testAudioDevicePersistence() {
         let suite = "test.wispr.persist.audio.\(UUID().uuidString)"

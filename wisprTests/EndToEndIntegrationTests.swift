@@ -194,18 +194,6 @@ struct EndToEndIntegrationTests {
         }
     }
 
-    @Test("E2E: launch at login persists across SettingsStore instances")
-    func testLaunchAtLoginPersistence() {
-        let (defaults, _) = createIsolatedDefaults()
-
-        let store1 = SettingsStore(defaults: defaults)
-        store1.launchAtLogin = true
-
-        let store2 = SettingsStore(defaults: defaults)
-        #expect(store2.launchAtLogin == true,
-                "Launch at login should persist across restarts")
-    }
-
     @Test("E2E: onboarding completed flag persists across SettingsStore instances")
     func testOnboardingCompletedPersistence() {
         let (defaults, _) = createIsolatedDefaults()
@@ -230,7 +218,6 @@ struct EndToEndIntegrationTests {
         store1.selectedAudioDeviceUID = "external-mic-uid"
         store1.activeModelName = "medium"
         store1.languageMode = .specific(code: "de")
-        store1.launchAtLogin = true
         store1.onboardingCompleted = true
         store1.onboardingLastStep = OnboardingStep.completion.rawValue
 
@@ -240,7 +227,6 @@ struct EndToEndIntegrationTests {
         #expect(store2.hotkeyModifiers == 8192)
         #expect(store2.selectedAudioDeviceUID == "external-mic-uid")
         #expect(store2.activeModelName == "medium")
-        #expect(store2.launchAtLogin == true)
         #expect(store2.onboardingCompleted == true)
         #expect(store2.onboardingLastStep == OnboardingStep.completion.rawValue)
 

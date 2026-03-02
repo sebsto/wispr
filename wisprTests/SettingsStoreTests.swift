@@ -65,8 +65,7 @@ struct SettingsStoreTests {
             Issue.record("Default language mode should be autoDetect")
         }
         
-        // General defaults
-        #expect(store.launchAtLogin == false, "Launch at login should default to false")
+        // General defaults (launchAtLogin reads from SMAppService.mainApp.status, not UserDefaults)
         #expect(store.onboardingCompleted == false, "Onboarding completed should default to false")
         #expect(store.onboardingLastStep == 0, "Onboarding last step should default to 0")
     }
@@ -177,14 +176,12 @@ struct SettingsStoreTests {
         let store = SettingsStore(defaults: defaults)
         
         // Modify general settings
-        store.launchAtLogin = true
         store.onboardingCompleted = true
         store.onboardingLastStep = 3
-        
+
         // Create a new store instance to verify persistence
         let newStore = SettingsStore(defaults: defaults)
-        
-        #expect(newStore.launchAtLogin == true, "Launch at login should persist")
+
         #expect(newStore.onboardingCompleted == true, "Onboarding completed should persist")
         #expect(newStore.onboardingLastStep == 3, "Onboarding last step should persist")
     }
@@ -202,7 +199,6 @@ struct SettingsStoreTests {
         store.selectedAudioDeviceUID = "device-123"
         store.activeModelName = "medium"
         store.languageMode = .specific(code: "es")
-        store.launchAtLogin = true
         store.onboardingCompleted = true
         store.onboardingLastStep = 5
         
@@ -216,7 +212,6 @@ struct SettingsStoreTests {
         #expect(newStore.hotkeyModifiers == 8192)
         #expect(newStore.selectedAudioDeviceUID == "device-123")
         #expect(newStore.activeModelName == "medium")
-        #expect(newStore.launchAtLogin == true)
         #expect(newStore.onboardingCompleted == true)
         #expect(newStore.onboardingLastStep == 5)
         
