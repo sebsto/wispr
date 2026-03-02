@@ -48,35 +48,35 @@
 - [X] No hardcoded file paths outside sandbox — audit confirmed: no `/Users/`, `/tmp/`, `NSHomeDirectory()`, or `getpwuid` in Swift source.
 
 ## 6. Code Signing & Notarization
-- [ ] Archive the app with "Apple Distribution" signing identity *(manual)*
+- [X] Archive the app with "Apple Distribution" signing identity *(manual)*
 - [X] Hardened Runtime enabled (`ENABLE_HARDENED_RUNTIME = YES` in both Debug and Release)
-- [ ] All embedded frameworks and dylibs are signed *(verify after archive)*
-- [ ] WhisperKit / CoreML model files are included in the bundle signature *(verify after archive — note: models are downloaded at runtime, not bundled)*
-- [ ] Validate the archive in Xcode Organizer before uploading *(manual)*
+- [X] All embedded frameworks and dylibs are signed *(verify after archive)*
+- [X] WhisperKit / CoreML model files are included in the bundle signature *(verify after archive — note: models are downloaded at runtime, not bundled)*
+- [X] Validate the archive in Xcode Organizer before uploading *(manual)*
 
 > **Note on item 4**: WhisperKit models are **downloaded at runtime** by the user, not bundled in the app. They live in the sandbox container. There are no model files in the bundle to sign. This item is misleading — removed from blockers.
 
 ## 7. App Store Connect Metadata
-- [ ] App Name: "Wispr" (check availability — names are globally unique)
-- [ ] Subtitle (30 chars max, e.g., "Local Voice to Text")
-- [ ] Description (up to 4000 chars) — highlight privacy, local processing, no cloud
-- [ ] Keywords (100 chars total, comma-separated)
-- [ ] Primary Language
+- [X] App Name: "Wispr" (check availability — names are globally unique)
+- [X] Subtitle (30 chars max, e.g., "Local Voice to Text")
+- [X] Description (up to 4000 chars) — highlight privacy, local processing, no cloud
+- [X] Keywords (100 chars total, comma-separated)
+- [X] Primary Language
 - [X] Category — `public.app-category.utilities` (set in Xcode project)
-- [ ] Content Rating questionnaire completed
+- [X] Content Rating questionnaire completed
 - [ ] Copyright string — currently empty in `INFOPLIST_KEY_NSHumanReadableCopyright`. Set before submission.
 
 ## 8. Screenshots & App Preview
-- [ ] At least one screenshot required
+- [X] At least one screenshot required
 - [ ] Recommended: screenshots showing onboarding, recording overlay, menu bar, settings
-- [ ] Screenshot sizes for Mac: 1280×800 or 1440×900 (16:10 ratio)
-- [ ] Optional: App Preview video (15–30 seconds, showing dictation workflow)
+- [X] Screenshot sizes for Mac: 1280×800 or 1440×900 (16:10 ratio)
+- [-] Optional: App Preview video (15–30 seconds, showing dictation workflow)
 
 > **Removed**: "If app supports multiple languages, localized screenshots for each" — Wispr's UI is English-only. Multi-language support is for *transcription input*, not UI localization. No localized screenshots needed.
 
 ## 9. App Icon
 - [X] macOS app icon set present with all standard sizes (16–512 @1x/@2x)
-- [ ] Verify 1024×1024 variant is included for App Store submission *(512@2x = 1024px but may need explicit 1024@1x entry)*
+- [X] Verify 1024×1024 variant is included for App Store submission *(512@2x = 1024px but may need explicit 1024@1x entry)*
 - [X] Icon follows macOS rounded-rect shape (do not mask it yourself — macOS applies the mask)
 - [X] Icon is distinct and recognizable at 16×16
 
@@ -91,7 +91,7 @@
 - [ ] License Agreement (can use Apple's standard EULA or provide custom)
 - [X] WhisperKit license compatible with App Store distribution (MIT)
 - [X] All dependencies' licenses permit App Store distribution — WhisperKit (MIT), Apple packages (Apache 2.0), Hugging Face packages (Apache 2.0), yyjson (MIT)
-- [ ] Check trademark availability for "Wispr" name
+- [-] Check trademark availability for "Wispr" name
 
 ## 12. Testing Before Submission
 - [X] Test on minimum supported macOS version (26.2)
