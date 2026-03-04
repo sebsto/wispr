@@ -37,7 +37,7 @@ _cleanup-api-key:
 	@rm -f $(API_KEY_PATH)
 
 bump-build: ## Set build number (CFBundleVersion) to git commit count
-	$(eval BUILD_NUM := $(shell git rev-list --count HEAD))
+	$(eval BUILD_NUM := $(shell date +%y%m%d).$(shell git rev-list --count HEAD))
 	@xcrun agvtool new-version -all $(BUILD_NUM) > /dev/null
 	@echo "Build number set to $(BUILD_NUM)"
 
