@@ -1,0 +1,47 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-15-arm64
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show build environment
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -project wispr.xcodeproj \
+            -scheme wispr \
+            -resolvePackageDependencies
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project wispr.xcodeproj \
+            -scheme wispr \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project wispr.xcodeproj \
+            -scheme wispr \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify
