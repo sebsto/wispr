@@ -58,10 +58,14 @@ upload: archive _setup-api-key ## Archive and upload to App Store Connect
 
 notarize: archive _setup-api-key ## Archive, sign, notarize, and staple the app
 	@test -f "$(NOTARIZATION_JSON)" || { echo "Error: $(NOTARIZATION_JSON) not found"; exit 1; }
+	@mkdir -p "$(EXPORT_DIR)"
+	@cp -R "$(ARCHIVE_PATH)/Products/Applications/wispr.app" "$(APP_PATH)"
 	@echo "🔐 Signing app..."
 	@codesign --deep --force --verify --verbose \
 		--sign "$(SIGNING_IDENTITY)" \
-		--options runtime "$(APP_PATH)"
+		--options runtime \
+		--entitlements wispr.entitlements \
+		"$(APP_PATH)"
 	@echo "🗜️  Creating zip..."
 	@ditto -c -k --keepParent "$(APP_PATH)" "$(ZIP_PATH)"
 	@echo "📤 Submitting for notarization..."
@@ -117,6 +121,7 @@ brew-release: ## Create Homebrew cask release (usage: make brew-release VERSION=
 	@echo "📦 Updating homebrew tap..."
 	@cd ../homebrew-macos && git pull --rebase origin main
 	@mkdir -p ../homebrew-macos/Casks
+	@cd ../homebrew-macos && git pull
 	@cp wispr.rb ../homebrew-macos/Casks/
 	@cd ../homebrew-macos && git add Casks/wispr.rb && \
 		git commit -m "Update wispr to $(VERSION)" && \
