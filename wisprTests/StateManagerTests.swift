@@ -236,6 +236,63 @@ struct StateManagerTests {
         }
     }
 
+    // MARK: - Permission Branching in beginRecording
+
+    @Test("beginRecording surfaces accessibility error when mic authorized but accessibility denied")
+    func testBeginRecordingMicAuthorizedAccessibilityDenied() async {
+        let (sm, pm) = createTestStateManager(permissionsGranted: false)
+        pm.microphoneStatus = .authorized
+        pm.accessibilityStatus = .denied
+
+        await sm.beginRecording()
+
+        if case .error(let msg) = sm.appState {
+            #expect(msg == WisprError.accessibilityPermissionDenied.localizedDescription,
+                    "Should surface accessibility error, got: \(msg)")
+        } else {
+            Issue.record("Expected error state for accessibility denied, got \(sm.appState)")
+        }
+    }
+
+    @Test("beginRecording surfaces microphone error when mic denied")
+    func testBeginRecordingMicDenied() async {
+        let (sm, pm) = createTestStateManager(permissionsGranted: false)
+        pm.microphoneStatus = .denied
+        pm.accessibilityStatus = .authorized
+
+        await sm.beginRecording()
+
+        if case .error(let msg) = sm.appState {
+            #expect(msg == WisprError.microphonePermissionDenied.localizedDescription,
+                    "Should surface microphone error, got: \(msg)")
+        } else {
+            Issue.record("Expected error state for microphone denied, got \(sm.appState)")
+        }
+    }
+
+    @Test("beginRecording shows short-lived error without opening settings when mic notDetermined then denied",
+          .disabled("Requires mocking PermissionManager — AVAudioApplication.requestRecordPermission() returns the real system state in tests"))
+    func testBeginRecordingMicNotDeterminedThenDenied() async {
+        let (sm, pm) = createTestStateManager(permissionsGranted: false)
+        pm.microphoneStatus = .notDetermined
+        pm.accessibilityStatus = .authorized
+
+        await sm.beginRecording()
+
+        // In a real scenario where the user denies the prompt,
+        // the code takes an early-return path with a plain error message
+        // ("Microphone access denied") and does NOT call handleError
+        // (which would open System Settings).
+        // This can't be tested without a protocol-based mock for PermissionManager
+        // since requestMicrophoneAccess() calls AVAudioApplication.requestRecordPermission().
+        if case .error(let msg) = sm.appState {
+            #expect(msg == "Microphone access denied",
+                    "Should show short-lived denial message, got: \(msg)")
+        } else {
+            Issue.record("Expected short-lived error state for fresh denial, got \(sm.appState)")
+        }
+    }
+
     // MARK: - Reset to Idle
 
     @Test("resetToIdle returns to idle state")
