@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wispr - Voice Dictation for Mac</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="section hero">
+        <div class="container">
+            <img src="icon.svg" alt="Wispr Logo" class="logo">
+            <h1>Wispr</h1>
+            <p class="tagline">Your voice, your words. Instantly.</p>
+            <p class="subtitle">Privacy-first voice dictation for macOS. All processing happens on your Mac.</p>
+            <div class="hero-cta-group">
+                <a href="#download" class="cta-button primary">Download Now</a>
+                <a href="https://revolut.me/sbastiwm7" target="_blank" rel="noopener noreferrer" class="cta-button secondary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                    Support
+                </a>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <span>Scroll to explore</span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Download/Install Section -->
+    <section id="download" class="section download-section">
+        <div class="container">
+            <div class="download-grid">
+                <div class="download-card install-card">
+                    <div class="card-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </div>
+                    <h2>Get Started</h2>
+                    <p class="card-subtitle">Install Wispr with Homebrew</p>
+                    <div class="install-steps">
+                        <div class="code-block">
+                            <code>brew tap sebsto/macos</code>
+                            <button type="button" class="copy-btn" data-copy="brew tap sebsto/macos">Copy</button>
+                        </div>
+                        <div class="code-block">
+                            <code>brew install wispr</code>
+                            <button type="button" class="copy-btn" data-copy="brew install wispr">Copy</button>
+                        </div>
+                    </div>
+                    <div class="card-bottom">
+                        <p class="install-note">Or download the latest release:</p>
+                        <a href="https://github.com/sebsto/wispr/releases/latest" id="download-link" target="_blank" rel="noopener noreferrer" class="download-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span id="download-text">Download Latest Release</span>
+                        </a>
+                        <p class="version-info" id="version-info">Loading version...</p>
+                    </div>
+                </div>
+                
+                <div class="download-card donate-card">
+                    <div class="card-icon heart-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                    </div>
+                    <h2>Support Wispr</h2>
+                    <p class="card-subtitle">Help keep it free and open source</p>
+                    <div class="donate-benefits">
+                        <div class="benefit">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Support ongoing development</span>
+                        </div>
+                        <div class="benefit">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Keep Wispr free for everyone</span>
+                        </div>
+                        <div class="benefit">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Fund new features</span>
+                        </div>
+                    </div>
+                    <div class="card-bottom">
+                        <a href="https://revolut.me/sbastiwm7" target="_blank" rel="noopener noreferrer" class="donate-button-large">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                            </svg>
+                            Donate
+                        </a>
+                        <p class="donate-note">Every contribution helps</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="section features">
+        <div class="container">
+            <h2>Speak naturally, type effortlessly</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎤</div>
+                    <h3>Global Hotkey</h3>
+                    <p>Press Option+Space anywhere on your Mac to start dictating. Release to transcribe. It's that simple.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>100% Private</h3>
+                    <p>All voice processing happens on your device. No audio ever leaves your Mac. No cloud, no servers, no tracking.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Lightning Fast</h3>
+                    <p>Powered by on-device Whisper AI. Get accurate transcriptions in seconds, even without internet.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3>97 Languages</h3>
+                    <p>Dictate in any language. Auto-detect mode figures out what you're speaking, or pin your preferred language.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="section how-it-works">
+        <div class="container">
+            <h2>Three steps to better writing</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Hold the hotkey</h3>
+                    <p>Press and hold Option+Space (or your custom shortcut) from any app.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Speak your mind</h3>
+                    <p>Talk naturally. Wispr captures your voice and shows real-time audio feedback.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Get instant text</h3>
+                    <p>Release the hotkey. Your words appear right where your cursor is.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Onboarding Section -->
+    <section class="section onboarding">
+        <div class="container">
+            <h2>Get started in minutes</h2>
+            <p class="section-subtitle">A guided setup walks you through everything you need.</p>
+            <div class="onboarding-carousel">
+                <div class="carousel-container">
+                    <div class="carousel-track">
+                        <div class="onboarding-slide">
+                            <img src="screenshots/onboarding-01.png" alt="Welcome to Wispr">
+                            <div class="slide-caption">
+                                <span class="slide-number">1</span>
+                                <p>Welcome to Wispr</p>
+                            </div>
+                        </div>
+                        <div class="onboarding-slide">
+                            <img src="screenshots/onboarding-02.png" alt="Grant microphone access">
+                            <div class="slide-caption">
+                                <span class="slide-number">2</span>
+                                <p>Grant microphone access</p>
+                            </div>
+                        </div>
+                        <div class="onboarding-slide">
+                            <img src="screenshots/onboarding-03.png" alt="Enable accessibility">
+                            <div class="slide-caption">
+                                <span class="slide-number">3</span>
+                                <p>Enable accessibility for text insertion</p>
+                            </div>
+                        </div>
+                        <div class="onboarding-slide">
+                            <img src="screenshots/onboarding-04.png" alt="Choose your AI model">
+                            <div class="slide-caption">
+                                <span class="slide-number">4</span>
+                                <p>Choose your AI model</p>
+                            </div>
+                        </div>
+                        <div class="onboarding-slide">
+                            <img src="screenshots/onboarding-05.png" alt="Test your setup">
+                            <div class="slide-caption">
+                                <span class="slide-number">5</span>
+                                <p>Test your setup with a quick dictation</p>
+                            </div>
+                        </div>
+                        <div class="onboarding-slide">
+                            <img src="screenshots/onboarding-06.png" alt="Ready to use">
+                            <div class="slide-caption">
+                                <span class="slide-number">6</span>
+                                <p>You're all set!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="carousel-controls">
+                    <button class="carousel-btn prev" aria-label="Previous slide">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <div class="carousel-dots"></div>
+                    <button class="carousel-btn next" aria-label="Next slide">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots Section -->
+    <section class="section screenshots">
+        <div class="container">
+            <h2>Designed for macOS</h2>
+            <p class="section-subtitle">Clean, native interface that feels right at home on your Mac.</p>
+            <div class="screenshot-grid">
+                <div class="screenshot-item">
+                    <img src="screenshots/menu.png" alt="Menu bar interface">
+                    <p>Lives quietly in your menu bar</p>
+                </div>
+                <div class="screenshot-item">
+                    <img src="screenshots/settings.png" alt="Settings panel">
+                    <p>Customize to your workflow</p>
+                </div>
+                <div class="screenshot-item">
+                    <img src="screenshots/model-management.png" alt="Model management">
+                    <p>Choose your AI model</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="section use-cases">
+        <div class="container">
+            <h2>Built for how you work</h2>
+            <div class="use-case-grid">
+                <div class="use-case">
+                    <h3>Writers</h3>
+                    <p>Draft articles, emails, and documents faster than typing. Let your thoughts flow without keyboard friction.</p>
+                </div>
+                <div class="use-case">
+                    <h3>Developers</h3>
+                    <p>Document code, write commit messages, and respond to issues using your voice. Works in any text field.</p>
+                </div>
+                <div class="use-case">
+                    <h3>Students</h3>
+                    <p>Take notes during lectures, write essays, and capture ideas quickly. Perfect for research and study sessions.</p>
+                </div>
+                <div class="use-case">
+                    <h3>Everyone</h3>
+                    <p>Reply to messages, fill forms, search the web. Anywhere you type, Wispr makes it faster.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section class="section support">
+        <div class="container">
+            <h2>Love Wispr?</h2>
+            <p class="support-text">Your support keeps Wispr free, open source, and privacy-focused for everyone.</p>
+            <a href="https://revolut.me/sbastiwm7" target="_blank" rel="noopener noreferrer" class="donate-button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+                Support
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Wispr. Built with care for macOS.</p>
+            <p class="footer-links">
+                <a href="https://github.com/sebsto/wispr" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <span>•</span>
+                <a href="https://revolut.me/sbastiwm7" target="_blank" rel="noopener noreferrer">Donate</a>
+                <span>•</span>
+                <a href="https://github.com/sebsto/wispr/releases/latest" target="_blank" rel="noopener noreferrer">Download</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
