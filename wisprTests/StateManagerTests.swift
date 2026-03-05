@@ -42,6 +42,10 @@ func createTestStateManager(
         settingsStore: settingsStore
     )
 
+    // StateManager initializes in .loading state; transition to .idle
+    // so tests start from the expected ready state.
+    stateManager.markAsReady()
+
     return (stateManager, permissionManager)
 }
 
@@ -53,10 +57,18 @@ struct StateManagerTests {
 
     // MARK: - Initial State
 
-    @Test("StateManager starts in idle state")
+    @Test("StateManager starts in loading state")
     func testInitialState() {
-        let (sm, _) = createTestStateManager()
-        #expect(sm.appState == .idle)
+        // Create StateManager directly (without markAsReady) to verify initial state
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "test.wispr.initialstate.\(UUID().uuidString)")!)
+        )
+        #expect(sm.appState == .loading)
         #expect(sm.errorMessage == nil)
         #expect(sm.audioLevelStream == nil)
     }

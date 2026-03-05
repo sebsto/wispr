@@ -57,6 +57,9 @@ struct EndToEndIntegrationTests {
             settingsStore: settingsStore
         )
 
+        // StateManager initializes in .loading; transition to .idle for tests.
+        stateManager.markAsReady()
+
         return (stateManager, permissionManager, settingsStore, audioEngine, whisperService, hotkeyMonitor)
     }
 

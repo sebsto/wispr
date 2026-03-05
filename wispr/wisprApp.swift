@@ -172,19 +172,13 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
 
         // Requirement 13.1, 13.12: Show onboarding on first launch
         if !settingsStore.onboardingCompleted {
+            // During onboarding, model loading happens in the model selection step.
+            // Start idle so the hotkey works for the test dictation step.
+            sm.markAsReady()
             showOnboardingWindow(stateManager: sm)
         } else {
             // Load the active model on subsequent launches so whisperKit is ready
-            let modelName = settingsStore.activeModelName
-            Task {
-                do {
-                    Log.app.debug("bootstrap — loading active model '\(modelName)'")
-                    try await whisperService.loadModel(modelName)
-                    Log.app.debug("bootstrap — model '\(modelName)' loaded successfully")
-                } catch {
-                    Log.app.error("bootstrap — failed to load model '\(modelName)': \(error.localizedDescription)")
-                }
-            }
+            Task { await sm.loadActiveModel() }
         }
     }
 
@@ -199,24 +193,10 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         onboardingWindow?.close()
         onboardingWindow = nil
 
-        // Ensure the active model is loaded for normal hotkey usage.
-        // During onboarding the model may have been loaded, but we
-        // reload defensively so whisperKit is guaranteed to be ready.
-        let modelName = settingsStore.activeModelName
-        Task {
-            let currentModel = await whisperService.activeModel()
-            guard currentModel != modelName else {
-                Log.app.debug("completeOnboarding — model '\(modelName)' already active")
-                return
-            }
-            do {
-                Log.app.debug("completeOnboarding — loading model '\(modelName)'")
-                try await whisperService.loadModel(modelName)
-                Log.app.debug("completeOnboarding — model '\(modelName)' loaded successfully")
-            } catch {
-                Log.app.error("completeOnboarding — failed to load model: \(error.localizedDescription)")
-            }
-        }
+        // Model was already loaded during the onboarding download step
+        // (WhisperService.downloadModel loads the model and sets activeModelName).
+        // Just ensure we're in idle state.
+        stateManager?.markAsReady()
     }
 
     // MARK: - NSWindowDelegate
@@ -345,7 +325,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Shows or dismisses the overlay based on the current app state.
     private func updateOverlayVisibility(for state: AppStateType) {
         switch state {
-        case .recording, .processing, .error:
+        case .loading, .recording, .processing, .error:
             if settingsStore.showRecordingOverlay, let overlay = overlayPanel, !overlay.isVisible {
                 Log.app.debug("overlayObservation — showing overlay for state: \(state)")
                 overlay.show()

@@ -96,7 +96,7 @@ brew-release: ## Create Homebrew cask release (usage: make brew-release VERSION=
 	$(eval TAG := v$(VERSION))
 	$(eval ZIP_NAME := wispr-$(VERSION).zip)
 	@echo "📝 Setting version to $(VERSION)..."
-	@xcrun agvtool new-marketing-version $(VERSION) > /dev/null
+	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
 	@$(MAKE) notarize
 	@echo "🗜️  Creating release zip..."
 	@cp "$(ZIP_PATH)" "$(EXPORT_DIR)/$(ZIP_NAME)"

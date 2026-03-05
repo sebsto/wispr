@@ -79,6 +79,14 @@ final class PermissionManager {
         NSWorkspace.shared.open(url)
     }
     
+    /// Opens System Settings to the Microphone privacy pane
+    /// This allows the user to re-enable microphone access if they previously denied it
+    func openMicrophoneSettings() {
+        // Open System Settings to Privacy & Security > Microphone
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") else { return }
+        NSWorkspace.shared.open(url)
+    }
+    
     // MARK: - Permission Monitoring
     
     /// Polls for permission changes every 2 seconds.

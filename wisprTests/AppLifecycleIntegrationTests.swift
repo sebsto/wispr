@@ -52,6 +52,10 @@ private func createIntegrationServices(
         settingsStore: settingsStore
     )
 
+    // StateManager initializes in .loading state; transition to .idle
+    // so integration tests start from the expected ready state.
+    stateManager.markAsReady()
+
     return (stateManager, permissionManager, settingsStore, audioEngine, whisperService, hotkeyMonitor)
 }
 

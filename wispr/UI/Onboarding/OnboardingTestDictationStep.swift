@@ -125,6 +125,9 @@ struct OnboardingTestDictationStep: View {
         guard currentStep == .testDictation else { return }
 
         switch newState {
+        case .loading:
+            // Ignore loading state during test dictation
+            break
         case .recording:
             isTestRecording = true
             isTestProcessing = false

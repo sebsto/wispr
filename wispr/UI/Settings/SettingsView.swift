@@ -214,6 +214,18 @@ struct SettingsView: View {
 
             Toggle("Launch at Login", isOn: $store.launchAtLogin)
                 .accessibilityHint("When enabled, Wispr starts automatically when you log in")
+            
+            // Version info
+            HStack {
+                Text("Version")
+                    .foregroundStyle(theme.primaryTextColor)
+                Spacer()
+                Text(appVersion)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .font(.callout)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Version \(appVersion)")
         } header: {
             SectionHeader(
                 title: "General",
@@ -221,6 +233,15 @@ struct SettingsView: View {
                 tint: .secondary
             )
         }
+    }
+    
+    // MARK: - Version Info
+    
+    /// Returns the app version string in the format "1.0.0 (123)" where 123 is the build number.
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+        return "\(version) (\(build))"
     }
 
     // MARK: - Data Loading

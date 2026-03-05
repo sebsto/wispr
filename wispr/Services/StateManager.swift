@@ -27,7 +27,7 @@ final class StateManager {
     // MARK: - Published State
 
     /// Current application state driving UI updates.
-    var appState: AppStateType = .idle
+    var appState: AppStateType = .loading
 
     /// Current error message displayed to the user, if any.
     var errorMessage: String?
@@ -152,12 +152,40 @@ final class StateManager {
     func beginRecording() async {
         // Requirement 12.5: Prevent concurrent recording sessions.
         // Only allow starting a new recording from the idle state.
-        // Ignore the request if already recording, processing, or showing an error.
-        guard appState == .idle else { return }
+        // Ignore the request if already recording, processing, showing an error, or still loading.
+        guard appState == .idle else {
+            if appState == .loading {
+                Log.stateManager.debug("beginRecording — still loading, ignoring hotkey")
+            }
+            return
+        }
 
         // Check permissions before starting
+        // If microphone permission is not determined, request it first
+        if permissionManager.microphoneStatus == .notDetermined {
+            Log.stateManager.debug("beginRecording — microphone permission not determined, requesting...")
+            let granted = await permissionManager.requestMicrophoneAccess()
+            if !granted {
+                Log.stateManager.warning("beginRecording — microphone permission denied by user")
+                // User just denied in the dialog - show error but don't open Settings yet
+                // They just saw the dialog, so they know what happened
+                appState = .error("Microphone access denied")
+                errorMessage = "Microphone access denied"
+                
+                // Auto-dismiss after 3 seconds
+                errorDismissTask?.cancel()
+                errorDismissTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(3))
+                    await self?.resetToIdle()
+                }
+                return
+            }
+        }
+        
+        // Now check if all permissions are granted
         guard permissionManager.allPermissionsGranted else {
             Log.stateManager.warning("beginRecording — permissions not granted, aborting")
+            // Permission was previously denied - open System Settings to help user fix it
             await handleError(.microphonePermissionDenied)
             return
         }
@@ -290,6 +318,8 @@ final class StateManager {
     /// Displays the error message and automatically returns to `.idle`
     /// after ~5 seconds.
     ///
+    /// For permission errors, also opens System Settings to help the user fix the issue.
+    ///
     /// **Validates**: Requirement 12.1
     func handleError(_ error: WisprError) async {
         Log.stateManager.error("handleError — \(error.localizedDescription)")
@@ -308,6 +338,18 @@ final class StateManager {
             notification: .announcementRequested,
             userInfo: [.announcement: "Error: \(message)"]
         )
+        
+        // For permission errors, open System Settings to help user fix the issue
+        // (We only reach here if permission was already denied, since .notDetermined
+        // is handled in beginRecording() by requesting permission first)
+        switch error {
+        case .microphonePermissionDenied:
+            permissionManager.openMicrophoneSettings()
+        case .accessibilityPermissionDenied:
+            permissionManager.openAccessibilitySettings()
+        default:
+            break
+        }
 
         // Cancel any existing error dismiss timer
         errorDismissTask?.cancel()
@@ -338,5 +380,43 @@ final class StateManager {
         appState = .idle
         errorMessage = nil
         audioLevelStream = nil
+    }
+    
+    /// Marks the app as ready after model loading completes.
+    /// Transitions from `.loading` to `.idle`.
+    func markAsReady() {
+        if appState == .loading {
+            appState = .idle
+            Log.stateManager.debug("markAsReady — app ready for dictation")
+        }
+    }
+
+    /// Loads the persisted active model at startup.
+    ///
+    /// Transitions `.loading` → `.idle` on success, or `.loading` → `.error` → `.idle`
+    /// on failure (auto-dismisses after 5 seconds so the app remains usable).
+    func loadActiveModel() async {
+        let modelName = settingsStore.activeModelName
+        guard !modelName.isEmpty else {
+            markAsReady()
+            return
+        }
+        appState = .loading
+        do {
+            Log.stateManager.debug("loadActiveModel — loading '\(modelName)'")
+            try await whisperService.loadModel(modelName)
+            Log.stateManager.debug("loadActiveModel — '\(modelName)' loaded successfully")
+            markAsReady()
+        } catch {
+            Log.stateManager.error("loadActiveModel — failed to load '\(modelName)': \(error.localizedDescription)")
+            appState = .error("Failed to load model — open Model Management to fix")
+            errorMessage = "Failed to load model — open Model Management to fix"
+            // Auto-dismiss to idle after 5 seconds so the app remains usable
+            try? await Task.sleep(for: .seconds(5))
+            if case .error = appState {
+                appState = .idle
+                errorMessage = nil
+            }
+        }
     }
 }

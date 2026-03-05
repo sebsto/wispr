@@ -77,9 +77,9 @@ extension WisprError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .microphonePermissionDenied:
-            return "Microphone permission is required for voice dictation."
+            return "Microphone access required. Open System Settings to enable."
         case .accessibilityPermissionDenied:
-            return "Accessibility permission is required for text insertion."
+            return "Accessibility access required. Opening System Settings..."
         case .noAudioDeviceAvailable:
             return "No audio input device is available."
         case .audioDeviceDisconnected:

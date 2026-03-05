@@ -303,6 +303,8 @@ final class MenuBarController {
         let symbolName = themeEngine.menuBarSymbol(for: state)
         let description: String
         switch state {
+        case .loading:
+            description = "Wispr — Loading"
         case .idle:
             description = "Wispr — Idle"
         case .recording:

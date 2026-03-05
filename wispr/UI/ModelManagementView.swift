@@ -243,7 +243,7 @@ struct ModelManagementView: View {
 /// A single row in the model list showing model info and action controls.
 /// Status is displayed as a prominent badge/pill for at-a-glance clarity.
 /// The active model uses a highlighted card with a green border.
-private struct ModelRowView: View {
+struct ModelRowView: View {
     let model: WhisperModelInfo
     let theme: UIThemeEngine
     let isActivating: Bool
@@ -369,41 +369,45 @@ private struct ModelRowView: View {
     // MARK: - Status Badge
 
     /// A prominent pill-shaped badge showing the model's status.
+    /// For `.notDownloaded`, shows the Download button inline instead.
+    @ViewBuilder
     private var statusBadge: some View {
-        Group {
-            switch model.status {
-            case .active:
-                StatusPillView(
-                    label: "Active",
-                    symbolName: theme.actionSymbol(.checkmark),
-                    foregroundColor: theme.successColor,
-                    backgroundColor: theme.successColor.opacity(0.15)
-                )
+        switch model.status {
+        case .active:
+            StatusPillView(
+                label: "Active",
+                symbolName: theme.actionSymbol(.checkmark),
+                foregroundColor: theme.successColor,
+                backgroundColor: theme.successColor.opacity(0.15)
+            )
 
-            case .downloaded:
-                StatusPillView(
-                    label: "Downloaded",
-                    symbolName: "checkmark.circle",
-                    foregroundColor: theme.accentColor,
-                    backgroundColor: theme.accentColor.opacity(0.12)
-                )
+        case .downloaded:
+            StatusPillView(
+                label: "Downloaded",
+                symbolName: "checkmark.circle",
+                foregroundColor: theme.accentColor,
+                backgroundColor: theme.accentColor.opacity(0.12)
+            )
 
-            case .notDownloaded:
-                StatusPillView(
-                    label: "Not Downloaded",
-                    symbolName: "icloud.and.arrow.down",
-                    foregroundColor: theme.secondaryTextColor,
-                    backgroundColor: theme.borderColor.opacity(0.3)
-                )
-
-            case .downloading:
-                StatusPillView(
-                    label: "Downloading…",
-                    symbolName: nil,
-                    foregroundColor: theme.accentColor,
-                    backgroundColor: theme.accentColor.opacity(0.12)
-                )
+        case .notDownloaded:
+            Button {
+                onDownload()
+            } label: {
+                Label("Download", systemImage: theme.actionSymbol(.download))
             }
+            .buttonStyle(.bordered)
+            .highContrastBorder(cornerRadius: 6)
+            .keyboardFocusRing()
+            .accessibilityLabel("Download \(model.displayName) model")
+            .accessibilityHint("Downloads the \(model.sizeDescription) model")
+
+        case .downloading:
+            StatusPillView(
+                label: "Downloading…",
+                symbolName: nil,
+                foregroundColor: theme.accentColor,
+                backgroundColor: theme.accentColor.opacity(0.12)
+            )
         }
     }
 
@@ -413,23 +417,8 @@ private struct ModelRowView: View {
     @ViewBuilder
     private var actionButtons: some View {
         switch model.status {
-        case .notDownloaded:
-            HStack {
-                Spacer()
-                Button {
-                    onDownload()
-                } label: {
-                    Label("Download", systemImage: theme.actionSymbol(.download))
-                }
-                .buttonStyle(.bordered)
-                .highContrastBorder(cornerRadius: 6)
-                .keyboardFocusRing()
-                .accessibilityLabel("Download \(model.displayName) model")
-                .accessibilityHint("Downloads the \(model.sizeDescription) model")
-            }
-
-        case .downloading:
-            // Handled by the parent via ModelDownloadProgressView
+        case .notDownloaded, .downloading:
+            // Download button is inline in statusBadge; downloading handled by parent
             EmptyView()
 
         case .downloaded:
@@ -511,7 +500,7 @@ private struct ModelRowView: View {
 // MARK: - StatusPillView
 
 /// A reusable pill-shaped badge for displaying model status at a glance.
-private struct StatusPillView: View {
+struct StatusPillView: View {
     let label: String
     let symbolName: String?
     let foregroundColor: Color

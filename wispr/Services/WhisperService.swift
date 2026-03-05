@@ -200,16 +200,7 @@ actor WhisperService {
 
                 Log.whisperService.debug("downloadModel — whisperKit and activeModelName set to '\(model.id)'")
 
-                // Step 4: Warm up the CoreML pipeline
-                continuation.yield(DownloadProgress(
-                    phase: .warmingUp,
-                    fractionCompleted: 1.0,
-                    bytesDownloaded: totalBytes,
-                    totalBytes: totalBytes
-                ))
-
-                await self.warmupModel()
-
+                // prewarm: true in WhisperKitConfig already warms the CoreML pipeline
                 // Yield final completion
                 continuation.yield(DownloadProgress(
                     phase: .warmingUp,
@@ -337,9 +328,7 @@ actor WhisperService {
             )
             whisperKit = try await WhisperKit(config)
             activeModelName = modelName
-            Log.whisperService.debug("loadModel — '\(modelName)' loaded, starting warmup")
-            await warmupModel()
-            Log.whisperService.debug("loadModel — '\(modelName)' loaded and warmed up successfully")
+            Log.whisperService.debug("loadModel — '\(modelName)' loaded and prewarmed successfully")
         } catch {
             throw WisprError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
         }

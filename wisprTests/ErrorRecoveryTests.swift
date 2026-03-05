@@ -298,7 +298,7 @@ struct StateManagerConcurrentRecordingTests {
             permissionManager.accessibilityStatus = .denied
         }
 
-        return StateManager(
+        let sm = StateManager(
             audioEngine: audioEngine,
             whisperService: whisperService,
             textInsertionService: textInsertionService,
@@ -306,6 +306,11 @@ struct StateManagerConcurrentRecordingTests {
             permissionManager: permissionManager,
             settingsStore: settingsStore
         )
+
+        // StateManager initializes in .loading; transition to .idle for tests.
+        sm.markAsReady()
+
+        return sm
     }
 
     /// Test that beginRecording does nothing when state is .recording.

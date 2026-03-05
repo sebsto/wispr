@@ -3,6 +3,7 @@
 //  wispr
 //
 //  Model selection step for the onboarding flow.
+//  Reuses ModelRowView from ModelManagementView for visual consistency.
 //  Requirements: 13.6, 13.7, 13.8, 13.15
 //
 
@@ -27,8 +28,14 @@ struct OnboardingModelSelectionStep: View {
     /// Whether the download progress view is currently shown.
     @State private var isShowingDownload = false
 
-    /// Whether an already-downloaded model is being loaded and warmed up.
-    @State private var isPreparingModel = false
+    /// The model ID currently being activated (loading into memory).
+    @State private var activatingModelId: String?
+
+    /// Tracks which model ID shows the green highlight overlay.
+    @State private var highlightedModelId: String?
+
+    /// Namespace for matchedGeometryEffect on the active highlight.
+    @Namespace private var highlightNamespace
 
     // MARK: - Body
 
@@ -54,7 +61,6 @@ struct OnboardingModelSelectionStep: View {
             if isShowingDownload,
                let modelId = selectedModelId,
                let selectedModel = availableModels.first(where: { $0.id == modelId }) {
-                // Self-contained download progress view
                 ModelDownloadProgressView(
                     whisperService: whisperService,
                     model: selectedModel,
@@ -63,15 +69,8 @@ struct OnboardingModelSelectionStep: View {
                         settingsStore.activeModelName = completedModelId
                         downloadComplete = true
                         isShowingDownload = false
-
-                        // Update model statuses so the row icons/labels refresh
-                        for index in availableModels.indices {
-                            if availableModels[index].id == completedModelId {
-                                availableModels[index].status = .active
-                            } else if availableModels[index].status == .active {
-                                availableModels[index].status = .downloaded
-                            }
-                        }
+                        updateModelStatuses(activeId: completedModelId)
+                        highlightedModelId = completedModelId
                     },
                     onCancel: {
                         isShowingDownload = false
@@ -79,14 +78,11 @@ struct OnboardingModelSelectionStep: View {
                 )
                 .frame(maxWidth: 400)
             } else {
-                // Model list for selection
+                // Model list using shared ModelRowView for consistency
                 modelListView
-
-                if isPreparingModel {
-                    preparingModelIndicator
-                }
             }
         }
+        .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: highlightedModelId)
         .task {
             await loadAvailableModels()
         }
@@ -96,167 +92,81 @@ struct OnboardingModelSelectionStep: View {
 
     // MARK: - Model List
 
-    /// List of available models for the user to pick from.
     private var modelListView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             ForEach(availableModels) { model in
-                modelRow(model)
-            }
-        }
-    }
-
-    /// Spinner shown while an already-downloaded model is being loaded and warmed up.
-    private var preparingModelIndicator: some View {
-        HStack(spacing: 8) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Preparing model…")
-                .font(.callout)
-                .foregroundStyle(theme.secondaryTextColor)
-        }
-        .padding(.top, 4)
-    }
-
-    /// A single row showing model info, a status icon, and an inline action button.
-    private func modelRow(_ model: WhisperModelInfo) -> some View {
-        let isSelected = selectedModelId == model.id
-        let isOnDisk = model.status == .downloaded || model.status == .active
-
-        return Button {
-            selectedModelId = model.id
-            if isOnDisk {
-                downloadComplete = false
-                isPreparingModel = true
-                Task {
-                    if await whisperService.activeModel() != model.id {
-                        do {
-                            try await whisperService.loadModel(model.id)
-                        } catch {
-                            isPreparingModel = false
-                            return
-                        }
-                    }
-                    settingsStore.activeModelName = model.id
-                    downloadComplete = true
-                    isPreparingModel = false
-                }
-            } else {
-                downloadComplete = false
-            }
-        } label: {
-            HStack(spacing: 10) {
-                // Status icon
-                modelStatusIcon(for: model)
-
-                // Model info
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.displayName)
-                        .font(.headline)
-                        .foregroundStyle(isOnDisk ? theme.primaryTextColor : theme.secondaryTextColor)
-
-                    Text("\(model.sizeDescription) · \(model.qualityDescription)")
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryTextColor)
-                }
-
-                Spacer()
-
-                // Trailing action / status
-                if isSelected && !isOnDisk {
-                    Button {
+                ModelRowView(
+                    model: model,
+                    theme: theme,
+                    isActivating: activatingModelId == model.id,
+                    isHighlighted: highlightedModelId == model.id,
+                    namespace: highlightNamespace,
+                    onDownload: {
+                        selectedModelId = model.id
                         isShowingDownload = true
-                    } label: {
-                        Label("Download", systemImage: theme.actionSymbol(.download))
-                            .font(.callout.weight(.medium))
+                    },
+                    onSetActive: {
+                        await activateModel(model)
+                    },
+                    onDelete: {
+                        // No delete during onboarding
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .accessibilityLabel("Download \(model.displayName)")
-                } else if isOnDisk {
-                    statusPill(
-                        label: model.status == .active ? "Active" : "Downloaded",
-                        color: model.status == .active ? theme.successColor : theme.accentColor
-                    )
+                )
+                if model.id != availableModels.last?.id {
+                    Divider()
                 }
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? theme.accentColor.opacity(0.1) : Color.primary.opacity(0.03))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? theme.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
-            )
-            .highContrastBorder(cornerRadius: 12)
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(modelAccessibilityLabel(model, isOnDisk: isOnDisk))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityHint(isOnDisk ? "Select this downloaded model" : "Select this model, then download")
     }
 
-    // MARK: - Row Subviews
+    // MARK: - Actions
 
-    /// Leading status icon matching the ModelManagement style.
-    @ScaledMetric(relativeTo: .body) private var statusIconSize: CGFloat = 28
+    /// Activates an already-downloaded model.
+    private func activateModel(_ model: WhisperModelInfo) async {
+        selectedModelId = model.id
+        downloadComplete = false
 
-    private func modelStatusIcon(for model: WhisperModelInfo) -> some View {
-        Group {
-            switch model.status {
-            case .active:
-                Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: statusIconSize, height: statusIconSize)
-                    .background(theme.successColor.gradient, in: Circle())
+        // Animate highlight to the new model
+        if !theme.reduceMotion {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                highlightedModelId = model.id
+            }
+            try? await Task.sleep(for: .milliseconds(400))
+        } else {
+            highlightedModelId = model.id
+        }
 
-            case .downloaded:
-                Image(systemName: "arrow.down")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: statusIconSize, height: statusIconSize)
-                    .background(theme.accentColor.gradient, in: Circle())
+        activatingModelId = model.id
+        do {
+            if await whisperService.activeModel() != model.id {
+                try await whisperService.loadModel(model.id)
+            }
+            settingsStore.activeModelName = model.id
+            updateModelStatuses(activeId: model.id)
+            downloadComplete = true
+        } catch {
+            // Revert highlight on failure
+            let activeId = availableModels.first(where: {
+                if case .active = $0.status { return true }
+                return false
+            })?.id
+            highlightedModelId = activeId
+        }
+        activatingModelId = nil
+    }
 
-            case .notDownloaded:
-                Image(systemName: "icloud.and.arrow.down")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(theme.secondaryTextColor.opacity(0.5))
-                    .frame(width: statusIconSize, height: statusIconSize)
-                    .background(theme.secondaryTextColor.opacity(0.08), in: Circle())
-
-            case .downloading:
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: statusIconSize, height: statusIconSize)
+    /// Updates model statuses so only the given ID is `.active`.
+    private func updateModelStatuses(activeId: String) {
+        for index in availableModels.indices {
+            if availableModels[index].id == activeId {
+                availableModels[index].status = .active
+            } else if availableModels[index].status == .active {
+                availableModels[index].status = .downloaded
             }
         }
-        .accessibilityHidden(true)
     }
 
-    /// A small pill showing status text.
-    private func statusPill(label: String, color: Color) -> some View {
-        Text(label)
-            .font(.caption2)
-            .fontWeight(.medium)
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(color.opacity(0.12)))
-    }
-
-    private func modelAccessibilityLabel(_ model: WhisperModelInfo, isOnDisk: Bool) -> String {
-        var parts = [model.displayName, model.sizeDescription, model.qualityDescription]
-        if isOnDisk {
-            parts.append(model.status == .active ? "Active" : "Downloaded")
-        } else {
-            parts.append("Not downloaded")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    // MARK: - Model Download Logic
+    // MARK: - Model Loading
 
     /// Loads the available models from WhisperService, querying actual disk status for each.
     func loadAvailableModels() async {
@@ -266,20 +176,20 @@ struct OnboardingModelSelectionStep: View {
         }
         availableModels = models
 
-        // If a model matching the active setting is already downloaded, ensure it's
-        // loaded into WhisperKit so test dictation works, then mark step complete.
-        if !settingsStore.activeModelName.isEmpty,
-           models.contains(where: {
-               $0.id == settingsStore.activeModelName
-               && ($0.status == .downloaded || $0.status == .active)
-           }) {
-            // Load the model BEFORE enabling Continue so WhisperKit is ready
-            // when the user reaches the test dictation step.
-            let modelName = settingsStore.activeModelName
-            if await whisperService.activeModel() != modelName {
-                try? await whisperService.loadModel(modelName)
+        // Set initial highlight to the active model
+        let activeId = models.first(where: {
+            if case .active = $0.status { return true }
+            return false
+        })?.id
+        highlightedModelId = activeId
+
+        // If a model matching the active setting is already active in WhisperKit,
+        // just mark the step complete — no need to reload.
+        if !settingsStore.activeModelName.isEmpty {
+            let currentActive = await whisperService.activeModel()
+            if currentActive == settingsStore.activeModelName {
+                downloadComplete = true
             }
-            downloadComplete = true
         }
 
         // Pre-select the active model, or the first model if nothing is selected
@@ -292,5 +202,4 @@ struct OnboardingModelSelectionStep: View {
             }
         }
     }
-
 }
