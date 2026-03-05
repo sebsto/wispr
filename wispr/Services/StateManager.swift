@@ -27,7 +27,7 @@ final class StateManager {
     // MARK: - Published State
 
     /// Current application state driving UI updates.
-    var appState: AppStateType = .idle
+    var appState: AppStateType = .loading("Initializing...")
 
     /// Current error message displayed to the user, if any.
     var errorMessage: String?
@@ -152,8 +152,26 @@ final class StateManager {
     func beginRecording() async {
         // Requirement 12.5: Prevent concurrent recording sessions.
         // Only allow starting a new recording from the idle state.
-        // Ignore the request if already recording, processing, or showing an error.
-        guard appState == .idle else { return }
+        // Ignore the request if already recording, processing, showing an error, or still loading.
+        guard appState == .idle else {
+            // If still loading, show a brief message
+            if case .loading = appState {
+                Log.stateManager.debug("beginRecording — app still loading model, showing message")
+                let previousState = appState
+                appState = .error("App is loading, please wait...")
+                errorMessage = "App is loading, please wait..."
+                
+                // Auto-dismiss after 2 seconds and return to loading state
+                errorDismissTask?.cancel()
+                errorDismissTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(2))
+                    guard let self else { return }
+                    self.appState = previousState
+                    self.errorMessage = nil
+                }
+            }
+            return
+        }
 
         // Check permissions before starting
         // If microphone permission is not determined, request it first
@@ -375,5 +393,14 @@ final class StateManager {
         appState = .idle
         errorMessage = nil
         audioLevelStream = nil
+    }
+    
+    /// Marks the app as ready after model loading completes.
+    /// Transitions from `.loading` to `.idle`.
+    func markAsReady() {
+        if case .loading = appState {
+            appState = .idle
+            Log.stateManager.debug("markAsReady — app ready for dictation")
+        }
     }
 }

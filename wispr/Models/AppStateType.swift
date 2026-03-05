@@ -9,6 +9,7 @@ import Foundation
 
 /// Represents the current state of the Wispr application
 enum AppStateType: Sendable, Equatable, CustomStringConvertible {
+    case loading(String)  // Loading/warming up model at startup
     case idle
     case recording
     case processing
@@ -16,6 +17,7 @@ enum AppStateType: Sendable, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
+        case .loading(let message): "loading(\(message))"
         case .idle: "idle"
         case .recording: "recording"
         case .processing: "processing"

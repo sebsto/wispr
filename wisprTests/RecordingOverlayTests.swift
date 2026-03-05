@@ -170,6 +170,8 @@ struct RecordingOverlayAccessibilityTests {
     /// Mirrors the `accessibilityLabelForState` computed property from RecordingOverlayView.
     private func accessibilityLabel(for state: AppStateType) -> String {
         switch state {
+        case .loading(let message):
+            message
         case .recording:
             "Recording in progress"
         case .processing:

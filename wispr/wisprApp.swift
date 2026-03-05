@@ -177,12 +177,16 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             // Load the active model on subsequent launches so whisperKit is ready
             let modelName = settingsStore.activeModelName
             Task {
+                sm.appState = .loading("Loading model...")
                 do {
                     Log.app.debug("bootstrap — loading active model '\(modelName)'")
                     try await whisperService.loadModel(modelName)
                     Log.app.debug("bootstrap — model '\(modelName)' loaded successfully")
+                    sm.markAsReady()
                 } catch {
                     Log.app.error("bootstrap — failed to load model '\(modelName)': \(error.localizedDescription)")
+                    // Even if loading fails, mark as ready so user can try to fix it
+                    sm.markAsReady()
                 }
             }
         }
@@ -203,18 +207,23 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         // During onboarding the model may have been loaded, but we
         // reload defensively so whisperKit is guaranteed to be ready.
         let modelName = settingsStore.activeModelName
+        guard let sm = stateManager else { return }
         Task {
             let currentModel = await whisperService.activeModel()
             guard currentModel != modelName else {
                 Log.app.debug("completeOnboarding — model '\(modelName)' already active")
+                sm.markAsReady()
                 return
             }
+            sm.appState = .loading("Loading model...")
             do {
                 Log.app.debug("completeOnboarding — loading model '\(modelName)'")
                 try await whisperService.loadModel(modelName)
                 Log.app.debug("completeOnboarding — model '\(modelName)' loaded successfully")
+                sm.markAsReady()
             } catch {
                 Log.app.error("completeOnboarding — failed to load model: \(error.localizedDescription)")
+                sm.markAsReady()
             }
         }
     }
@@ -345,7 +354,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Shows or dismisses the overlay based on the current app state.
     private func updateOverlayVisibility(for state: AppStateType) {
         switch state {
-        case .recording, .processing, .error:
+        case .loading, .recording, .processing, .error:
             if settingsStore.showRecordingOverlay, let overlay = overlayPanel, !overlay.isVisible {
                 Log.app.debug("overlayObservation — showing overlay for state: \(state)")
                 overlay.show()

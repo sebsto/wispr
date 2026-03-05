@@ -188,6 +188,8 @@ final class UIThemeEngine {
     /// Uses centralized `SFSymbols` constants for consistency (Requirement 14.1).
     func menuBarSymbol(for state: AppStateType) -> String {
         switch state {
+        case .loading:
+            return SFSymbols.menuBarProcessing  // Use processing spinner for loading
         case .idle:
             return SFSymbols.menuBarIdle
         case .recording:
