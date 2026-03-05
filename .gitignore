@@ -1,1 +1,7 @@
 .DS_Store
+artwork
+*.xcodeproj
+build
+private_keys
+secrets
+.vscode
