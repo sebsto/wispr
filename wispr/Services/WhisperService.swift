@@ -79,6 +79,7 @@ actor WhisperService {
             ModelInfo(
                 id: "tiny",
                 displayName: "Tiny",
+                provider: .whisper,
                 sizeDescription: "~75 MB",
                 qualityDescription: "Fastest, lower accuracy",
                 status: .notDownloaded
@@ -86,6 +87,7 @@ actor WhisperService {
             ModelInfo(
                 id: "base",
                 displayName: "Base",
+                provider: .whisper,
                 sizeDescription: "~140 MB",
                 qualityDescription: "Fast, moderate accuracy",
                 status: .notDownloaded
@@ -93,6 +95,7 @@ actor WhisperService {
             ModelInfo(
                 id: "small",
                 displayName: "Small",
+                provider: .whisper,
                 sizeDescription: "~460 MB",
                 qualityDescription: "Balanced speed and accuracy",
                 status: .notDownloaded
@@ -100,6 +103,7 @@ actor WhisperService {
             ModelInfo(
                 id: "medium",
                 displayName: "Medium",
+                provider: .whisper,
                 sizeDescription: "~1.5 GB",
                 qualityDescription: "Slower, high accuracy",
                 status: .notDownloaded
@@ -107,6 +111,7 @@ actor WhisperService {
             ModelInfo(
                 id: "large-v3",
                 displayName: "Large v3",
+                provider: .whisper,
                 sizeDescription: "~3 GB",
                 qualityDescription: "Slowest, highest accuracy",
                 status: .notDownloaded

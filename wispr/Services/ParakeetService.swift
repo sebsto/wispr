@@ -200,15 +200,17 @@ extension ParakeetService: TranscriptionEngine {
             ModelInfo(
                 id: Self.modelId,
                 displayName: "Parakeet V3",
+                provider: .nvidiaParakeet,
                 sizeDescription: "~400 MB",
-                qualityDescription: "Fast, high accuracy, multilingual (25 languages)",
+                qualityDescription: "Fast, high accuracy, multilingual",
                 status: .notDownloaded
             ),
             ModelInfo(
                 id: Self.eouModelId,
-                displayName: "Parakeet Realtime (120M)",
+                displayName: "Realtime 120M",
+                provider: .nvidiaParakeet,
                 sizeDescription: "~150 MB",
-                qualityDescription: "Low-latency streaming with end-of-utterance detection (English only)",
+                qualityDescription: "Low-latency streaming, English only",
                 status: .notDownloaded
             )
         ]

@@ -53,7 +53,7 @@ enum PreviewMocks {
 
     /// These service inits are lightweight — no system resource allocation.
     static func makeAudioEngine() -> AudioEngine { AudioEngine() }
-    static func makeWhisperService() -> any TranscriptionEngine { WhisperService() }
+    static func makeWhisperService() -> any TranscriptionEngine { PreviewTranscriptionEngine(models: sampleModels) }
     static func makeHotkeyMonitor() -> HotkeyMonitor { HotkeyMonitor() }
     static func makeTextInsertionService() -> TextInsertionService { TextInsertionService() }
     static func makePermissionManager() -> PermissionManager { PermissionManager() }
@@ -79,17 +79,62 @@ enum PreviewMocks {
     // MARK: - Sample Model Data
 
     static let sampleModels: [ModelInfo] = [
-        ModelInfo(id: "tiny", displayName: "Tiny", sizeDescription: "~75 MB",
+        ModelInfo(id: "tiny", displayName: "Tiny", provider: .whisper, sizeDescription: "~75 MB",
                   qualityDescription: "Fastest, lower accuracy", status: .active),
-        ModelInfo(id: "base", displayName: "Base", sizeDescription: "~140 MB",
+        ModelInfo(id: "base", displayName: "Base", provider: .whisper, sizeDescription: "~140 MB",
                   qualityDescription: "Fast, moderate accuracy", status: .downloaded),
-        ModelInfo(id: "small", displayName: "Small", sizeDescription: "~460 MB",
+        ModelInfo(id: "small", displayName: "Small", provider: .whisper, sizeDescription: "~460 MB",
                   qualityDescription: "Balanced speed and accuracy", status: .notDownloaded),
-        ModelInfo(id: "medium", displayName: "Medium", sizeDescription: "~1.5 GB",
+        ModelInfo(id: "medium", displayName: "Medium", provider: .whisper, sizeDescription: "~1.5 GB",
                   qualityDescription: "Slower, high accuracy", status: .downloading(progress: 0.45)),
-        ModelInfo(id: "large-v3", displayName: "Large v3", sizeDescription: "~3 GB",
+        ModelInfo(id: "large-v3", displayName: "Large v3", provider: .whisper, sizeDescription: "~3 GB",
                   qualityDescription: "Slowest, highest accuracy", status: .notDownloaded),
+        ModelInfo(id: "parakeet-v3", displayName: "Parakeet V3", provider: .nvidiaParakeet,
+                  sizeDescription: "~400 MB", qualityDescription: "Fast, high accuracy, multilingual",
+                  status: .downloaded),
+        ModelInfo(id: "parakeet-eou-160ms", displayName: "Realtime 120M", provider: .nvidiaParakeet,
+                  sizeDescription: "~150 MB", qualityDescription: "Low-latency streaming, English only",
+                  status: .notDownloaded),
     ]
+}
+
+// MARK: - Preview TranscriptionEngine
+
+actor PreviewTranscriptionEngine: TranscriptionEngine {
+    private let models: [ModelInfo]
+
+    init(models: [ModelInfo]) {
+        self.models = models
+    }
+
+    func availableModels() async -> [ModelInfo] { models }
+
+    func modelStatus(_ modelName: String) async -> ModelStatus {
+        models.first { $0.id == modelName }?.status ?? .notDownloaded
+    }
+
+    func activeModel() async -> String? {
+        models.first { if case .active = $0.status { return true }; return false }?.id
+    }
+
+    func downloadModel(_ model: ModelInfo) async -> AsyncThrowingStream<DownloadProgress, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+
+    func deleteModel(_ modelName: String) async throws {}
+    func loadModel(_ modelName: String) async throws {}
+    func switchModel(to modelName: String) async throws {}
+    func unloadCurrentModel() async {}
+    func validateModelIntegrity(_ modelName: String) async throws -> Bool { true }
+    func reloadModelWithRetry(maxAttempts: Int) async throws {}
+
+    func transcribe(_ audioSamples: [Float], language: TranscriptionLanguage) async throws -> TranscriptionResult {
+        TranscriptionResult(text: "", detectedLanguage: nil, duration: 0)
+    }
+
+    func transcribeStream(_ audioStream: AsyncStream<[Float]>, language: TranscriptionLanguage) async -> AsyncThrowingStream<TranscriptionResult, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
 }
 
 #endif
