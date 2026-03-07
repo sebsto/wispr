@@ -66,7 +66,8 @@ struct PermissionManagerTests {
     
     // MARK: - Permission Request Tests
     
-    @Test("PermissionManager requestMicrophoneAccess returns boolean result")
+    @Test("PermissionManager requestMicrophoneAccess returns boolean result",
+          .enabled(if: isLocalTestEnvironment, "Triggers system permission dialog"))
     func testRequestMicrophoneAccess() async {
         let manager = PermissionManager()
         
@@ -79,7 +80,8 @@ struct PermissionManagerTests {
         #expect(result == (manager.microphoneStatus == .authorized), "Request result should match authorization status")
     }
     
-    @Test("PermissionManager requestMicrophoneAccess updates status")
+    @Test("PermissionManager requestMicrophoneAccess updates status",
+          .enabled(if: isLocalTestEnvironment, "Triggers system permission dialog"))
     func testRequestMicrophoneAccessUpdatesStatus() async {
         let manager = PermissionManager()
         
@@ -92,7 +94,8 @@ struct PermissionManagerTests {
     
     // MARK: - Accessibility Settings Tests
     
-    @Test("PermissionManager openAccessibilitySettings does not crash")
+    @Test("PermissionManager openAccessibilitySettings does not crash",
+          .enabled(if: isLocalTestEnvironment, "Opens System Settings UI"))
     func testOpenAccessibilitySettings() async {
         let manager = PermissionManager()
         
@@ -106,7 +109,8 @@ struct PermissionManagerTests {
     
     // MARK: - Permission Monitoring Tests
     
-    @Test("PermissionManager startMonitoringPermissionChanges polls and can be cancelled")
+    @Test("PermissionManager startMonitoringPermissionChanges polls and can be cancelled",
+          .enabled(if: isLocalTestEnvironment, "Requires system permissions"))
     func testMonitorPermissionChanges() async {
         let manager = PermissionManager()
         
@@ -127,7 +131,8 @@ struct PermissionManagerTests {
         #expect(true, "Monitoring should start and stop without error")
     }
     
-    @Test("PermissionManager monitoring updates permissions")
+    @Test("PermissionManager monitoring updates permissions",
+          .enabled(if: isLocalTestEnvironment, "Requires system permissions"))
     func testMonitoringStreamUpdatesPermissions() async {
         let manager = PermissionManager()
         
@@ -152,7 +157,8 @@ struct PermissionManagerTests {
         #expect([.notDetermined, .denied, .authorized].contains(accessStatus), "Accessibility status should be a valid enum case")
     }
     
-    @Test("PermissionManager multiple monitoring tasks work independently")
+    @Test("PermissionManager multiple monitoring tasks work independently",
+          .enabled(if: isLocalTestEnvironment, "Requires system permissions"))
     func testMultipleStreamConsumers() async {
         let manager = PermissionManager()
         
