@@ -54,7 +54,7 @@ final class UpdateChecker {
             }
 
             let zipAsset = release.assets.first { $0.name.hasSuffix(".zip") }
-            let downloadURL = zipAsset.map { URL(string: $0.browserDownloadURL) } ?? nil
+            let downloadURL = zipAsset.flatMap { URL(string: $0.browserDownloadURL) }
 
             guard let downloadURL else {
                 Log.app.debug("UpdateChecker — no .zip asset found for \(release.tagName)")
