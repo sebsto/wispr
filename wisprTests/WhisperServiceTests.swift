@@ -88,9 +88,10 @@ struct WhisperServiceTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .notDownloaded
         )
-        
+
         // The concurrent download prevention logic is implemented in WhisperService.downloadModel
         // It checks if downloadTasks[model.id] exists before starting a download
         // Since we can't actually download models in tests, we verify the error handling exists
@@ -127,9 +128,10 @@ struct WhisperServiceTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .notDownloaded
         )
-        
+
         // Attempt download — downloadModel returns an AsyncThrowingStream
         let stream = await service.downloadModel(model)
         var progressUpdates: [DownloadProgress] = []

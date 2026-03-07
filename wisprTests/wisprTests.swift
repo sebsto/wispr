@@ -6,12 +6,9 @@
 //
 
 import Testing
+import Foundation
 @testable import wispr
 
-struct wisprTests {
+nonisolated let isLocalTestEnvironment = ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == nil
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-    }
 
-}

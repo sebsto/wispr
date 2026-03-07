@@ -79,16 +79,16 @@ enum PreviewMocks {
     // MARK: - Sample Model Data
 
     static let sampleModels: [ModelInfo] = [
-        ModelInfo(id: "tiny", displayName: "Tiny", sizeDescription: "~75 MB",
-                  qualityDescription: "Fastest, lower accuracy", status: .active),
-        ModelInfo(id: "base", displayName: "Base", sizeDescription: "~140 MB",
-                  qualityDescription: "Fast, moderate accuracy", status: .downloaded),
-        ModelInfo(id: "small", displayName: "Small", sizeDescription: "~460 MB",
-                  qualityDescription: "Balanced speed and accuracy", status: .notDownloaded),
-        ModelInfo(id: "medium", displayName: "Medium", sizeDescription: "~1.5 GB",
-                  qualityDescription: "Slower, high accuracy", status: .downloading(progress: 0.45)),
-        ModelInfo(id: "large-v3", displayName: "Large v3", sizeDescription: "~3 GB",
-                  qualityDescription: "Slowest, highest accuracy", status: .notDownloaded),
+        ModelInfo(id: ModelInfo.KnownID.tiny, displayName: "Tiny", sizeDescription: "~75 MB",
+                  qualityDescription: "Fastest, lower accuracy", estimatedSize: 75 * 1024 * 1024, status: .active),
+        ModelInfo(id: ModelInfo.KnownID.base, displayName: "Base", sizeDescription: "~140 MB",
+                  qualityDescription: "Fast, moderate accuracy", estimatedSize: 140 * 1024 * 1024, status: .downloaded),
+        ModelInfo(id: ModelInfo.KnownID.small, displayName: "Small", sizeDescription: "~460 MB",
+                  qualityDescription: "Balanced speed and accuracy", estimatedSize: 460 * 1024 * 1024, status: .notDownloaded),
+        ModelInfo(id: ModelInfo.KnownID.medium, displayName: "Medium", sizeDescription: "~1.5 GB",
+                  qualityDescription: "Slower, high accuracy", estimatedSize: 1536 * 1024 * 1024, status: .downloading(progress: 0.45)),
+        ModelInfo(id: ModelInfo.KnownID.largeV3, displayName: "Large v3", sizeDescription: "~3 GB",
+                  qualityDescription: "Slowest, highest accuracy", estimatedSize: 3072 * 1024 * 1024, status: .notDownloaded),
     ]
 }
 

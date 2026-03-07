@@ -133,7 +133,7 @@ actor MockTranscriptionEngine: TranscriptionEngine {
 // MARK: - Helper
 
 private func makeModel(_ id: String) -> ModelInfo {
-    ModelInfo(id: id, displayName: id, sizeDescription: "~100 MB", qualityDescription: "test", status: .notDownloaded)
+    ModelInfo(id: id, displayName: id, sizeDescription: "~100 MB", qualityDescription: "test", estimatedSize: 100 * 1024 * 1024, status: .notDownloaded)
 }
 
 // MARK: - Tests

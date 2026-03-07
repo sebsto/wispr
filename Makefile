@@ -5,6 +5,7 @@
 BUNDLE_ID    := com.stormacq.mac.wispr
 CONTAINER    := $(HOME)/Library/Containers/$(BUNDLE_ID)/Data
 MODEL_DIR    := $(CONTAINER)/Library/Application Support/wispr
+PARAKEET_DIR := $(HOME)/Library/Application Support/FluidAudio
 
 SCHEME       := wispr
 XCODEPROJ    := wispr.xcodeproj
@@ -134,22 +135,34 @@ help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-list-downloads: ## List downloaded Whisper models in the sandbox container
+list-downloads: ## List downloaded models (Whisper + Parakeet)
+	@echo "=== Whisper models ==="
 	@if [ -d "$(MODEL_DIR)" ]; then \
-		echo "Downloaded models in $(MODEL_DIR):"; \
 		du -sh "$(MODEL_DIR)"/models/argmaxinc/whisperkit-coreml/*/ 2>/dev/null || echo "  (none)"; \
 	else \
-		echo "No model directory found at $(MODEL_DIR)"; \
+		echo "  (none)"; \
+	fi
+	@echo "=== Parakeet models ==="
+	@if [ -d "$(PARAKEET_DIR)/Models" ]; then \
+		du -sh "$(PARAKEET_DIR)"/Models/*/ 2>/dev/null || echo "  (none)"; \
+	else \
+		echo "  (none)"; \
 	fi
 
-clean-downloads: ## Delete all downloaded Whisper models from the sandbox container
+clean-downloads: ## Delete all downloaded models (Whisper + Parakeet)
 	@if [ -d "$(MODEL_DIR)" ]; then \
-		echo "Removing $(MODEL_DIR) …"; \
+		echo "Removing Whisper models at $(MODEL_DIR) …"; \
 		rm -rf "$(MODEL_DIR)"; \
-		echo "Done."; \
 	else \
-		echo "Nothing to clean — $(MODEL_DIR) does not exist."; \
+		echo "No Whisper models to clean."; \
 	fi
+	@if [ -d "$(PARAKEET_DIR)" ]; then \
+		echo "Removing Parakeet models at $(PARAKEET_DIR) …"; \
+		rm -rf "$(PARAKEET_DIR)"; \
+	else \
+		echo "No Parakeet models to clean."; \
+	fi
+	@echo "Done."
 
 list-container: ## Inspect the sandbox container directory
 	@if [ -d "$(CONTAINER)" ]; then \

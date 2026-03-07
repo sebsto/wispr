@@ -82,7 +82,7 @@ final class SettingsStore {
         self.hotkeyKeyCode = 49  // Space
         self.hotkeyModifiers = 2048  // Option
         self.selectedAudioDeviceUID = nil
-        self.activeModelName = "tiny"
+        self.activeModelName = ModelInfo.KnownID.tiny
         self.languageMode = .autoDetect
         self.showRecordingOverlay = true
         self.launchAtLogin = false

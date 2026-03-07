@@ -27,6 +27,7 @@ struct ModelInfoDataModelTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .notDownloaded
         )
 
@@ -44,6 +45,7 @@ struct ModelInfoDataModelTests {
             displayName: "Base",
             sizeDescription: "~140 MB",
             qualityDescription: "Fast, moderate accuracy",
+            estimatedSize: 140 * 1024 * 1024,
             status: .notDownloaded
         )
 
@@ -64,6 +66,7 @@ struct ModelInfoDataModelTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .downloaded
         )
         let model2 = ModelInfo(
@@ -71,6 +74,7 @@ struct ModelInfoDataModelTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .downloaded
         )
         let model3 = ModelInfo(
@@ -78,6 +82,7 @@ struct ModelInfoDataModelTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .active
         )
 
@@ -92,6 +97,7 @@ struct ModelInfoDataModelTests {
             displayName: "Small",
             sizeDescription: "~460 MB",
             qualityDescription: "Balanced speed and accuracy",
+            estimatedSize: 460 * 1024 * 1024,
             status: .notDownloaded
         )
 
@@ -309,6 +315,7 @@ struct ModelManagementAccessibilityTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .notDownloaded
         )
 
@@ -323,6 +330,7 @@ struct ModelManagementAccessibilityTests {
             displayName: "Base",
             sizeDescription: "~140 MB",
             qualityDescription: "Fast, moderate accuracy",
+            estimatedSize: 140 * 1024 * 1024,
             status: .downloading(progress: 0.42)
         )
 
@@ -337,6 +345,7 @@ struct ModelManagementAccessibilityTests {
             displayName: "Small",
             sizeDescription: "~460 MB",
             qualityDescription: "Balanced speed and accuracy",
+            estimatedSize: 460 * 1024 * 1024,
             status: .downloaded
         )
 
@@ -351,6 +360,7 @@ struct ModelManagementAccessibilityTests {
             displayName: "Large",
             sizeDescription: "~3 GB",
             qualityDescription: "Slowest, highest accuracy",
+            estimatedSize: 3072 * 1024 * 1024,
             status: .active
         )
 
@@ -365,6 +375,7 @@ struct ModelManagementAccessibilityTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .downloading(progress: 0.0)
         )
 
@@ -379,6 +390,7 @@ struct ModelManagementAccessibilityTests {
             displayName: "Tiny",
             sizeDescription: "~75 MB",
             qualityDescription: "Fastest, lower accuracy",
+            estimatedSize: 75 * 1024 * 1024,
             status: .downloading(progress: 1.0)
         )
 

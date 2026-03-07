@@ -77,38 +77,43 @@ actor WhisperService {
     func availableModels() async -> [ModelInfo] {
         return [
             ModelInfo(
-                id: "tiny",
+                id: ModelInfo.KnownID.tiny,
                 displayName: "Tiny",
                 sizeDescription: "~75 MB",
                 qualityDescription: "Fastest, lower accuracy",
+                estimatedSize: 75 * 1024 * 1024,
                 status: .notDownloaded
             ),
             ModelInfo(
-                id: "base",
+                id: ModelInfo.KnownID.base,
                 displayName: "Base",
                 sizeDescription: "~140 MB",
                 qualityDescription: "Fast, moderate accuracy",
+                estimatedSize: 140 * 1024 * 1024,
                 status: .notDownloaded
             ),
             ModelInfo(
-                id: "small",
+                id: ModelInfo.KnownID.small,
                 displayName: "Small",
                 sizeDescription: "~460 MB",
                 qualityDescription: "Balanced speed and accuracy",
+                estimatedSize: 460 * 1024 * 1024,
                 status: .notDownloaded
             ),
             ModelInfo(
-                id: "medium",
+                id: ModelInfo.KnownID.medium,
                 displayName: "Medium",
                 sizeDescription: "~1.5 GB",
                 qualityDescription: "Slower, high accuracy",
+                estimatedSize: 1536 * 1024 * 1024,
                 status: .notDownloaded
             ),
             ModelInfo(
-                id: "large-v3",
+                id: ModelInfo.KnownID.largeV3,
                 displayName: "Large v3",
                 sizeDescription: "~3 GB",
                 qualityDescription: "Slowest, highest accuracy",
+                estimatedSize: 3072 * 1024 * 1024,
                 status: .notDownloaded
             )
         ]
@@ -135,7 +140,7 @@ actor WhisperService {
         
         downloadTasks[model.id] = true
         
-        let totalBytes = estimatedModelSize(for: model.id)
+        let totalBytes = model.estimatedSize
         
         // Use Task to drive the download within the actor
         // This is the accepted pattern for AsyncStream production per the spec
@@ -218,24 +223,6 @@ actor WhisperService {
         }
         
         return stream
-    }
-    
-    /// Returns the estimated size in bytes for a given model.
-    private func estimatedModelSize(for modelId: String) -> Int64 {
-        switch modelId {
-        case "tiny":
-            return 75 * 1024 * 1024
-        case "base":
-            return 140 * 1024 * 1024
-        case "small":
-            return 460 * 1024 * 1024
-        case "medium":
-            return 1536 * 1024 * 1024
-        case "large-v3":
-            return 3072 * 1024 * 1024
-        default:
-            return 100 * 1024 * 1024
-        }
     }
     
     /// Deletes a downloaded model from disk.

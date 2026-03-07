@@ -264,7 +264,7 @@ struct SettingsView: View {
         settingsStore.hotkeyKeyCode = 49        // Space
         settingsStore.hotkeyModifiers = 2048    // Option
         settingsStore.selectedAudioDeviceUID = nil
-        settingsStore.activeModelName = "tiny"
+        settingsStore.activeModelName = ModelInfo.KnownID.tiny
         settingsStore.languageMode = .autoDetect
         settingsStore.showRecordingOverlay = true
         settingsStore.launchAtLogin = false

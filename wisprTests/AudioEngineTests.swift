@@ -106,7 +106,8 @@ struct AudioEngineTests {
     
     // MARK: - Capture Lifecycle Tests
     
-    @Test("AudioEngine starts capture and returns audio level stream")
+    @Test("AudioEngine starts capture and returns audio level stream",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testStartCapture() async throws {
         let engine = AudioEngine()
         
@@ -128,7 +129,8 @@ struct AudioEngineTests {
         }
     }
     
-    @Test("AudioEngine prevents concurrent capture sessions")
+    @Test("AudioEngine prevents concurrent capture sessions",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testPreventConcurrentCapture() async throws {
         let engine = AudioEngine()
         
@@ -161,7 +163,8 @@ struct AudioEngineTests {
         }
     }
     
-    @Test("AudioEngine stops capture and returns audio data")
+    @Test("AudioEngine stops capture and returns audio data",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testStopCapture() async throws {
         let engine = AudioEngine()
         
@@ -199,7 +202,8 @@ struct AudioEngineTests {
         #expect(audioSamples.isEmpty, "Should return empty array when not capturing")
     }
     
-    @Test("AudioEngine cancelCapture cleans up resources")
+    @Test("AudioEngine cancelCapture cleans up resources",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testCancelCapture() async throws {
         let engine = AudioEngine()
         
@@ -240,7 +244,8 @@ struct AudioEngineTests {
     
     // MARK: - Audio Level Stream Tests
     
-    @Test("AudioEngine audio level stream yields values")
+    @Test("AudioEngine audio level stream yields values",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testAudioLevelStream() async throws {
         let engine = AudioEngine()
         
@@ -279,7 +284,8 @@ struct AudioEngineTests {
         }
     }
     
-    @Test("AudioEngine audio level stream terminates on stop")
+    @Test("AudioEngine audio level stream terminates on stop",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testAudioLevelStreamTermination() async throws {
         let engine = AudioEngine()
         
@@ -369,7 +375,8 @@ struct AudioEngineTests {
     
     // MARK: - Edge Cases
     
-    @Test("AudioEngine handles rapid start/stop cycles")
+    @Test("AudioEngine handles rapid start/stop cycles",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testRapidStartStopCycles() async throws {
         let engine = AudioEngine()
         
@@ -399,7 +406,8 @@ struct AudioEngineTests {
         #expect(true, "Should handle rapid start/stop cycles")
     }
     
-    @Test("AudioEngine handles rapid cancel operations")
+    @Test("AudioEngine handles rapid cancel operations",
+          .enabled(if: isLocalTestEnvironment, "Requires microphone permission"))
     func testRapidCancelOperations() async throws {
         let engine = AudioEngine()
         

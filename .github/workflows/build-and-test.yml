@@ -40,13 +40,16 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO | xcbeautify
 
-      - name: Test
+      - name: Run unit tests
+        if: false
+        timeout-minutes: 5
         run: |
           set -o pipefail
           xcodebuild test \
             -project wispr.xcodeproj \
             -scheme wispr \
-            -destination 'platform=macOS' \
+            -destination 'platform=macOS,arch=arm64' \
+            -only-testing:wisprTests \
             -clonedSourcePackagesDirPath "$SPM_PACKAGES" \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \

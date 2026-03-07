@@ -26,13 +26,11 @@ actor ParakeetService {
     private var downloadTasks: [String: Bool] = [:]
 
     // MARK: - V3 Constants
-    private static let modelId = "parakeet-v3"
-    private static let estimatedSize: Int64 = 400 * 1024 * 1024
+    private static let modelId = ModelInfo.KnownID.parakeetV3
     private static let expectedFileCount = 23
 
     // MARK: - EOU Constants
-    private static let eouModelId = "parakeet-eou-160ms"
-    private static let eouEstimatedSize: Int64 = 150 * 1024 * 1024
+    private static let eouModelId = ModelInfo.KnownID.parakeetEou
     private static let eouExpectedFileCount = 21
     private static let eouDownloadedKey = "parakeetEouDownloaded"
 
@@ -202,6 +200,7 @@ extension ParakeetService: TranscriptionEngine {
                 displayName: "Parakeet V3",
                 sizeDescription: "~400 MB",
                 qualityDescription: "Fast, high accuracy, multilingual (25 languages)",
+                estimatedSize: 400 * 1024 * 1024,
                 status: .notDownloaded
             ),
             ModelInfo(
@@ -209,6 +208,7 @@ extension ParakeetService: TranscriptionEngine {
                 displayName: "Parakeet Realtime (120M)",
                 sizeDescription: "~150 MB",
                 qualityDescription: "Low-latency streaming with end-of-utterance detection (English only)",
+                estimatedSize: 150 * 1024 * 1024,
                 status: .notDownloaded
             )
         ]
@@ -225,7 +225,7 @@ extension ParakeetService: TranscriptionEngine {
         downloadTasks[model.id] = true
 
         let isEou = model.id == Self.eouModelId
-        let estimatedSize = isEou ? Self.eouEstimatedSize : Self.estimatedSize
+        let estimatedSize = model.estimatedSize
         let expectedFileCount = isEou ? Self.eouExpectedFileCount : Self.expectedFileCount
         let cacheDir = isEou ? eouCacheDirectory() : AsrModels.defaultCacheDirectory(for: .v3)
 
