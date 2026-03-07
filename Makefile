@@ -149,10 +149,10 @@ list-downloads: ## List all downloaded models (Whisper + Parakeet) in the sandbo
 
 clean-downloads: ## Delete all downloaded models (Whisper + Parakeet) from the sandbox container
 	@if [ -d "$(MODEL_DIR)" ]; then \
-		echo "Removing Whisper models at $(MODEL_DIR) …"; \
+		echo "Removing downloaded models at $(MODEL_DIR) …"; \
 		rm -rf "$(MODEL_DIR)"; \
 	else \
-		echo "No Whisper models to clean."; \
+		echo "No downloaded models to clean."; \
 	fi
 	@# Clean legacy FluidAudio location in case models were downloaded before unification
 	@if [ -d "$(CONTAINER)/Library/Application Support/FluidAudio" ]; then \
