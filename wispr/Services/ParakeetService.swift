@@ -34,6 +34,26 @@ actor ParakeetService {
     private static let eouExpectedFileCount = 21
     private static let eouDownloadedKey = "parakeetEouDownloaded"
 
+    // MARK: - Unified Model Storage
+    // Store Parakeet models alongside Whisper models under the shared ModelPaths.base.
+    // Final on-disk layout:
+    //   ~/Library/Application Support/wispr/models/parakeet-tdt-v3/
+    //   ~/Library/Application Support/wispr/models/parakeet-eou-streaming/160ms/
+    private var modelDownloadBase: URL {
+        ModelPaths.base.appendingPathComponent("models", isDirectory: true)
+    }
+
+    /// Cache directory for Parakeet V3 models.
+    ///
+    /// `AsrModels.downloadAndLoad(to:)` expects the leaf directory whose last
+    /// path component matches the SDK's internal repo folder name.  We derive
+    /// that name from `AsrModels.defaultCacheDirectory(for: .v3)` so we stay
+    /// in sync even if the SDK renames the folder in a future release.
+    private func v3CacheDirectory() -> URL {
+        let sdkLeaf = AsrModels.defaultCacheDirectory(for: .v3).lastPathComponent
+        return modelDownloadBase.appendingPathComponent(sdkLeaf, isDirectory: true)
+    }
+
     // MARK: - UserDefaults Flags
     private var isDownloaded: Bool {
         get { UserDefaults.standard.bool(forKey: Self.downloadedKey) }
@@ -61,7 +81,7 @@ actor ParakeetService {
     // MARK: - V3 Helpers
 
     private func downloadAndLoad() async throws {
-        let models = try await AsrModels.downloadAndLoad(version: .v3)
+        let models = try await AsrModels.downloadAndLoad(to: v3CacheDirectory(), version: .v3)
         let manager = AsrManager(config: .default)
         try await manager.initialize(models: models)
         self.asrManager = manager
@@ -79,19 +99,13 @@ actor ParakeetService {
     // MARK: - EOU Helpers
 
     private func eouCacheDirectory() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport
-            .appendingPathComponent("FluidAudio", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
+        modelDownloadBase
             .appendingPathComponent("parakeet-eou-streaming", isDirectory: true)
             .appendingPathComponent("160ms", isDirectory: true)
     }
 
     private func eouModelsParentDirectory() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport
-            .appendingPathComponent("FluidAudio", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
+        modelDownloadBase
     }
 
     private func downloadAndLoadEou() async throws {
@@ -227,7 +241,7 @@ extension ParakeetService: TranscriptionEngine {
         let isEou = model.id == Self.eouModelId
         let estimatedSize = model.estimatedSize
         let expectedFileCount = isEou ? Self.eouExpectedFileCount : Self.expectedFileCount
-        let cacheDir = isEou ? eouCacheDirectory() : AsrModels.defaultCacheDirectory(for: .v3)
+        let cacheDir = isEou ? eouCacheDirectory() : v3CacheDirectory()
 
         Task {
             defer { self.downloadTasks.removeValue(forKey: model.id) }
@@ -306,7 +320,7 @@ extension ParakeetService: TranscriptionEngine {
             isEouDownloaded = false
         } else {
             unload()
-            let cacheDir = AsrModels.defaultCacheDirectory(for: .v3)
+            let cacheDir = v3CacheDirectory()
             if FileManager.default.fileExists(atPath: cacheDir.path) {
                 do {
                     try FileManager.default.removeItem(at: cacheDir)

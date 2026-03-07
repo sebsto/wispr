@@ -44,15 +44,10 @@ actor WhisperService {
     /// WhisperKit / HubApi stores models under this path as:
     ///   `<downloadBase>/models/argmaxinc/whisperkit-coreml/<variant>/`
     ///
-    /// Uses the app's Application Support directory, which the OS maps to:
-    /// - Sandboxed: `~/Library/Containers/<bundle-id>/Data/Library/Application Support/wispr/`
-    /// - Non-sandboxed (dev): `~/Library/Application Support/wispr/`
+    /// Uses the shared `ModelPaths.base` so all engines store models
+    /// under the same Application Support directory.
     private var modelDownloadBase: URL {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-        return appSupport.appendingPathComponent("wispr", isDirectory: true)
+        ModelPaths.base
     }
     
     /// Ensures the `modelDownloadBase` directory exists on disk.

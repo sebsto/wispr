@@ -135,34 +135,31 @@ help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-list-downloads: ## List downloaded models (Whisper + Parakeet)
-	@echo "=== Whisper models ==="
-	@if [ -d "$(MODEL_DIR)" ]; then \
-		du -sh "$(MODEL_DIR)"/models/argmaxinc/whisperkit-coreml/*/ 2>/dev/null || echo "  (none)"; \
-	else \
-		echo "  (none)"; \
-	fi
-	@echo "=== Parakeet models ==="
-	@if [ -d "$(PARAKEET_DIR)/Models" ]; then \
-		du -sh "$(PARAKEET_DIR)"/Models/*/ 2>/dev/null || echo "  (none)"; \
-	else \
-		echo "  (none)"; \
-	fi
+list-downloads: ## List all downloaded models (Whisper + Parakeet) in the sandbox container
+	@echo "Downloaded models in $(MODEL_DIR):"
+	@echo ""
+	@echo "— Whisper (WhisperKit) —"
+	@du -sh "$(MODEL_DIR)"/models/argmaxinc/whisperkit-coreml/*/ 2>/dev/null || echo "  (none)"
+	@echo ""
+	@echo "— Parakeet V3 (FluidAudio) —"
+	@du -sh "$(MODEL_DIR)"/models/parakeet-tdt*/ 2>/dev/null || echo "  (none)"
+	@echo ""
+	@echo "— Parakeet EOU (FluidAudio) —"
+	@du -sh "$(MODEL_DIR)"/models/parakeet-eou-streaming/ 2>/dev/null || echo "  (none)"
 
-clean-downloads: ## Delete all downloaded models (Whisper + Parakeet)
+clean-downloads: ## Delete all downloaded models (Whisper + Parakeet) from the sandbox container
 	@if [ -d "$(MODEL_DIR)" ]; then \
-		echo "Removing Whisper models at $(MODEL_DIR) …"; \
+		echo "Removing downloaded models at $(MODEL_DIR) …"; \
 		rm -rf "$(MODEL_DIR)"; \
 	else \
-		echo "No Whisper models to clean."; \
+		echo "No downloaded models to clean."; \
 	fi
-	@if [ -d "$(PARAKEET_DIR)" ]; then \
-		echo "Removing Parakeet models at $(PARAKEET_DIR) …"; \
-		rm -rf "$(PARAKEET_DIR)"; \
-	else \
-		echo "No Parakeet models to clean."; \
+	@# Clean legacy FluidAudio location in case models were downloaded before unification
+	@if [ -d "$(CONTAINER)/Library/Application Support/FluidAudio" ]; then \
+		echo "Removing legacy FluidAudio model cache …"; \
+		rm -rf "$(CONTAINER)/Library/Application Support/FluidAudio"; \
+		echo "Done."; \
 	fi
-	@echo "Done."
 
 list-container: ## Inspect the sandbox container directory
 	@if [ -d "$(CONTAINER)" ]; then \
