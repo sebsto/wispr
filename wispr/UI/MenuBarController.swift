@@ -56,6 +56,9 @@ final class MenuBarController {
     /// Permission manager for settings view.
     private let permissionManager: PermissionManager
 
+    /// Update checker for surfacing new versions.
+    private let updateChecker: UpdateChecker
+
     /// Observation tracking for state changes.
     private var observationTask: Task<Void, Never>?
 
@@ -73,6 +76,8 @@ final class MenuBarController {
     private let recordingMenuItem = NSMenuItem()
     private let languageMenuItem = NSMenuItem()
     private let languageSubmenu = NSMenu()
+    private let updateMenuItem = NSMenuItem()
+    private let updateSeparator = NSMenuItem.separator()
 
     // MARK: - Initialization
 
@@ -91,7 +96,8 @@ final class MenuBarController {
         themeEngine: UIThemeEngine = .shared,
         audioEngine: AudioEngine,
         whisperService: any TranscriptionEngine,
-        permissionManager: PermissionManager
+        permissionManager: PermissionManager,
+        updateChecker: UpdateChecker
     ) {
         self.stateManager = stateManager
         self.settingsStore = settingsStore
@@ -99,6 +105,7 @@ final class MenuBarController {
         self.audioEngine = audioEngine
         self.transcriptionEngine = whisperService
         self.permissionManager = permissionManager
+        self.updateChecker = updateChecker
 
         // Requirement 5.1: Create NSStatusItem in the menu bar
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -181,6 +188,21 @@ final class MenuBarController {
         )
         menu.addItem(modelItem)
 
+        // Update Available (shown dynamically)
+        updateMenuItem.title = ""
+        updateMenuItem.action = #selector(MenuBarActionHandler.openUpdateDownload(_:))
+        updateMenuItem.target = MenuBarActionHandler.shared
+        updateMenuItem.image = NSImage(
+            systemSymbolName: SFSymbols.download,
+            accessibilityDescription: "Update Available"
+        )
+        updateMenuItem.isHidden = true
+        updateSeparator.isHidden = true
+        menu.addItem(updateSeparator)
+        menu.addItem(updateMenuItem)
+
+        updateUpdateMenuItem()
+
         menu.addItem(NSMenuItem.separator())
 
         // Quit
@@ -227,6 +249,26 @@ final class MenuBarController {
 
         // Disable during processing
         recordingMenuItem.isEnabled = stateManager.appState != .processing
+    }
+
+    // MARK: - Update Menu Item
+
+    /// Updates the update menu item visibility and title based on `updateChecker.availableUpdate`.
+    private func updateUpdateMenuItem() {
+        if let update = updateChecker.availableUpdate {
+            updateMenuItem.title = "Update Available: \(update.version)"
+            updateMenuItem.isHidden = false
+            updateSeparator.isHidden = false
+        } else {
+            updateMenuItem.isHidden = true
+            updateSeparator.isHidden = true
+        }
+    }
+
+    /// Opens the download URL for the available update.
+    func openUpdateDownload() {
+        guard let update = updateChecker.availableUpdate else { return }
+        NSWorkspace.shared.open(update.downloadURL)
     }
 
     // MARK: - Language Display
@@ -376,6 +418,7 @@ final class MenuBarController {
 
                 self.updateIcon(for: currentState)
                 self.updateRecordingMenuItem()
+                self.updateUpdateMenuItem()
                 self.languageMenuItem.title = self.languageDisplayTitle()
                 self.buildLanguageSubmenu()
 
@@ -386,6 +429,7 @@ final class MenuBarController {
                         _ = self.settingsStore.languageMode
                         _ = self.settingsStore.hotkeyKeyCode
                         _ = self.settingsStore.hotkeyModifiers
+                        _ = self.updateChecker.availableUpdate
                     } onChange: {
                         continuation.resume()
                     }
@@ -436,6 +480,7 @@ final class MenuBarController {
         .environment(themeEngine)
         .environment(stateManager)
         .environment(permissionManager)
+        .environment(updateChecker)
 
         let hostingController = NSHostingController(rootView: settingsView)
         let window = NSWindow(contentViewController: hostingController)
@@ -536,6 +581,11 @@ final class MenuBarActionHandler: NSObject {
     @objc func selectLanguage(_ sender: NSMenuItem) {
         guard let code = sender.representedObject as? String else { return }
         menuBarController?.selectLanguage(code)
+    }
+
+    @MainActor
+    @objc func openUpdateDownload(_ sender: NSMenuItem) {
+        menuBarController?.openUpdateDownload()
     }
 
     @MainActor

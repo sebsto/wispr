@@ -35,6 +35,7 @@ private struct SectionHeader: View {
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var settingsStore: SettingsStore
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
+    @Environment(UpdateChecker.self) private var updateChecker: UpdateChecker
 
     @State private var audioDevices: [AudioInputDevice] = []
     @State private var whisperModels: [ModelInfo] = []
@@ -226,6 +227,19 @@ struct SettingsView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Version \(appVersion)")
+
+            if let update = updateChecker.availableUpdate {
+                HStack {
+                    Label("Version \(update.version) available", systemImage: SFSymbols.download)
+                        .foregroundStyle(.tint)
+                        .font(.callout)
+                    Spacer()
+                    Link("Download", destination: update.downloadURL)
+                        .font(.callout)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Version \(update.version) available. Activate to download.")
+            }
         } header: {
             SectionHeader(
                 title: "General",
@@ -331,6 +345,7 @@ struct SettingsView: View {
 private struct SettingsPreview: View {
     @State private var settingsStore = PreviewMocks.makeSettingsStore()
     @State private var theme = PreviewMocks.makeTheme()
+    @State private var updateChecker = PreviewMocks.makeUpdateChecker()
 
     var body: some View {
         SettingsView(
@@ -339,6 +354,7 @@ private struct SettingsPreview: View {
         )
         .environment(settingsStore)
         .environment(theme)
+        .environment(updateChecker)
     }
 }
 

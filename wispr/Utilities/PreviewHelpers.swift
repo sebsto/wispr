@@ -76,6 +76,30 @@ enum PreviewMocks {
         )
     }
 
+    // MARK: - UpdateChecker
+
+    /// No-op HTTP provider that never makes real network requests.
+    private struct NoOpHTTPProvider: HTTPDataProvider {
+        func data(from url: URL) async throws -> (Data, URLResponse) {
+            throw URLError(.notConnectedToInternet)
+        }
+    }
+
+    /// Creates an UpdateChecker that won't make network requests.
+    /// Optionally pre-populates `availableUpdate` for preview purposes.
+    static func makeUpdateChecker(hasUpdate: Bool = false) -> UpdateChecker {
+        let checker = UpdateChecker(currentVersion: "1.0.0", httpProvider: NoOpHTTPProvider())
+        if hasUpdate {
+            checker.availableUpdate = AppUpdateInfo(
+                version: "v1.1.0",
+                releaseNotes: "Preview release notes",
+                downloadURL: URL(string: "https://github.com/sebsto/wispr/releases/download/v1.1.0/wispr.zip")!,
+                releasePageURL: URL(string: "https://github.com/sebsto/wispr/releases/tag/v1.1.0")!
+            )
+        }
+        return checker
+    }
+
     // MARK: - Sample Model Data
 
     static let sampleModels: [ModelInfo] = [

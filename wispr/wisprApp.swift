@@ -83,6 +83,9 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Shared UI theme engine for appearance and accessibility adaptations.
     let themeEngine = UIThemeEngine.shared
 
+    /// Checks GitHub Releases for a newer app version.
+    let updateChecker = UpdateChecker()
+
     /// Central state coordinator — depends on all services above.
     private(set) var stateManager: StateManager?
 
@@ -143,7 +146,8 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             themeEngine: themeEngine,
             audioEngine: audioEngine,
             whisperService: whisperService,
-            permissionManager: permissionManager
+            permissionManager: permissionManager,
+            updateChecker: updateChecker
         )
 
         // Create recording overlay panel
@@ -174,6 +178,11 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         // Start permission monitoring
         Task {
             await permissionManager.startMonitoringPermissionChanges()
+        }
+
+        // Check for app updates (non-blocking, runs in parallel)
+        Task {
+            await updateChecker.checkForUpdate()
         }
 
         // Requirement 13.1, 13.12: Show onboarding on first launch
@@ -238,6 +247,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         .environment(settingsStore)
         .environment(themeEngine)
         .environment(sm)
+        .environment(updateChecker)
         .frame(minWidth: 600, minHeight: 500)
 
         let hostingController = NSHostingController(rootView: onboardingView)
