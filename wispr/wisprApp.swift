@@ -40,6 +40,7 @@ struct WisprApp: App {
     // MARK: - Initialization
 
     init() {
+        guard ProcessInfo.processInfo.environment["CI_TEST_MODE"] == nil else { return }
         // Requirement 5.6: Menu bar-only app — no Dock icon
         NSApplication.shared.setActivationPolicy(.accessory)
     }
@@ -103,6 +104,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     // MARK: - NSApplicationDelegate
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard ProcessInfo.processInfo.environment["CI_TEST_MODE"] == nil else { return }
         bootstrap()
     }
 
