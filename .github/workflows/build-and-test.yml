@@ -8,9 +8,10 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      SPM_PACKAGES: .spm-packages
     steps:
       - uses: actions/checkout@v4
 
@@ -19,11 +20,12 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Resolve packages
-        run: |
-          xcodebuild -project wispr.xcodeproj \
-            -scheme wispr \
-            -resolvePackageDependencies
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SPM_PACKAGES }}
+          key: spm-${{ hashFiles('wispr.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-
 
       - name: Build
         run: |
@@ -33,6 +35,7 @@ jobs:
             -scheme wispr \
             -configuration Debug \
             -destination 'generic/platform=macOS' \
+            -clonedSourcePackagesDirPath "$SPM_PACKAGES" \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO | xcbeautify
@@ -44,6 +47,7 @@ jobs:
             -project wispr.xcodeproj \
             -scheme wispr \
             -destination 'platform=macOS' \
+            -clonedSourcePackagesDirPath "$SPM_PACKAGES" \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO | xcbeautify
