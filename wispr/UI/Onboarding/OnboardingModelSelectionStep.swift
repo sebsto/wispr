@@ -2,14 +2,13 @@
 //  OnboardingModelSelectionStep.swift
 //  wispr
 //
-//  Model selection step for the onboarding flow.
-//  Reuses ModelRowView from UI/Components for visual consistency.
-//  Requirements: 13.6, 13.7, 13.8, 13.15
+//  Auto-downloads NVIDIA Parakeet V3 during onboarding.
+//  Reuses ModelDownloadProgressView for download lifecycle.
 //
 
 import SwiftUI
 
-/// Model selection step with model list, download progress, and error handling.
+/// Model download step that automatically fetches and activates Parakeet V3.
 struct OnboardingModelSelectionStep: View {
     @Environment(SettingsStore.self) private var settingsStore: SettingsStore
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
@@ -19,23 +18,15 @@ struct OnboardingModelSelectionStep: View {
 
     // MARK: - Bindings to parent state
 
-    @Binding var availableModels: [ModelInfo]
-    @Binding var selectedModelId: String?
     @Binding var downloadComplete: Bool
 
     // MARK: - Local State
 
-    /// Whether the download progress view is currently shown.
-    @State private var isShowingDownload = false
+    /// The resolved Parakeet V3 model info, set by the `.task` block.
+    @State private var parakeetModel: ModelInfo?
 
-    /// The model ID currently being activated (loading into memory).
-    @State private var activatingModelId: String?
-
-    /// Tracks which model ID shows the green highlight overlay.
-    @State private var highlightedModelId: String?
-
-    /// Namespace for matchedGeometryEffect on the active highlight.
-    @Namespace private var highlightNamespace
+    /// Error message shown if model lookup fails.
+    @State private var errorMessage: String?
 
     // MARK: - Body
 
@@ -46,160 +37,120 @@ struct OnboardingModelSelectionStep: View {
                 color: downloadComplete ? theme.successColor : theme.accentColor
             )
 
-            Text("Choose a Model")
+            Text("Downloading Model")
                 .font(.title2)
                 .fontWeight(.semibold)
                 .foregroundStyle(theme.primaryTextColor)
 
-            Text("Select a Whisper model to download. Smaller models are faster; larger models are more accurate.")
+            Text("We're downloading NVIDIA Parakeet V3, a fast and accurate speech recognition model. You can switch to a different model anytime in Model Management.")
                 .font(.body)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
                 .lineSpacing(5)
 
-            if isShowingDownload,
-               let modelId = selectedModelId,
-               let selectedModel = availableModels.first(where: { $0.id == modelId }) {
+            if downloadComplete {
+                completionView
+                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
+            } else if let errorMessage {
+                errorView(message: errorMessage)
+            } else if let parakeetModel {
                 ModelDownloadProgressView(
                     whisperService: whisperService,
-                    model: selectedModel,
+                    model: parakeetModel,
                     autoStart: true,
                     onComplete: { completedModelId in
                         settingsStore.activeModelName = completedModelId
                         downloadComplete = true
-                        isShowingDownload = false
-                        updateModelStatuses(activeId: completedModelId)
-                        highlightedModelId = completedModelId
                     },
-                    onCancel: {
-                        isShowingDownload = false
-                    }
+                    onCancel: nil
                 )
                 .frame(maxWidth: 400)
             } else {
-                // Model list using shared ModelRowView for consistency
-                modelListView
+                ProgressView()
+                    .controlSize(.regular)
+                    .accessibilityLabel("Loading model information")
             }
         }
-        .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: highlightedModelId)
+        .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: downloadComplete)
         .task {
-            await loadAvailableModels()
+            await resolveParakeetModel()
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Model Selection step")
+        .accessibilityLabel("Model Download step")
     }
 
-    // MARK: - Model List
+    // MARK: - Completion
 
-    private var modelListView: some View {
-        VStack(spacing: 0) {
-            ForEach(availableModels) { model in
-                ModelRowView(
-                    model: model,
-                    theme: theme,
-                    isActivating: activatingModelId == model.id,
-                    isHighlighted: highlightedModelId == model.id,
-                    namespace: highlightNamespace,
-                    onDownload: {
-                        selectedModelId = model.id
-                        isShowingDownload = true
-                    },
-                    onSetActive: {
-                        await activateModel(model)
-                    },
-                    onDelete: {
-                        // No delete during onboarding
-                    }
-                )
-                if model.id != availableModels.last?.id {
-                    Divider()
+    private var completionView: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(theme.successColor.gradient, in: Circle())
+            Text("Parakeet V3 ready")
+                .font(.headline)
+                .foregroundStyle(theme.successColor)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Parakeet V3 downloaded and ready")
+    }
+
+    // MARK: - Error
+
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 10) {
+            Label("Setup Failed", systemImage: SFSymbols.warning)
+                .font(.headline)
+                .foregroundStyle(theme.errorColor)
+
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(theme.secondaryTextColor)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 400)
+
+            Button {
+                errorMessage = nil
+                Task { await resolveParakeetModel() }
+            } label: {
+                Label("Retry", systemImage: SFSymbols.retry)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .accessibilityLabel("Retry model setup")
+        }
+    }
+
+    // MARK: - Model Resolution
+
+    /// Fetches available models, finds Parakeet V3, and checks if it's already active.
+    private func resolveParakeetModel() async {
+        let models = await whisperService.availableModels()
+
+        guard let model = models.first(where: { $0.id == ModelInfo.KnownID.parakeetV3 }) else {
+            errorMessage = "Could not find Parakeet V3 model. Please restart the app and try again."
+            return
+        }
+
+        let status = await whisperService.modelStatus(model.id)
+
+        if status == .active || status == .downloaded {
+            // Already available — activate if needed and mark complete
+            if status == .downloaded {
+                do {
+                    try await whisperService.loadModel(model.id)
+                } catch {
+                    errorMessage = "Failed to load model: \(error.localizedDescription)"
+                    return
                 }
             }
-        }
-    }
-
-    // MARK: - Actions
-
-    /// Activates an already-downloaded model.
-    private func activateModel(_ model: ModelInfo) async {
-        selectedModelId = model.id
-        downloadComplete = false
-
-        // Animate highlight to the new model
-        if !theme.reduceMotion {
-            withAnimation(.easeInOut(duration: 0.35)) {
-                highlightedModelId = model.id
-            }
-            try? await Task.sleep(for: .milliseconds(400))
-        } else {
-            highlightedModelId = model.id
-        }
-
-        activatingModelId = model.id
-        do {
-            if await whisperService.activeModel() != model.id {
-                try await whisperService.loadModel(model.id)
-            }
             settingsStore.activeModelName = model.id
-            updateModelStatuses(activeId: model.id)
             downloadComplete = true
-        } catch {
-            // Revert highlight on failure
-            let activeId = availableModels.first(where: {
-                if case .active = $0.status { return true }
-                return false
-            })?.id
-            highlightedModelId = activeId
-        }
-        activatingModelId = nil
-    }
-
-    /// Updates model statuses so only the given ID is `.active`.
-    private func updateModelStatuses(activeId: String) {
-        for index in availableModels.indices {
-            if availableModels[index].id == activeId {
-                availableModels[index].status = .active
-            } else if availableModels[index].status == .active {
-                availableModels[index].status = .downloaded
-            }
-        }
-    }
-
-    // MARK: - Model Loading
-
-    /// Loads the available models from WhisperService, querying actual disk status for each.
-    func loadAvailableModels() async {
-        var models = await whisperService.availableModels()
-        for index in models.indices {
-            models[index].status = await whisperService.modelStatus(models[index].id)
-        }
-        availableModels = models
-
-        // Set initial highlight to the active model
-        let activeId = models.first(where: {
-            if case .active = $0.status { return true }
-            return false
-        })?.id
-        highlightedModelId = activeId
-
-        // If a model matching the active setting is already active in WhisperKit,
-        // just mark the step complete — no need to reload.
-        if !settingsStore.activeModelName.isEmpty {
-            let currentActive = await whisperService.activeModel()
-            if currentActive == settingsStore.activeModelName {
-                downloadComplete = true
-            }
-        }
-
-        // Pre-select the active model, or the first model if nothing is selected
-        if selectedModelId == nil {
-            if !settingsStore.activeModelName.isEmpty,
-               models.contains(where: { $0.id == settingsStore.activeModelName }) {
-                selectedModelId = settingsStore.activeModelName
-            } else if let first = models.first {
-                selectedModelId = first.id
-            }
+        } else {
+            // Needs download — set parakeetModel to trigger ModelDownloadProgressView
+            parakeetModel = model
         }
     }
 }

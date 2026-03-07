@@ -42,13 +42,7 @@ struct OnboardingFlow: View {
     /// Whether the view has performed initial resume logic
     @State private var hasResumed = false
 
-    // MARK: - Model Selection State (Req 13.6, 13.7, 13.8, 13.15)
-
-    /// The list of available models fetched from WhisperService
-    @State private var availableModels: [ModelInfo] = []
-
-    /// The ID of the model the user has selected for download
-    @State private var selectedModelId: String?
+    // MARK: - Model Selection State
 
     /// Whether a model download has completed successfully
     @State private var downloadComplete = false
@@ -171,8 +165,6 @@ struct OnboardingFlow: View {
                 case .modelSelection:
                     OnboardingModelSelectionStep(
                         whisperService: whisperService,
-                        availableModels: $availableModels,
-                        selectedModelId: $selectedModelId,
                         downloadComplete: $downloadComplete
                     )
                 case .testDictation:
@@ -377,13 +369,9 @@ struct OnboardingFlow: View {
         case .accessibilityPermission:
             return permissionManager.accessibilityStatus == .authorized
         case .modelSelection:
-            // If the active model is already downloaded, this step is complete
-            return settingsStore.activeModelName.isEmpty == false
-                && availableModels.isEmpty == false
-                && availableModels.contains(where: {
-                    $0.id == settingsStore.activeModelName
-                    && ($0.status == .downloaded || $0.status == .active)
-                })
+            // Only skip if the active model is Parakeet V3 (the auto-download target).
+            // A leftover Whisper model name shouldn't skip this step.
+            return settingsStore.activeModelName == ModelInfo.KnownID.parakeetV3
         case .testDictation:
             // Skippable — never blocks resume
             return true
