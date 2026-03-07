@@ -58,6 +58,9 @@ enum SFSymbols {
     /// Checkmark (filled circle) for success / active states.
     static let checkmark = "checkmark.circle.fill"
 
+    /// Checkmark (unfilled circle) for completed / downloaded states.
+    static let checkmarkCircle = "checkmark.circle"
+
     /// Warning (filled triangle) for error labels.
     static let warning = "exclamationmark.triangle.fill"
 
@@ -109,4 +112,18 @@ enum SFSymbols {
 
     /// Recording indicator for hotkey recorder.
     static let recordCircle = "record.circle"
+
+    // MARK: - Model Status Icons
+
+    /// Plain checkmark for active/completion states.
+    static let checkmarkPlain = "checkmark"
+
+    /// Arrow down for downloaded model indicator.
+    static let arrowDown = "arrow.down"
+
+    /// Cloud download for not-yet-downloaded models.
+    static let cloudDownload = "icloud.and.arrow.down"
+
+    /// X-mark circle for denied/error states.
+    static let denied = "xmark.circle"
 }

@@ -7,6 +7,12 @@
 
 import Foundation
 
+/// The ASR engine that provides a model.
+enum ModelProvider: String, Sendable, Equatable, Hashable, CaseIterable {
+    case whisper = "OpenAI Whisper"
+    case nvidiaParakeet = "NVIDIA Parakeet"
+}
+
 /// Information about a transcription model
 struct ModelInfo: Identifiable, Sendable, Equatable {
     let id: String              // e.g. "tiny"
@@ -15,6 +21,11 @@ struct ModelInfo: Identifiable, Sendable, Equatable {
     let qualityDescription: String // e.g. "Fastest, lower accuracy"
     let estimatedSize: Int64    // bytes, used for download progress
     var status: ModelStatus
+
+    /// The provider that owns this model, derived from the model ID.
+    var provider: ModelProvider {
+        id.hasPrefix("parakeet") ? .nvidiaParakeet : .whisper
+    }
 
     // MARK: - Known Model IDs
 

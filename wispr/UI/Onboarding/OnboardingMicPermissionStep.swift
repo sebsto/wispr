@@ -43,7 +43,7 @@ struct OnboardingMicPermissionStep: View {
 
             case .denied:
                 VStack(spacing: 12) {
-                    Label("Microphone Access Denied", systemImage: "xmark.circle")
+                    Label("Microphone Access Denied", systemImage: SFSymbols.denied)
                         .font(.headline)
                         .foregroundStyle(.red)
 
@@ -58,7 +58,7 @@ struct OnboardingMicPermissionStep: View {
                             URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
                         )
                     } label: {
-                        Label("Open System Settings", systemImage: "gear")
+                        Label("Open System Settings", systemImage: SFSymbols.settings)
                     }
                     .buttonStyle(OnboardingContinueButtonStyle())
                     .accessibilityHint("Opens Privacy & Security settings to enable microphone access")

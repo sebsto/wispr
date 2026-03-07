@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "mic.badge.plus")
+            Image(systemName: SFSymbols.onboardingWelcome)
                 .font(.system(size: 48))
                 .foregroundStyle(.tint)
                 .accessibilityHidden(true)

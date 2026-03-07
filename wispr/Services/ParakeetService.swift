@@ -205,7 +205,7 @@ extension ParakeetService: TranscriptionEngine {
             ),
             ModelInfo(
                 id: Self.eouModelId,
-                displayName: "Parakeet Realtime (120M)",
+                displayName: "Realtime 120M",
                 sizeDescription: "~150 MB",
                 qualityDescription: "Low-latency streaming with end-of-utterance detection (English only)",
                 estimatedSize: 150 * 1024 * 1024,

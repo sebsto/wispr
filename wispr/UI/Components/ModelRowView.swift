@@ -71,41 +71,41 @@ struct ModelRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Top row: status icon, model name + info, status badge
-            HStack(alignment: .center, spacing: 10) {
-                statusIcon
+        HStack(alignment: .center, spacing: 10) {
+            statusIcon
 
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
                     Text(model.displayName)
                         .font(.headline)
                         .foregroundStyle(isNotDownloaded
                             ? theme.secondaryTextColor
                             : theme.primaryTextColor)
 
-                    HStack(spacing: 6) {
-                        Text(model.sizeDescription)
-                            .font(.callout)
-                            .foregroundStyle(theme.secondaryTextColor)
-
-                        Text("·")
-                            .foregroundStyle(theme.secondaryTextColor)
-
-                        Text(model.qualityDescription)
-                            .font(.callout)
-                            .foregroundStyle(theme.secondaryTextColor)
-                    }
+                    statusBadge
                 }
 
-                Spacer()
+                HStack(spacing: 6) {
+                    Text(model.sizeDescription)
+                        .font(.callout)
+                        .foregroundStyle(theme.secondaryTextColor)
 
-                statusBadge
+                    Text("·")
+                        .foregroundStyle(theme.secondaryTextColor)
+
+                    Text(model.qualityDescription)
+                        .font(.callout)
+                        .foregroundStyle(theme.secondaryTextColor)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
 
-            // Bottom row: action buttons aligned trailing
-            actionButtons
+            Spacer()
+
+            trailingActions
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .padding(.horizontal, 14)
         .background {
             if isHighlighted {
@@ -140,21 +140,21 @@ struct ModelRowView: View {
         Group {
             switch model.status {
             case .active:
-                Image(systemName: "checkmark")
+                Image(systemName: SFSymbols.checkmarkPlain)
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: iconSize, height: iconSize)
                     .background(theme.successColor.gradient, in: Circle())
 
             case .downloaded:
-                Image(systemName: "arrow.down")
+                Image(systemName: SFSymbols.arrowDown)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: iconSize, height: iconSize)
                     .background(theme.accentColor.gradient, in: Circle())
 
             case .notDownloaded:
-                Image(systemName: "icloud.and.arrow.down")
+                Image(systemName: SFSymbols.cloudDownload)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(theme.secondaryTextColor.opacity(0.5))
                     .frame(width: iconSize, height: iconSize)
@@ -168,10 +168,8 @@ struct ModelRowView: View {
         }
     }
 
-    // MARK: - Status Badge
+    // MARK: - Status Badge (inline next to name)
 
-    /// A prominent pill-shaped badge showing the model's status.
-    /// For `.notDownloaded`, shows the Download button inline instead.
     @ViewBuilder
     private var statusBadge: some View {
         switch model.status {
@@ -182,27 +180,13 @@ struct ModelRowView: View {
                 foregroundColor: theme.successColor,
                 backgroundColor: theme.successColor.opacity(0.15)
             )
-
         case .downloaded:
             StatusPillView(
                 label: "Downloaded",
-                symbolName: "checkmark.circle",
+                symbolName: SFSymbols.checkmarkCircle,
                 foregroundColor: theme.accentColor,
                 backgroundColor: theme.accentColor.opacity(0.12)
             )
-
-        case .notDownloaded:
-            Button {
-                onDownload()
-            } label: {
-                Label("Download", systemImage: theme.actionSymbol(.download))
-            }
-            .buttonStyle(.bordered)
-            .highContrastBorder(cornerRadius: 6)
-            .keyboardFocusRing()
-            .accessibilityLabel("Download \(model.displayName) model")
-            .accessibilityHint("Downloads the \(model.sizeDescription) model")
-
         case .downloading:
             StatusPillView(
                 label: "Downloading…",
@@ -210,32 +194,39 @@ struct ModelRowView: View {
                 foregroundColor: theme.accentColor,
                 backgroundColor: theme.accentColor.opacity(0.12)
             )
+        case .notDownloaded:
+            EmptyView()
         }
     }
 
-    // MARK: - Action Buttons
+    // MARK: - Trailing Actions
 
-    /// Action buttons appropriate for the model's current status.
     @ViewBuilder
-    private var actionButtons: some View {
+    private var trailingActions: some View {
         switch model.status {
-        case .notDownloaded, .downloading:
-            // Download button is inline in statusBadge; downloading handled by parent
+        case .notDownloaded:
+            Button {
+                onDownload()
+            } label: {
+                Label("Download", systemImage: theme.actionSymbol(.download))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .highContrastBorder(cornerRadius: 6)
+            .keyboardFocusRing()
+            .accessibilityLabel("Download \(model.displayName) model")
+            .accessibilityHint("Downloads the \(model.sizeDescription) model")
+
+        case .downloading:
             EmptyView()
 
         case .downloaded:
-            HStack {
-                Spacer()
+            HStack(spacing: 8) {
                 if isActivating {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Activating…")
-                            .font(.callout)
-                            .foregroundStyle(theme.secondaryTextColor)
-                    }
-                    .opacity(isActivating ? 0.7 : 1.0)
-                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isActivating)
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Activating \(model.displayName)")
+                        .accessibilityValue("Loading model into memory")
                 } else {
                     Button {
                         Task { await onSetActive() }
@@ -243,6 +234,7 @@ struct ModelRowView: View {
                         Label("Activate", systemImage: theme.actionSymbol(.checkmark))
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                     .highContrastBorder(cornerRadius: 6)
                     .keyboardFocusRing()
                     .accessibilityLabel("Set \(model.displayName) as active model")
@@ -255,6 +247,7 @@ struct ModelRowView: View {
                     Label("Delete", systemImage: theme.actionSymbol(.delete))
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
                 .tint(.red)
                 .highContrastBorder(cornerRadius: 6)
                 .keyboardFocusRing()
@@ -264,20 +257,18 @@ struct ModelRowView: View {
             }
 
         case .active:
-            HStack {
-                Spacer()
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    Label("Delete", systemImage: theme.actionSymbol(.delete))
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-                .highContrastBorder(cornerRadius: 6)
-                .keyboardFocusRing()
-                .accessibilityLabel("Delete \(model.displayName) model")
-                .accessibilityHint("Removes the active model from disk. A different model will be activated.")
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: theme.actionSymbol(.delete))
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(.red)
+            .highContrastBorder(cornerRadius: 6)
+            .keyboardFocusRing()
+            .accessibilityLabel("Delete \(model.displayName) model")
+            .accessibilityHint("Removes the active model from disk. A different model will be activated.")
         }
     }
 
@@ -291,7 +282,7 @@ struct ModelRowView: View {
         case .downloading(let progress):
             parts.append("Downloading \(Int(progress * 100)) percent")
         case .downloaded:
-            parts.append("Downloaded")
+            parts.append(isActivating ? "Activating" : "Downloaded")
         case .active:
             parts.append("Active")
         }

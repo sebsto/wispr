@@ -9,6 +9,37 @@
 
 import SwiftUI
 
+// MARK: - ModelProvider UI Properties
+
+extension ModelProvider {
+    var icon: String {
+        switch self {
+        case .whisper: "waveform"
+        case .nvidiaParakeet: "bird"
+        }
+    }
+
+    var tintColor: Color {
+        switch self {
+        case .whisper: .blue
+        case .nvidiaParakeet: .green
+        }
+    }
+}
+
+/// Discriminated union for flattening grouped model data into a single `ForEach`.
+private enum ModelListItem: Identifiable {
+    case header(ModelProvider)
+    case model(ModelInfo)
+
+    var id: String {
+        switch self {
+        case .header(let provider): "header-\(provider.rawValue)"
+        case .model(let model): model.id
+        }
+    }
+}
+
 /// View displaying all available Whisper models with download, delete, and activation controls.
 ///
 /// Requirement 7.2: List all available models with name, size, and status.
@@ -55,14 +86,56 @@ struct ModelManagementView: View {
         self.whisperService = whisperService
     }
 
-    var body: some View {
-        List {
-            ForEach(models) { model in
-                modelSection(for: model)
+    /// Flat list of headers and model rows for a single-level `ForEach`.
+    /// Using a single `ForEach` avoids macOS `OutlineListCoordinator` crashes
+    /// that occur with nested `ForEach` inside `List` when data loads async.
+    private var listItems: [ModelListItem] {
+        var seen: [ModelProvider] = []
+        var groups: [ModelProvider: [ModelInfo]] = [:]
+        for model in models {
+            if !seen.contains(model.provider) {
+                seen.append(model.provider)
+            }
+            groups[model.provider, default: []].append(model)
+        }
+        var items: [ModelListItem] = []
+        for provider in seen {
+            items.append(.header(provider))
+            for model in groups[provider, default: []] {
+                items.append(.model(model))
             }
         }
+        return items
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            List {
+                ForEach(listItems) { item in
+                    switch item {
+                    case .header(let provider):
+                        providerHeader(provider)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
+                    case .model(let model):
+                        modelSection(for: model)
+                    }
+                }
+            }
+
+            Divider()
+
+            Button("Close") {
+                NSApp.keyWindow?.close()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+            .keyboardShortcut(.cancelAction)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
         .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: highlightedModelId)
-        .frame(minWidth: 500, idealWidth: 540)
+        .frame(minWidth: 560, idealWidth: 620)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
         .task {
@@ -99,6 +172,31 @@ struct ModelManagementView: View {
         }
     }
 
+    // MARK: - Provider Header
+
+    @ScaledMetric(relativeTo: .body) private var providerIconSize: CGFloat = 24
+
+    @ViewBuilder
+    private func providerHeader(_ provider: ModelProvider) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: provider.icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(provider.tintColor.gradient)
+                .frame(width: providerIconSize, height: providerIconSize)
+                .background(provider.tintColor.opacity(0.12), in: Circle())
+
+            Text(provider.rawValue)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(theme.primaryTextColor)
+
+            Spacer()
+        }
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(provider.rawValue) models")
+    }
+
     // MARK: - Model Section
 
     /// Builds the view for a single model: either the inline download progress or the standard row.
@@ -121,6 +219,7 @@ struct ModelManagementView: View {
                 }
             )
             .padding(.vertical, 8)
+            .padding(.horizontal, 14)
         } else {
             // Standard model row with info and action buttons
             ModelRowView(
@@ -178,8 +277,8 @@ struct ModelManagementView: View {
         do {
             try await whisperService.switchModel(to: model.id)
             settingsStore.activeModelName = model.id
-            activatingModelId = nil
             await refreshModels()
+            activatingModelId = nil
         } catch {
             activatingModelId = nil
             // Revert highlight back to the actual active model on failure.
@@ -237,3 +336,28 @@ struct ModelManagementView: View {
         }
     }
 }
+
+// MARK: - Previews
+
+#if DEBUG
+private struct ModelManagementPreview: View {
+    @State private var settingsStore = PreviewMocks.makeSettingsStore()
+    @State private var theme = PreviewMocks.makeTheme()
+
+    var body: some View {
+        ModelManagementView(whisperService: PreviewMocks.makeWhisperService())
+            .environment(settingsStore)
+            .environment(theme)
+            .frame(width: 620, height: 700)
+    }
+}
+
+#Preview("Model Management") {
+    ModelManagementPreview()
+}
+
+#Preview("Model Management - Dark") {
+    ModelManagementPreview()
+        .preferredColorScheme(.dark)
+}
+#endif

@@ -53,7 +53,7 @@ enum PreviewMocks {
 
     /// These service inits are lightweight — no system resource allocation.
     static func makeAudioEngine() -> AudioEngine { AudioEngine() }
-    static func makeWhisperService() -> any TranscriptionEngine { WhisperService() }
+    static func makeWhisperService() -> any TranscriptionEngine { PreviewTranscriptionEngine(models: sampleModels) }
     static func makeHotkeyMonitor() -> HotkeyMonitor { HotkeyMonitor() }
     static func makeTextInsertionService() -> TextInsertionService { TextInsertionService() }
     static func makePermissionManager() -> PermissionManager { PermissionManager() }
@@ -89,7 +89,50 @@ enum PreviewMocks {
                   qualityDescription: "Slower, high accuracy", estimatedSize: 1536 * 1024 * 1024, status: .downloading(progress: 0.45)),
         ModelInfo(id: ModelInfo.KnownID.largeV3, displayName: "Large v3", sizeDescription: "~3 GB",
                   qualityDescription: "Slowest, highest accuracy", estimatedSize: 3072 * 1024 * 1024, status: .notDownloaded),
+        ModelInfo(id: ModelInfo.KnownID.parakeetV3, displayName: "Parakeet V3", sizeDescription: "~400 MB",
+                  qualityDescription: "Fast, high accuracy, multilingual", estimatedSize: 400 * 1024 * 1024, status: .notDownloaded),
+        ModelInfo(id: ModelInfo.KnownID.parakeetEou, displayName: "Realtime 120M", sizeDescription: "~150 MB",
+                  qualityDescription: "Low-latency streaming (English only)", estimatedSize: 150 * 1024 * 1024, status: .notDownloaded),
     ]
+}
+
+// MARK: - Preview TranscriptionEngine
+
+actor PreviewTranscriptionEngine: TranscriptionEngine {
+    private let models: [ModelInfo]
+
+    init(models: [ModelInfo]) {
+        self.models = models
+    }
+
+    func availableModels() async -> [ModelInfo] { models }
+
+    func modelStatus(_ modelName: String) async -> ModelStatus {
+        models.first { $0.id == modelName }?.status ?? .notDownloaded
+    }
+
+    func activeModel() async -> String? {
+        models.first { if case .active = $0.status { return true }; return false }?.id
+    }
+
+    func downloadModel(_ model: ModelInfo) async -> AsyncThrowingStream<DownloadProgress, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+
+    func deleteModel(_ modelName: String) async throws {}
+    func loadModel(_ modelName: String) async throws {}
+    func switchModel(to modelName: String) async throws {}
+    func unloadCurrentModel() async {}
+    func validateModelIntegrity(_ modelName: String) async throws -> Bool { true }
+    func reloadModelWithRetry(maxAttempts: Int) async throws {}
+
+    func transcribe(_ audioSamples: [Float], language: TranscriptionLanguage) async throws -> TranscriptionResult {
+        TranscriptionResult(text: "", detectedLanguage: nil, duration: 0)
+    }
+
+    func transcribeStream(_ audioStream: AsyncStream<[Float]>, language: TranscriptionLanguage) async -> AsyncThrowingStream<TranscriptionResult, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
 }
 
 #endif

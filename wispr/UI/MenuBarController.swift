@@ -456,6 +456,7 @@ final class MenuBarController {
 
         if let window = modelManagementWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
             return
         }
 
@@ -468,9 +469,10 @@ final class MenuBarController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Model Management"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 540, height: 540))
+        window.setContentSize(NSSize(width: 620, height: 640))
         window.center()
         window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
         modelManagementWindow = window
     }
 
