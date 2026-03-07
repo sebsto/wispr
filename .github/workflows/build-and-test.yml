@@ -27,6 +27,7 @@ jobs:
 
       - name: Build
         run: |
+          set -o pipefail
           xcodebuild build \
             -project wispr.xcodeproj \
             -scheme wispr \
@@ -38,6 +39,7 @@ jobs:
 
       - name: Test
         run: |
+          set -o pipefail
           xcodebuild test \
             -project wispr.xcodeproj \
             -scheme wispr \
