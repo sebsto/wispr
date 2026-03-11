@@ -212,6 +212,9 @@ final class StateManager {
                     userInfo: [.announcement: "Speech ended, processing"]
                 )
 
+                // Audio feedback so the user knows EOU was detected
+                NSSound(named: "Bottle")?.play()
+
                 guard !finalResult.text.isEmpty else {
                     await self.resetToIdle()
                     return
@@ -307,6 +310,9 @@ final class StateManager {
         appState = .recording
         errorMessage = nil
 
+        // Audio feedback so the user knows recording has started
+        NSSound(named: "Blow")?.play()
+
         // Requirement 17.3, 17.11: Announce state change to assistive technologies
         NSAccessibility.post(
             element: NSApp as Any,
@@ -364,6 +370,9 @@ final class StateManager {
 
         // Requirement 3.6: Transition to processing
         appState = .processing
+
+        // Audio feedback so the user knows recording has stopped
+        NSSound(named: "Bottle")?.play()
 
         // Requirement 17.3, 17.11: Announce state change to assistive technologies
         NSAccessibility.post(
