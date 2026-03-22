@@ -1,67 +1,65 @@
 # Requirements: Fn Key as Hotkey (Issue #35)
 
-## Requirement 1: Fn Key Detection via CGEventTap
+## Requirement 1: Fn Key as a Valid Hotkey Choice
 
-**User Story:** As a user, I want to use the Fn (Globe) key to trigger voice dictation so I can start/stop recording with a single convenient key press.
-
-**Acceptance Criteria:**
-- A new `FnKeyMonitor` class can detect Fn key press and release events system-wide.
-- `FnKeyMonitor` uses `CGEventTap` to intercept `flagsChanged` events for keycode 63 (`kVK_Function`).
-- Fn press events are detected when `CGEventFlags.maskSecondaryFn` appears in the flags.
-- Fn release events are detected when `CGEventFlags.maskSecondaryFn` disappears from the flags.
-- The event tap consumes bare Fn press/release events (returns `nil`) to suppress the emoji/Character Viewer picker.
-- Fn key combined with other keys (Fn+F1, Fn+F2, etc.) is passed through unmodified so standard F-key behavior is preserved.
-- `FnKeyMonitor` requires Accessibility permission (already granted for Wispr's existing functionality).
-
-## Requirement 2: Fn Key Hotkey Mode Setting
-
-**User Story:** As a user, I want to choose the Fn key as my dictation trigger in Settings so I don't need a modifier+key combination.
+**User Story:** As a user, I want to press the Fn (Globe) key during hotkey recording so it becomes my dictation trigger, just like any other key.
 
 **Acceptance Criteria:**
-- A `useFnKeyHotkey: Bool` setting exists in `SettingsStore`, defaulting to `false`.
-- The setting persists across app launches via UserDefaults.
-- When `useFnKeyHotkey` is `true`, `FnKeyMonitor` is activated and `HotkeyMonitor` is deactivated.
-- When `useFnKeyHotkey` is `false`, `HotkeyMonitor` is used as today and `FnKeyMonitor` is inactive.
-- Changing the setting takes effect immediately without requiring an app restart.
-- Restoring defaults resets `useFnKeyHotkey` to `false`.
+- When the hotkey recorder is active and the user presses the bare Fn key, the recorder accepts it as keycode 63 with no modifiers.
+- The Fn key is the only key that is accepted without a modifier (the existing modifier requirement is relaxed for keycode 63 only).
+- The hotkey display shows "🌐 Fn" when the Fn key is configured.
+- The Fn key hotkey is persisted in `SettingsStore` as `hotkeyKeyCode: 63, hotkeyModifiers: 0`, using the same fields as any other hotkey.
+- No separate toggle, mode selector, or "Fn Key mode" is needed — it's just another hotkey the recorder can capture.
 
-## Requirement 3: Settings UI for Fn Key Option
+## Requirement 2: Fn Key Detection via CGEventTap
 
-**User Story:** As a user, I want a clear option in Settings to enable Fn key mode so I can easily switch between Fn key and custom hotkey modes.
-
-**Acceptance Criteria:**
-- The Hotkey section of SettingsView shows a toggle or segmented control to choose between "Custom Hotkey" and "Fn Key".
-- When "Fn Key" is selected, the hotkey recorder control is hidden or disabled (since it's not needed).
-- When "Custom Hotkey" is selected, the existing hotkey recorder is shown as today.
-- The Fn key option includes an accessibility label and hint describing its behavior.
-
-## Requirement 4: Globe/Emoji Picker Conflict Detection
-
-**User Story:** As a user, I want Wispr to warn me if my system Globe key setting conflicts with Fn key dictation so I know how to fix it.
+**User Story:** As a user, I want Fn key press/release to trigger recording start/stop so I can dictate with a single key.
 
 **Acceptance Criteria:**
-- When Fn key mode is activated, Wispr checks the system's Globe key setting (`AppleFnUsageType` in `com.apple.HIToolbox` defaults).
-- If the Globe key is configured to open the emoji picker or Character Viewer (value 0 or 2), Wispr displays a non-blocking warning with a link/instructions to change the setting in System Settings → Keyboard → "Press 🌐 key to" → "Do Nothing".
-- If the Globe key is already set to "Do Nothing" (value 1) or "Change Input Source" (value 3), no warning is shown.
-- The warning is shown once per activation (not on every recording attempt).
+- When the configured hotkey is keycode 63 with modifiers 0, `HotkeyMonitor` internally uses a `CGEventTap` instead of Carbon's `RegisterEventHotKey`.
+- The event tap intercepts `flagsChanged` events and detects Fn press (keycode 63, `CGEventFlags.maskSecondaryFn` set) and release (flag cleared).
+- Bare Fn events are consumed (suppressed) to prevent the emoji/Character Viewer from opening.
+- Fn combined with other keys (Fn+F1, Fn+Delete, etc.) is passed through unmodified.
+- The event tap requires Accessibility permission (already granted for Wispr).
 
-## Requirement 5: Coexistence with Existing Hotkey System
+## Requirement 3: Unified HotkeyMonitor
 
-**User Story:** As a developer, I need the Fn key monitor to coexist cleanly with the existing Carbon hotkey system so switching between modes is reliable.
+**User Story:** As a developer, I want a single `HotkeyMonitor` class that handles both Carbon hotkeys and Fn key detection so the rest of the app doesn't need to know which mechanism is active.
 
 **Acceptance Criteria:**
-- `FnKeyMonitor` and `HotkeyMonitor` are mutually exclusive at runtime — only one is active at a time.
-- Both monitors expose the same callback interface (`onHotkeyDown`, `onHotkeyUp`) so `StateManager` doesn't need to know which is active.
-- Switching from Fn key mode to custom hotkey mode (or vice versa) properly tears down the outgoing monitor before activating the incoming one.
-- System wake re-registration works for both monitors (Carbon re-registers hotkey; CGEventTap re-enables the tap).
-- Push-to-talk and hands-free dictation modes both work with Fn key mode (Fn press/release maps to the same down/up events).
+- `HotkeyMonitor` exposes the same public API regardless of which key is configured: `register()`, `unregister()`, `updateHotkey()`, `verifyRegistration()`, `reregisterAfterWake()`, `onHotkeyDown`, `onHotkeyUp`.
+- When `register(keyCode: 63, modifiers: 0)` is called, `HotkeyMonitor` creates a CGEventTap internally instead of calling `RegisterEventHotKey`.
+- When `register()` is called with any other keyCode/modifiers, `HotkeyMonitor` uses Carbon as today.
+- `unregister()` tears down whichever mechanism is active (Carbon ref or event tap).
+- `updateHotkey()` switches between Carbon and CGEventTap seamlessly when the key changes.
+- `StateManager`, `wisprApp`, and all other callers require zero changes.
 
-## Requirement 6: Event Tap Robustness
+## Requirement 4: Globe/Emoji Picker Conflict Warning
+
+**User Story:** As a user, I want Wispr to warn me if my system Globe key setting will conflict with Fn key dictation so I know how to fix it.
+
+**Acceptance Criteria:**
+- When the user records the Fn key as their hotkey, the Settings view checks the system's Globe key setting (`AppleFnUsageType` in `com.apple.HIToolbox` defaults).
+- If the Globe key is set to open the emoji picker (value 0) or Character Viewer (value 2), a non-blocking warning is shown in the Settings view with guidance to change it in System Settings → Keyboard → "Press 🌐 key to" → "Do Nothing".
+- If the Globe key is set to "Do Nothing" (value 1) or "Change Input Source" (value 3), no warning is shown.
+- The warning appears/disappears reactively when the hotkey is changed to/from Fn.
+
+## Requirement 5: Event Tap Robustness
 
 **User Story:** As a user, I don't want the Fn key feature to freeze my keyboard if something goes wrong.
 
 **Acceptance Criteria:**
-- The CGEventTap is created as an active tap (`kCGEventTapOptionDefault`) to consume Fn events.
-- If the system disables the event tap (due to timeout), `FnKeyMonitor` detects this and re-enables it.
-- If re-enabling fails after 3 attempts, `FnKeyMonitor` falls back to the standard `HotkeyMonitor` and notifies the user via the error state.
-- The event tap callback returns promptly (no blocking work) to avoid system-imposed timeouts.
+- The CGEventTap callback returns promptly (no blocking work) to avoid system-imposed timeouts.
+- If the system disables the event tap, `HotkeyMonitor` detects this and re-enables it.
+- If re-enabling fails after 3 attempts, `HotkeyMonitor` logs the failure and notifies via the existing error path. The user can switch to a different hotkey in Settings.
+- System wake re-registration works for the CGEventTap path (re-enable the tap, same as Carbon re-registers).
+
+## Requirement 6: Hotkey Recorder Fn Key Capture
+
+**User Story:** As a developer, I need the hotkey recorder to detect Fn key presses so users can select it naturally.
+
+**Acceptance Criteria:**
+- `HotkeyRecorderView` detects Fn key presses during recording mode.
+- Since SwiftUI's `.onKeyPress` does not receive Fn/Globe events, the recorder uses an `NSEvent.addLocalMonitorForEvents(matching: .flagsChanged)` to detect keycode 63.
+- When Fn is detected, the recorder sets `keyCode = 63, modifiers = 0` and exits recording mode.
+- The local event monitor is installed only while the recorder is active and removed when recording ends.

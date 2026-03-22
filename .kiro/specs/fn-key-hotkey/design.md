@@ -2,165 +2,280 @@
 
 ## Overview
 
-Add support for using the Fn (Globe) key as the dictation trigger in Wispr, as an alternative to the existing Carbon-based modifier+key hotkey. The Fn key cannot be captured through Carbon's `RegisterEventHotKey` API, so this feature requires a separate `CGEventTap`-based monitor that runs alongside (but mutually exclusive with) the existing `HotkeyMonitor`.
+Add support for the Fn (Globe) key as a dictation hotkey by extending the existing `HotkeyMonitor` with an internal CGEventTap path. From the user's perspective, Fn is just another key you can press in the hotkey recorder. From the app's perspective, `HotkeyMonitor` is the only class to interact with — it picks the right mechanism (Carbon or CGEventTap) based on the registered keycode.
 
-## Background: Why Fn Requires Special Handling
+## Background: Why Fn Needs Special Handling
 
-The Fn key is not a standard modifier in macOS:
+- Carbon's `RegisterEventHotKey` only supports Cmd, Opt, Ctrl, Shift as modifiers. Fn is invisible to this API.
+- On Apple Silicon Macs, Fn doubles as the Globe key (default: opens emoji picker).
+- `kVK_Function` (keycode 63) can only be intercepted via `CGEventTap` at the session level.
+- SwiftUI's `.onKeyPress` does not receive Fn/Globe events, so the recorder needs `NSEvent.addLocalMonitorForEvents`.
 
-- Carbon's `RegisterEventHotKey` only supports 4 modifiers: Cmd, Opt, Ctrl, Shift. Fn is invisible to this API.
-- Fn/Globe is handled at the hardware level — it modifies scancodes before they enter the normal keyboard pipeline.
-- On Apple Silicon Macs, the Fn key doubles as the Globe key, which by default opens the emoji/Character Viewer picker.
-- The only way to intercept Fn globally is via `CGEventTap`, which sees raw keyboard events including `kVK_Function` (keycode 63) and `CGEventFlags.maskSecondaryFn`.
+## Key Design Decision: One Monitor, Two Backends
+
+Instead of two separate monitor classes, `HotkeyMonitor` gains internal branching:
+
+```
+HotkeyMonitor.register(keyCode:modifiers:)
+    │
+    ├─ keyCode == 63 && modifiers == 0
+    │   → setupFnEventTap()
+    │
+    └─ anything else
+        → RegisterEventHotKey() (existing Carbon path)
+```
+
+**Why this is better than two classes:**
+- `StateManager`, `wisprApp`, and settings observation code require zero changes
+- No "which monitor is active" state to manage at the app level
+- `updateHotkey()` seamlessly switches between Carbon ↔ CGEventTap
+- `unregister()` / `deinit` clean up whichever is active
+- The Fn key is just a hotkey with keycode 63 — no special "mode" concept
 
 ## Architecture
 
-### Component Diagram
-
-```
-┌─────────────────────────────────────────────────┐
-│                  StateManager                    │
-│         onHotkeyDown / onHotkeyUp                │
-└──────────────┬──────────────┬────────────────────┘
-               │              │
-    ┌──────────▼──┐    ┌──────▼──────────┐
-    │HotkeyMonitor│    │ FnKeyMonitor    │
-    │(Carbon API) │    │ (CGEventTap)    │
-    │             │    │                 │
-    │ Modifier+Key│    │ Fn press/release│
-    └─────────────┘    └─────────────────┘
-         ▲                    ▲
-         │                    │
-    Only one active at a time, controlled
-    by SettingsStore.useFnKeyHotkey
-```
-
-### Key Design Decisions
-
-1. **Separate class, not extending HotkeyMonitor**: The Carbon and CGEventTap APIs are fundamentally different. Mixing them in one class would create unnecessary complexity. `FnKeyMonitor` is a standalone `@MainActor` class with the same callback interface.
-
-2. **Mutually exclusive activation**: Only one monitor runs at a time. The app init and settings observation logic activates/deactivates the appropriate monitor based on `useFnKeyHotkey`.
-
-3. **Event consumption for bare Fn only**: The tap returns `nil` (consuming the event) only for bare Fn press/release. Any Fn+key combination (Fn+F1, Fn+Delete, etc.) is passed through unmodified to preserve standard macOS behavior.
-
-4. **Conflict detection, not automatic resolution**: Wispr cannot programmatically change the Globe key system setting. Instead, it detects the conflict and shows a one-time warning with instructions.
-
-## Components
-
-### FnKeyMonitor
+### HotkeyMonitor Changes
 
 ```swift
 @MainActor
-final class FnKeyMonitor {
+final class HotkeyMonitor {
+    // Existing public API — unchanged
     var onHotkeyDown: (() -> Void)?
     var onHotkeyUp: (() -> Void)?
-
-    func start() throws
-    func stop()
+    func register(keyCode: UInt32, modifiers: UInt32) throws
+    func unregister()
+    func updateHotkey(keyCode: UInt32, modifiers: UInt32) throws
+    func verifyRegistration() -> Bool
     func reregisterAfterWake()
 
-    // Private
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var fnIsDown: Bool = false
-    private var reEnableAttempts: Int = 0
+    // New: which backend is active
+    private enum ActiveBackend {
+        case none
+        case carbon(hotkeyRef: EventHotKeyRef, handlerRef: EventHandlerRef)
+        case fnEventTap(machPort: CFMachPort, runLoopSource: CFRunLoopSource)
+    }
+    private var activeBackend: ActiveBackend = .none
+
+    // New: Fn-specific state
+    private var fnIsDown = false
+    private var tapReEnableAttempts = 0
+    private static let maxTapReEnableAttempts = 3
+
+    // Sentinel for Fn key
+    static let fnKeyCode: UInt32 = 63  // kVK_Function
+
+    // New private methods
+    private func setupFnEventTap() throws
+    private func teardownFnEventTap()
+    private func handleFnFlagsChanged(_ event: CGEvent) -> CGEvent?
 }
 ```
 
-**CGEventTap setup:**
-- Event mask: `CGEventMask(1 << CGEventType.flagsChanged.rawValue)`
-- Tap location: `kCGSessionEventTap` (session level, sufficient with Accessibility permission)
-- Tap options: `kCGEventTapOptionDefault` (active, can modify/consume events)
+### register() Branching Logic
 
-**Event callback logic (C function via @convention(c)):**
+```swift
+func register(keyCode: UInt32, modifiers: UInt32) throws {
+    unregister()
+
+    // Check reserved shortcuts (existing)
+    ...
+
+    if keyCode == Self.fnKeyCode && modifiers == 0 {
+        try setupFnEventTap()
+    } else {
+        try registerCarbonHotkey(keyCode: keyCode, modifiers: modifiers)
+    }
+
+    registeredKeyCode = keyCode
+    registeredModifiers = modifiers
+}
 ```
-on flagsChanged event:
-    keycode = CGEventGetIntegerValueField(event, .keyboardEventKeycode)
-    if keycode != 63 (kVK_Function):
-        return event  // pass through, not Fn
 
-    flags = CGEventGetFlags(event)
-    fnDown = flags.contains(.maskSecondaryFn)
+### CGEventTap Implementation
 
-    // Check for Fn+key combos — pass through if other modifiers or keys are held
-    otherModifiers = flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift])
-    if !otherModifiers.isEmpty:
-        return event  // Fn+modifier combo, don't intercept
+```swift
+private func setupFnEventTap() throws {
+    let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
 
-    if fnDown and not previouslyDown:
-        dispatch onHotkeyDown
-        return nil  // consume to suppress emoji picker
-    if not fnDown and previouslyDown:
-        dispatch onHotkeyUp
+    // C callback — only safe state is via the userData pointer
+    let callback: CGEventTapCallBack = { proxy, type, event, userInfo in
+        guard let userInfo else { return Unmanaged.passUnretained(event) }
+        let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo)
+            .takeUnretainedValue()
+
+        if type == .tapDisabledByTimeout {
+            // System disabled our tap — re-enable it
+            if let port = monitor.fnEventTapPort {
+                CGEvent.tapEnable(tap: port, enable: true)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+
+        if let result = monitor.handleFnFlagsChanged(event) {
+            return Unmanaged.passUnretained(result)
+        }
+        return nil  // consume the event
+    }
+
+    let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+
+    guard let tap = CGEvent.tapCreate(
+        tap: .cgSessionEventTap,
+        place: .headInsertEventTap,
+        options: .defaultTap,
+        eventsOfInterest: eventMask,
+        callback: callback,
+        userInfo: selfPtr
+    ) else {
+        throw WisprError.hotkeyRegistrationFailed
+    }
+
+    let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
+    CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+    CGEvent.tapEnable(tap: tap, enable: true)
+
+    activeBackend = .fnEventTap(machPort: tap, runLoopSource: source!)
+}
+```
+
+### Fn Event Filtering
+
+```swift
+private func handleFnFlagsChanged(_ event: CGEvent) -> CGEvent? {
+    let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+    guard keycode == Int64(Self.fnKeyCode) else {
+        return event  // not Fn, pass through
+    }
+
+    let flags = event.flags
+
+    // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
+    let otherModifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+    if !flags.intersection(otherModifiers).isEmpty {
+        return event
+    }
+
+    let isFnDown = flags.contains(.maskSecondaryFn)
+
+    if isFnDown && !fnIsDown {
+        fnIsDown = true
+        onHotkeyDown?()
+        return nil  // consume — suppress emoji picker
+    } else if !isFnDown && fnIsDown {
+        fnIsDown = false
+        onHotkeyUp?()
         return nil  // consume
+    }
 
     return event
-```
-
-**Tap health monitoring:**
-- Observe `CGEventTapIsEnabled()` — the system disables taps that take too long
-- On `NSWorkspace.didWakeNotification`, call `CGEventTapEnable(tap, true)`
-- If tap is disabled unexpectedly, re-enable up to 3 times, then fall back to HotkeyMonitor
-
-### SettingsStore Additions
-
-```swift
-// New setting
-var useFnKeyHotkey: Bool  // default: false, persisted to UserDefaults
-```
-
-### Settings UI Changes
-
-The Hotkey section of SettingsView gains a mode selector:
-
-```
-┌─ Hotkey ─────────────────────────────────────┐
-│                                               │
-│  Activation Key   [Custom Hotkey ▾]           │
-│                    ├─ Custom Hotkey            │
-│                    └─ Fn (Globe) Key           │
-│                                               │
-│  ┌─ (shown when Custom Hotkey) ─────────┐    │
-│  │  Current: ⌥Space    [Record New]     │    │
-│  └──────────────────────────────────────┘    │
-│                                               │
-│  ⚠️ Globe key is set to open emoji picker.   │
-│     Change it in System Settings → Keyboard.  │
-│  (shown only when Fn mode + conflict)         │
-│                                               │
-└───────────────────────────────────────────────┘
-```
-
-### Globe Key Conflict Detection
-
-Read `AppleFnUsageType` from UserDefaults:
-
-```swift
-let fnUsage = UserDefaults.standard.integer(forKey: "AppleFnUsageType")
-// 0 = Show Emoji & Symbols (default on Apple Silicon)
-// 1 = Do Nothing
-// 2 = Show Character Viewer
-// 3 = Change Input Source
-let hasConflict = fnUsage == 0 || fnUsage == 2
-```
-
-Note: This reads from the global domain. The key is set by System Settings → Keyboard → "Press 🌐 key to".
-
-### App Initialization & Settings Observation
-
-In `wisprApp.swift`, the hotkey setup becomes:
-
-```swift
-if settingsStore.useFnKeyHotkey {
-    try fnKeyMonitor.start()
-    // Wire callbacks to StateManager
-} else {
-    try hotkeyMonitor.register(keyCode: ..., modifiers: ...)
-    // Wire callbacks to StateManager
 }
 ```
 
-Settings observation watches `useFnKeyHotkey` and switches monitors on change.
+### unregister() Cleanup
+
+```swift
+func unregister() {
+    switch activeBackend {
+    case .carbon(let hotkeyRef, let handlerRef):
+        UnregisterEventHotKey(hotkeyRef)
+        RemoveEventHandler(handlerRef)
+    case .fnEventTap(let machPort, let runLoopSource):
+        CGEvent.tapEnable(tap: machPort, enable: false)
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+    case .none:
+        break
+    }
+    activeBackend = .none
+    fnIsDown = false
+    tapReEnableAttempts = 0
+    registeredKeyCode = 0
+    registeredModifiers = 0
+}
+```
+
+### Wake Re-registration
+
+The existing `handleSystemWake()` calls `verifyRegistration()` which calls `unregister()` + `register()`. This naturally works for both backends — if the Fn event tap went stale after sleep, it gets torn down and recreated.
+
+### KeyCodeMapping Changes
+
+```swift
+// Add to keyNames
+63: "🌐 Fn",
+
+// No charToKeyCode entry needed — Fn is captured via NSEvent monitor,
+// not SwiftUI .onKeyPress
+```
+
+### HotkeyRecorderView Changes
+
+SwiftUI's `.onKeyPress` never fires for Fn/Globe. The recorder needs an `NSEvent` local monitor to detect it:
+
+```swift
+struct HotkeyRecorderView: View {
+    // ... existing properties ...
+    @State private var fnMonitor: Any?
+
+    var body: some View {
+        // ... existing body ...
+        .onChange(of: isRecording) { _, recording in
+            if recording {
+                installFnMonitor()
+            } else {
+                removeFnMonitor()
+            }
+        }
+    }
+
+    private func installFnMonitor() {
+        fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            guard isRecording, event.keyCode == 63 else { return event }
+
+            // Detect Fn press (not release)
+            if event.modifierFlags.contains(.function) {
+                keyCode = 63
+                modifiers = 0
+                isRecording = false
+                errorMessage = nil
+                return nil  // consume
+            }
+            return event
+        }
+    }
+
+    private func removeFnMonitor() {
+        if let monitor = fnMonitor {
+            NSEvent.removeMonitor(monitor)
+            fnMonitor = nil
+        }
+    }
+}
+```
+
+The existing `handleKeyPress()` modifier guard (`carbonModifiers != 0`) stays unchanged — Fn is handled by the NSEvent monitor above, not by `.onKeyPress`, so it never reaches `handleKeyPress()`.
+
+### Settings View: Globe Key Conflict Warning
+
+When the hotkey is configured as Fn (keyCode 63, modifiers 0), the Settings view shows a contextual warning if the system Globe key conflicts:
+
+```swift
+// In SettingsView, below the hotkey recorder
+if settingsStore.hotkeyKeyCode == HotkeyMonitor.fnKeyCode
+    && settingsStore.hotkeyModifiers == 0 {
+    let fnUsage = UserDefaults.standard.integer(forKey: "AppleFnUsageType")
+    if fnUsage == 0 || fnUsage == 2 {
+        // 0 = Emoji & Symbols (default), 2 = Character Viewer
+        Label {
+            Text("Your Globe key is set to open the emoji picker. ")
+            + Text("Change it in System Settings → Keyboard → \"Press 🌐 key to\" → \"Do Nothing\".")
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.yellow)
+        }
+        .font(.caption)
+    }
+}
+```
 
 ## Data Flow: Fn Key Recording Session
 
@@ -168,48 +283,45 @@ Settings observation watches `useFnKeyHotkey` and switches monitors on change.
 sequenceDiagram
     participant U as User
     participant CGE as CGEventTap
-    participant FKM as FnKeyMonitor
+    participant HM as HotkeyMonitor
     participant SM as StateManager
     participant AE as AudioEngine
 
+    Note over HM: activeBackend = .fnEventTap
+
     U->>CGE: Press Fn key
-    CGE->>FKM: flagsChanged (maskSecondaryFn set, keycode 63)
-    FKM->>FKM: Bare Fn press detected
-    FKM->>SM: onHotkeyDown()
-    FKM-->>CGE: return nil (consume event, suppress emoji picker)
+    CGE->>HM: flagsChanged (keycode 63, maskSecondaryFn set)
+    HM->>HM: bare Fn, no other modifiers
+    HM->>SM: onHotkeyDown()
+    HM-->>CGE: return nil (consume, suppress emoji picker)
     SM->>AE: startCapture()
 
     U->>CGE: Release Fn key
-    CGE->>FKM: flagsChanged (maskSecondaryFn cleared, keycode 63)
-    FKM->>SM: onHotkeyUp()
-    FKM-->>CGE: return nil (consume event)
+    CGE->>HM: flagsChanged (keycode 63, maskSecondaryFn cleared)
+    HM->>SM: onHotkeyUp()
+    HM-->>CGE: return nil (consume)
     SM->>AE: stopCapture()
     SM->>SM: transcribe → insert text
 ```
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `wispr/Services/HotkeyMonitor.swift` | Add `ActiveBackend` enum, CGEventTap setup/teardown, Fn event handling |
+| `wispr/UI/Settings/KeyCodeMapping.swift` | Add keycode 63 → "🌐 Fn" to `keyNames` |
+| `wispr/UI/Settings/HotkeyRecorderView.swift` | Add `NSEvent.addLocalMonitorForEvents` for Fn detection during recording |
+| `wispr/UI/Settings/SettingsView.swift` | Add Globe key conflict warning (contextual, below hotkey recorder) |
+| `wisprTests/HotkeyMonitorTests.swift` | Add tests for Fn registration path, backend switching |
+
+No new files needed. No changes to `StateManager`, `wisprApp`, or `SettingsStore`.
 
 ## Risks and Mitigations
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Emoji picker opens despite event consumption | Low — consuming the event should prevent it | Test on Apple Silicon Macs; if `flagsChanged` alone doesn't suppress it, also intercept `keyDown` for keycode 63 |
-| Event tap disabled by system (callback too slow) | Low — callback is lightweight | Keep callback minimal (just flag check + dispatch); re-enable on detection |
-| Fn+F-key combos broken | Medium if filter is wrong | Only consume events where keycode == 63 AND no other keys are held; pass through all combos |
-| Users confused by Globe key conflict | High — it's the default on Apple Silicon | Proactive conflict detection with clear instructions |
-| CGEventTap requires Accessibility permission | None — already required | No action needed |
-
-## Testing Strategy
-
-- **Unit tests**: `FnKeyMonitor` creation, start/stop lifecycle, callback wiring
-- **Integration tests**: Switching between Fn and Custom hotkey modes, settings persistence
-- **Manual tests**: Fn press/release detection, emoji picker suppression, Fn+F-key passthrough, system wake re-registration
-- **Conflict detection tests**: Mock `AppleFnUsageType` values, verify warning shown/hidden
-
-## Files to Create/Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| `wispr/Services/FnKeyMonitor.swift` | Create | New CGEventTap-based Fn key monitor |
-| `wispr/Services/SettingsStore.swift` | Modify | Add `useFnKeyHotkey` setting |
-| `wispr/UI/Settings/SettingsView.swift` | Modify | Add Fn key mode selector, conflict warning |
-| `wispr/wisprApp.swift` | Modify | Switch between FnKeyMonitor and HotkeyMonitor based on setting |
-| `wisprTests/FnKeyMonitorTests.swift` | Create | Unit tests for FnKeyMonitor |
+| Emoji picker still opens despite consuming event | Low | Consume both press and release; test on Apple Silicon hardware |
+| Event tap disabled by system timeout | Low | Callback is lightweight (flag check + closure call); auto re-enable |
+| Fn+F-key combos broken | Medium if filter is wrong | Only consume when keycode == 63 AND no other modifiers held |
+| NSEvent monitor in recorder misses Fn | Low | `.flagsChanged` reliably includes Fn; tested on macOS 26 |
+| Switching Carbon ↔ CGEventTap on updateHotkey | Low | `unregister()` cleans up whichever is active before `register()` |
