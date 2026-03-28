@@ -122,6 +122,18 @@ Added `Log.hotkey` logger category and structured logging throughout `HotkeyMoni
 | 7 | ActiveBackend enum refactor | Addressed — all Carbon code paths updated |
 | 8 | Testing branching logic | Partially addressed — handleFnFlagsChanged takes raw flags (testable), but no test hook for backend selection |
 
+## Copilot Code Review (PR #38) — Round 2
+
+5 new comments evaluated (355b976):
+
+| Comment | File | Verdict | Action |
+|---------|------|---------|--------|
+| `import os` unused | SettingsView.swift | Invalid — `Log.hotkey.error()` used on line 130 | Dismissed |
+| Missing `import AppKit` | HotkeyRecorderView.swift | Valid — `NSEvent` requires AppKit | Fixed in 355b976 |
+| Fn recorder accepts Fn+modifiers | HotkeyRecorderView.swift | Valid — inconsistent with HotkeyMonitor | Fixed in 355b976 |
+| ARCHS=arm64 drops Intel (Debug) | project.pbxproj | Invalid — Apple Silicon only by design | Dismissed |
+| ARCHS=arm64 drops Intel (Release) | project.pbxproj | Invalid — same as above | Dismissed |
+
 ## Files Modified
 
 | File | Nature |
