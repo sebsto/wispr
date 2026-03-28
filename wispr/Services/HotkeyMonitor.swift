@@ -2,22 +2,25 @@
 //  HotkeyMonitor.swift
 //  wispr
 //
-//  Global hotkey registration using Carbon Event APIs.
-//  Carbon is the only stable macOS API for system-wide hotkey registration.
+//  Global hotkey registration using Carbon Event APIs or CGEventTap (for Fn key).
+//  Carbon is the only stable macOS API for system-wide hotkey registration of
+//  modifier+key combos. The Fn (Globe) key requires a CGEventTap on flagsChanged.
 //
 
 import Carbon
 import AppKit
+import CoreGraphics
+import Observation
+import os
 
-/// Manages system-wide global hotkey registration using Carbon Event APIs.
+/// Manages system-wide global hotkey registration.
 ///
-/// This class must run on `@MainActor` because Carbon event handlers
-/// dispatch on the main thread's run loop.
+/// Internally uses one of two backends:
+/// - **Carbon** (`RegisterEventHotKey`) for standard modifier+key combos
+/// - **CGEventTap** for the bare Fn/Globe key (keycode 63, no modifiers)
 ///
-/// ## Why Carbon? (Modernization blocker)
-/// Carbon's `RegisterEventHotKey` / `InstallEventHandler` is the only stable macOS API
-/// for registering system-wide global hotkeys. Apple provides no AppKit, SwiftUI, or
-/// modern replacement. Unblocked if Apple ships a `GlobalKeyboardShortcut` API or similar.
+/// Callers interact with the same public API regardless of which backend is active.
+@Observable
 @MainActor
 final class HotkeyMonitor {
     // MARK: - Callbacks
@@ -28,15 +31,33 @@ final class HotkeyMonitor {
     /// Called when the registered hotkey is released.
     var onHotkeyUp: (() -> Void)?
 
+    // MARK: - Constants
+
+    /// Virtual key code for the Fn/Globe key.
+    static let fnKeyCode: UInt32 = 63  // kVK_Function
+
+    // MARK: - Registration Status
+
+    /// Whether a hotkey backend is currently active and listening for key events.
+    var isRegistered: Bool {
+        switch activeBackend {
+        case .none: false
+        case .carbon, .fnEventTap: true
+        }
+    }
+
+    // MARK: - Active Backend
+
+    /// Which mechanism is currently intercepting key events.
+    private enum ActiveBackend {
+        case none
+        case carbon(hotkeyRef: EventHotKeyRef, handlerRef: EventHandlerRef)
+        case fnEventTap(machPort: CFMachPort, runLoopSource: CFRunLoopSource)
+    }
+
+    private var activeBackend: ActiveBackend = .none
+
     // MARK: - Private State
-
-    /// Reference to the registered Carbon hotkey, nil when unregistered.
-    /// nonisolated(unsafe) allows deinit cleanup. Safe because these are
-    /// opaque pointers only accessed from main thread during normal operation.
-    nonisolated(unsafe) private var hotkeyRef: EventHotKeyRef?
-
-    /// The installed Carbon event handler reference.
-    nonisolated(unsafe) private var eventHandlerRef: EventHandlerRef?
 
     /// Currently registered key code.
     private var registeredKeyCode: UInt32 = 0
@@ -44,10 +65,17 @@ final class HotkeyMonitor {
     /// Currently registered modifier flags.
     private var registeredModifiers: UInt32 = 0
 
+    /// Tracks whether the Fn key is currently held down (CGEventTap path only).
+    private var fnIsDown = false
+
+    /// Number of times we've tried to re-enable a disabled event tap.
+    private var tapReEnableAttempts = 0
+
+    /// Maximum re-enable attempts before giving up.
+    private let maxTapReEnableAttempts = 3
+
     /// Observer token for NSWorkspace.didWakeNotification.
-    /// nonisolated(unsafe) allows deinit cleanup. Safe because the observer
-    /// is only added/removed from the main actor.
-    nonisolated(unsafe) private var wakeObserver: (any NSObjectProtocol)?
+    private var wakeObserver: (any NSObjectProtocol)?
 
     /// Unique hotkey ID used to identify our hotkey in Carbon callbacks.
     private static let hotkeyID = EventHotKeyID(
@@ -68,11 +96,14 @@ final class HotkeyMonitor {
 
     /// Registers a global hotkey with the given key code and modifier flags.
     ///
+    /// For keyCode 63 (Fn/Globe) with no modifiers, uses a CGEventTap.
+    /// For all other combinations, uses Carbon's RegisterEventHotKey.
+    ///
     /// - Parameters:
-    ///   - keyCode: The virtual key code (e.g., 49 for Space).
-    ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048).
+    ///   - keyCode: The virtual key code (e.g., 49 for Space, 63 for Fn).
+    ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048). Use 0 for Fn key.
     /// - Throws: `WisprError.hotkeyConflict` if the combination is system-reserved,
-    ///           `WisprError.hotkeyRegistrationFailed` if Carbon registration fails.
+    ///           `WisprError.hotkeyRegistrationFailed` if registration fails.
     func register(keyCode: UInt32, modifiers: UInt32) throws {
         // Clean up any existing registration
         unregister()
@@ -85,48 +116,42 @@ final class HotkeyMonitor {
             )
         }
 
-        try installEventHandler()
-
-        var hotKeyRef: EventHotKeyRef?
-        let status = RegisterEventHotKey(
-            keyCode,
-            modifiers,
-            Self.hotkeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKeyRef
-        )
-
-        guard status == noErr, let ref = hotKeyRef else {
-            removeEventHandler()
-            throw WisprError.hotkeyRegistrationFailed
+        if keyCode == Self.fnKeyCode && modifiers == 0 {
+            Log.hotkey.info("register — routing to CGEventTap backend for Fn key")
+            try setupFnEventTap()
+        } else {
+            Log.hotkey.info("register — routing to Carbon backend for keyCode \(keyCode), modifiers \(modifiers)")
+            try registerCarbonHotkey(keyCode: keyCode, modifiers: modifiers)
         }
 
-        self.hotkeyRef = ref
-        self.registeredKeyCode = keyCode
-        self.registeredModifiers = modifiers
+        registeredKeyCode = keyCode
+        registeredModifiers = modifiers
+        Log.hotkey.info("register — succeeded for keyCode \(keyCode), modifiers \(modifiers)")
     }
 
-    /// Unregisters the current global hotkey and cleans up Carbon resources.
+    /// Unregisters the current global hotkey and cleans up resources.
     func unregister() {
-        if let ref = hotkeyRef {
-            UnregisterEventHotKey(ref)
-            hotkeyRef = nil
+        switch activeBackend {
+        case .carbon(let hotkeyRef, let handlerRef):
+            UnregisterEventHotKey(hotkeyRef)
+            RemoveEventHandler(handlerRef)
+        case .fnEventTap(let machPort, let runLoopSource):
+            CGEvent.tapEnable(tap: machPort, enable: false)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            CFMachPortInvalidate(machPort)
+        case .none:
+            break
         }
-        removeEventHandler()
+        activeBackend = .none
+        fnIsDown = false
+        tapReEnableAttempts = 0
         registeredKeyCode = 0
         registeredModifiers = 0
     }
 
     /// Updates the registered hotkey to a new combination.
     ///
-    /// Unregisters the current hotkey and registers the new one.
-    /// If the new registration fails, the previous hotkey remains unregistered.
-    ///
-    /// - Parameters:
-    ///   - keyCode: The new virtual key code.
-    ///   - modifiers: The new Carbon modifier flags.
-    /// - Throws: `WisprError.hotkeyConflict` or `WisprError.hotkeyRegistrationFailed`.
+    /// Seamlessly switches between Carbon and CGEventTap backends as needed.
     func updateHotkey(keyCode: UInt32, modifiers: UInt32) throws {
         let previousKeyCode = registeredKeyCode
         let previousModifiers = registeredModifiers
@@ -145,17 +170,15 @@ final class HotkeyMonitor {
     }
 
     /// Verifies that the hotkey is still registered and functional.
-    ///
-    /// Useful for post-sleep validation (Requirement 12.3).
-    /// If the hotkey reference is stale, attempts to re-register.
-    ///
-    /// - Returns: `true` if the hotkey is currently registered and valid.
     func verifyRegistration() -> Bool {
-        guard hotkeyRef != nil else { return false }
+        switch activeBackend {
+        case .none:
+            return false
+        case .carbon, .fnEventTap:
+            break
+        }
         guard registeredKeyCode != 0 else { return false }
 
-        // Verify by attempting to re-register with the same parameters.
-        // If the current registration is valid, unregister + re-register succeeds.
         let keyCode = registeredKeyCode
         let modifiers = registeredModifiers
 
@@ -172,15 +195,7 @@ final class HotkeyMonitor {
     // MARK: - Wake Re-registration
 
     /// Listens for system wake notifications and re-registers the hotkey.
-    ///
-    /// Requirement 12.3: When the macOS system wakes from sleep, the HotkeyMonitor
-    /// shall verify hotkey registration and re-register if necessary.
-    ///
-    /// Carbon hotkey registrations can become invalid after system sleep.
-    /// This method installs an observer for `NSWorkspace.didWakeNotification`
-    /// that automatically verifies and re-registers the hotkey on wake.
     func reregisterAfterWake() {
-        // Remove any existing observer to avoid duplicates
         stopWakeMonitoring()
 
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -189,8 +204,6 @@ final class HotkeyMonitor {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            // We're on .main queue, and HotkeyMonitor is @MainActor,
-            // so this closure runs on the main actor.
             Task { @MainActor in
                 self.handleSystemWake()
             }
@@ -210,34 +223,26 @@ final class HotkeyMonitor {
         let keyCode = registeredKeyCode
         let modifiers = registeredModifiers
 
-        // Nothing to re-register if no hotkey was configured
         guard keyCode != 0 else { return }
 
-        // Verify current registration; if invalid, re-register
         if !verifyRegistration() {
-            // verifyRegistration already attempted re-registration and failed.
-            // Try one more time as a last resort.
             try? register(keyCode: keyCode, modifiers: modifiers)
         }
     }
 
-    // MARK: - Carbon Event Handler
+    // MARK: - Carbon Backend
 
-    /// Installs the Carbon event handler that listens for hotkey down/up events.
-    private func installEventHandler() throws {
+    /// Registers a hotkey using Carbon's RegisterEventHotKey.
+    private func registerCarbonHotkey(keyCode: UInt32, modifiers: UInt32) throws {
         var eventTypes = [
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
         ]
 
-        // Safe: HotkeyMonitor is @MainActor and Carbon event handlers
-        // also run on the main thread, so the unretained pointer stays valid.
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
-        // Carbon requires a C function pointer that captures no context
-        // (only uses the userData parameter).
         let callback: EventHandlerUPP = { nextHandler, event, userData in
-            guard let event = event, let userData = userData else {
+            guard let event, let userData else {
                 return OSStatus(eventNotHandledErr)
             }
             let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userData)
@@ -255,19 +260,26 @@ final class HotkeyMonitor {
             &handlerRef
         )
 
-        guard status == noErr, let ref = handlerRef else {
+        guard status == noErr, let handler = handlerRef else {
             throw WisprError.hotkeyRegistrationFailed
         }
 
-        self.eventHandlerRef = ref
-    }
+        var hotKeyRef: EventHotKeyRef?
+        let regStatus = RegisterEventHotKey(
+            keyCode,
+            modifiers,
+            Self.hotkeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
 
-    /// Removes the installed Carbon event handler.
-    private func removeEventHandler() {
-        if let ref = eventHandlerRef {
-            RemoveEventHandler(ref)
-            eventHandlerRef = nil
+        guard regStatus == noErr, let ref = hotKeyRef else {
+            RemoveEventHandler(handler)
+            throw WisprError.hotkeyRegistrationFailed
         }
+
+        activeBackend = .carbon(hotkeyRef: ref, handlerRef: handler)
     }
 
     /// Handles a Carbon hotkey event by dispatching to the appropriate closure.
@@ -302,20 +314,111 @@ final class HotkeyMonitor {
         return noErr
     }
 
-    deinit {
-        // Note: deinit runs on whatever thread deallocates the object.
-        // Since this is @MainActor, it should be the main thread.
-        // Carbon cleanup is safe here because the refs are simple pointers.
-        if let ref = hotkeyRef {
-            UnregisterEventHotKey(ref)
+    // MARK: - Fn/Globe CGEventTap Backend
+
+    /// Creates a CGEventTap that intercepts flagsChanged events to detect Fn key.
+    private func setupFnEventTap() throws {
+        let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+
+        // C callback — runs on main run loop. The callback executes synchronously
+        // on the main thread since the run loop source is added to CFRunLoopGetMain.
+        // We avoid crossing the MainActor isolation boundary with CGEvent by
+        // extracting the data we need first and only entering the actor for state access.
+        let callback: CGEventTapCallBack = { proxy, type, event, userInfo in
+            guard let userInfo else { return Unmanaged.passUnretained(event) }
+
+            // Extract flags before entering actor isolation (CGEvent is not Sendable)
+            let flags = event.flags
+            let passthrough = Unmanaged.passUnretained(event)
+
+            let consumed: Bool = MainActor.assumeIsolated {
+                let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo)
+                    .takeUnretainedValue()
+
+                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                    Log.hotkey.warning("CGEventTap disabled by \(type == .tapDisabledByTimeout ? "timeout" : "user input"), attempt \(monitor.tapReEnableAttempts + 1)")
+                    monitor.tapReEnableAttempts += 1
+                    if monitor.tapReEnableAttempts <= monitor.maxTapReEnableAttempts {
+                        if case .fnEventTap(let port, _) = monitor.activeBackend {
+                            CGEvent.tapEnable(tap: port, enable: true)
+                        }
+                    } else {
+                        Log.hotkey.error("CGEventTap failed to re-enable after \(monitor.maxTapReEnableAttempts) attempts — unregistering Fn hotkey")
+                        monitor.unregister()
+                    }
+                    return false
+                }
+
+                // Reset re-enable counter on successful callback
+                monitor.tapReEnableAttempts = 0
+
+                return monitor.handleFnFlagsChanged(flags: flags)
+            }
+
+            return consumed ? nil : passthrough
         }
-        if let ref = eventHandlerRef {
-            RemoveEventHandler(ref)
+
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: callback,
+            userInfo: selfPtr
+        ) else {
+            Log.hotkey.error("setupFnEventTap — CGEvent.tapCreate returned nil (missing Accessibility permission?)")
+            throw WisprError.hotkeyRegistrationFailed
         }
-        if let observer = wakeObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+
+        guard let source = CFMachPortCreateRunLoopSource(nil, tap, 0) else {
+            Log.hotkey.error("setupFnEventTap — CFMachPortCreateRunLoopSource returned nil")
+            CFMachPortInvalidate(tap)
+            throw WisprError.hotkeyRegistrationFailed
         }
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+
+        activeBackend = .fnEventTap(machPort: tap, runLoopSource: source)
+        Log.hotkey.info("setupFnEventTap — event tap created and enabled")
+    }
+
+    /// Processes a flagsChanged event looking for bare Fn press/release.
+    ///
+    /// Detects the Fn/Globe key by monitoring the `maskSecondaryFn` flag rather
+    /// than relying on the keycode, because Apple Silicon Macs may report a
+    /// keycode other than 63 in flagsChanged events for the Globe key.
+    ///
+    /// - Returns: `true` if the event should be consumed (suppressed), `false` to pass through.
+    private func handleFnFlagsChanged(flags: CGEventFlags) -> Bool {
+        // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
+        let otherModifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+        if !flags.intersection(otherModifiers).isEmpty {
+            return false
+        }
+
+        let isFnDown = flags.contains(.maskSecondaryFn)
+
+        if isFnDown && !self.fnIsDown {
+            self.fnIsDown = true
+            Log.hotkey.debug("handleFnFlagsChanged — Fn pressed (flags: \(flags.rawValue))")
+            onHotkeyDown?()
+            return true  // consume — suppress emoji picker
+        } else if !isFnDown && self.fnIsDown {
+            self.fnIsDown = false
+            Log.hotkey.debug("handleFnFlagsChanged — Fn released (flags: \(flags.rawValue))")
+            onHotkeyUp?()
+            return true  // consume
+        }
+
+        return false
+    }
+
+    // MARK: - Cleanup
+
+    isolated deinit {
+        unregister()
+        stopWakeMonitoring()
     }
 }
-
-

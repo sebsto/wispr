@@ -64,6 +64,9 @@ enum SFSymbols {
     /// Warning (filled triangle) for error labels.
     static let warning = "exclamationmark.triangle.fill"
 
+    /// Info (filled circle) for informational labels.
+    static let info = "info.circle.fill"
+
     /// Microphone icon for general use.
     static let microphone = "microphone"
 

@@ -48,6 +48,9 @@ final class MenuBarController {
     /// Theme engine for SF Symbol helpers.
     private let themeEngine: UIThemeEngine
 
+    /// Hotkey monitor for settings view (suspend/resume during hotkey recording).
+    private let hotkeyMonitor: HotkeyMonitor
+
     /// Audio engine for settings view.
     private let audioEngine: AudioEngine
 
@@ -98,6 +101,7 @@ final class MenuBarController {
         stateManager: StateManager,
         settingsStore: SettingsStore,
         themeEngine: UIThemeEngine = .shared,
+        hotkeyMonitor: HotkeyMonitor,
         audioEngine: AudioEngine,
         whisperService: any TranscriptionEngine,
         permissionManager: PermissionManager,
@@ -106,6 +110,7 @@ final class MenuBarController {
         self.stateManager = stateManager
         self.settingsStore = settingsStore
         self.themeEngine = themeEngine
+        self.hotkeyMonitor = hotkeyMonitor
         self.audioEngine = audioEngine
         self.transcriptionEngine = whisperService
         self.permissionManager = permissionManager
@@ -505,6 +510,7 @@ final class MenuBarController {
         .environment(settingsStore)
         .environment(themeEngine)
         .environment(stateManager)
+        .environment(hotkeyMonitor)
         .environment(permissionManager)
         .environment(updateChecker)
 

@@ -150,6 +150,44 @@ struct HotkeyMonitorTests {
         #expect(called, "onHotkeyUp callback should be invocable after assignment")
     }
 
+    // MARK: - Fn Key Tests
+
+    @Test("fnKeyCode constant is 63")
+    func testFnKeyCodeConstant() async {
+        #expect(HotkeyMonitor.fnKeyCode == 63)
+    }
+
+    @Test("register(keyCode: 63, modifiers: 0) does not throw conflict")
+    func testFnKeyNotReserved() async {
+        let monitor = HotkeyMonitor()
+        // Fn key (63, 0) is not system-reserved.
+        // It may fail with hotkeyRegistrationFailed (no Accessibility permission in CI)
+        // but should NOT throw hotkeyConflict.
+        do {
+            try monitor.register(keyCode: 63, modifiers: 0)
+        } catch let error as WisprError {
+            #expect(error == .hotkeyRegistrationFailed,
+                    "Fn key should not throw hotkeyConflict")
+        } catch {
+            Issue.record("Unexpected non-WisprError thrown: \(error)")
+        }
+    }
+
+    @Test("unregister() after Fn registration does not crash")
+    func testUnregisterAfterFnRegistration() async {
+        let monitor = HotkeyMonitor()
+        // Try to register Fn — may fail without Accessibility permission
+        try? monitor.register(keyCode: 63, modifiers: 0)
+        // Unregister should not crash regardless
+        monitor.unregister()
+    }
+
+    @Test("KeyCodeMapping displays Fn key correctly")
+    func testFnKeyDisplayString() async {
+        let display = KeyCodeMapping.shared.hotkeyDisplayString(keyCode: 63, modifiers: 0)
+        #expect(display == "🌐 Fn")
+    }
+
     // MARK: - updateHotkey Conflict Detection Tests
 
     @Test("updateHotkey() throws hotkeyConflict for reserved shortcut")

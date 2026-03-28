@@ -6,6 +6,7 @@
 //  key combination when activated.
 //
 
+import AppKit
 import SwiftUI
 import Carbon
 
@@ -18,6 +19,7 @@ struct HotkeyRecorderView: View {
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
     @State private var isHovering = false
+    @State private var fnMonitor: Any?
 
     var body: some View {
         Button {
@@ -63,6 +65,49 @@ struct HotkeyRecorderView: View {
             guard isRecording else { return .ignored }
             handleKeyPress(keyPress)
             return .handled
+        }
+        .onChange(of: isRecording) { _, recording in
+            if recording {
+                installFnMonitor()
+            } else {
+                removeFnMonitor()
+            }
+        }
+        .onDisappear {
+            removeFnMonitor()
+        }
+    }
+
+    private func installFnMonitor() {
+        fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            guard isRecording else { return event }
+
+            // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
+            // This matches HotkeyMonitor.handleFnFlagsChanged() which also
+            // rejects combined modifier presses.
+            let otherModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+            if !event.modifierFlags.intersection(otherModifiers).isEmpty {
+                return event
+            }
+
+            // Detect Fn via the .function modifier flag rather than keyCode,
+            // because Apple Silicon Macs may report a keycode other than 63.
+            // Only accept the press (function flag set), not the release.
+            if event.modifierFlags.contains(.function) {
+                keyCode = UInt32(HotkeyMonitor.fnKeyCode)
+                modifiers = 0
+                isRecording = false
+                errorMessage = nil
+                return nil  // consume
+            }
+            return event
+        }
+    }
+
+    private func removeFnMonitor() {
+        if let monitor = fnMonitor {
+            NSEvent.removeMonitor(monitor)
+            fnMonitor = nil
         }
     }
 
