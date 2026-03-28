@@ -68,6 +68,7 @@ struct SettingsView: View {
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
     @Environment(UpdateChecker.self) private var updateChecker: UpdateChecker
     @Environment(StateManager.self) private var stateManager: StateManager
+    @Environment(HotkeyMonitor.self) private var hotkeyMonitor: HotkeyMonitor
 
     @State private var audioDevices: [AudioInputDevice] = []
     @State private var whisperModels: [ModelInfo] = []
@@ -113,6 +114,16 @@ struct SettingsView: View {
             await loadAudioDevices()
             await loadWhisperModels()
         }
+        .onChange(of: isRecordingHotkey) { _, recording in
+            if recording {
+                hotkeyMonitor.unregister()
+            } else {
+                try? hotkeyMonitor.register(
+                    keyCode: settingsStore.hotkeyKeyCode,
+                    modifiers: settingsStore.hotkeyModifiers
+                )
+            }
+        }
     }
 
     // MARK: - Shortcut Section
@@ -136,6 +147,18 @@ struct SettingsView: View {
                     .foregroundStyle(theme.errorColor)
                     .font(.callout)
                     .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if settingsStore.hotkeyKeyCode == HotkeyMonitor.fnKeyCode
+                && settingsStore.hotkeyModifiers == 0 {
+                Label {
+                    Text("The Globe key may conflict with macOS features like the emoji picker or input source switching. ")
+                    + Text("If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\".")
+                } icon: {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.blue)
+                }
+                .font(.caption)
             }
 
             @Bindable var store = settingsStore
@@ -477,6 +500,7 @@ private struct SettingsPreview: View {
         .environment(theme)
         .environment(updateChecker)
         .environment(stateManager)
+        .environment(HotkeyMonitor())
     }
 }
 

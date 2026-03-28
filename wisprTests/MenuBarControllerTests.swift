@@ -45,6 +45,7 @@ private func createTestController(
         stateManager: stateManager,
         settingsStore: settingsStore,
         themeEngine: themeEngine,
+        hotkeyMonitor: hotkeyMonitor,
         audioEngine: audioEngine,
         whisperService: whisperService,
         permissionManager: permissionManager,

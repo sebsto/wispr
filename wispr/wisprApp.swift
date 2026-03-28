@@ -150,6 +150,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             stateManager: sm,
             settingsStore: settingsStore,
             themeEngine: themeEngine,
+            hotkeyMonitor: hotkeyMonitor,
             audioEngine: audioEngine,
             whisperService: whisperService,
             permissionManager: permissionManager,
@@ -170,7 +171,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
                 modifiers: settingsStore.hotkeyModifiers
             )
         } catch {
-            // Non-fatal — user can reconfigure in settings
+            Log.hotkey.error("bootstrap — hotkey registration failed: \(error.localizedDescription)")
         }
 
         // Start theme engine monitoring for appearance / accessibility changes

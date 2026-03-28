@@ -56,10 +56,11 @@ final class HotkeyMonitor {
     }
     private var activeBackend: ActiveBackend = .none
 
-    // New: Fn-specific state
+    // New: Fn-specific state (regular @MainActor-isolated — accessed via
+    // MainActor.assumeIsolated in the CGEventTap callback)
     private var fnIsDown = false
     private var tapReEnableAttempts = 0
-    private static let maxTapReEnableAttempts = 3
+    private let maxTapReEnableAttempts = 3
 
     // Sentinel for Fn key
     static let fnKeyCode: UInt32 = 63  // kVK_Function
@@ -91,30 +92,51 @@ func register(keyCode: UInt32, modifiers: UInt32) throws {
 }
 ```
 
+### Actor Isolation: CGEventTap Callback Threading
+
+The CGEventTap callback is a C function pointer — the compiler cannot verify its actor isolation. Since `HotkeyMonitor` is `@MainActor`, we need a way to access isolated state from the callback while returning synchronously (returning `nil` consumes the event to suppress the emoji picker).
+
+**Why not `nonisolated(unsafe)`?** Per Swift 6 concurrency guidance, `nonisolated(unsafe)` is a last resort that disables compiler safety checks entirely and requires a documented invariant + follow-up ticket. We can do better.
+
+**Solution: `MainActor.assumeIsolated`** inside the callback. The event tap's run loop source is added to `CFRunLoopGetMain()`, so the callback always executes on the main thread. `MainActor.assumeIsolated` validates this at runtime (crashes if wrong — a safe fail-fast) and gives us full access to isolated state without opting out of the type system.
+
+This keeps all fields (`fnIsDown`, `onHotkeyDown`, `onHotkeyUp`, `tapReEnableAttempts`) as regular `@MainActor`-isolated properties — no `nonisolated(unsafe)` needed.
+
+> **Note:** The existing Carbon path also calls `handleCarbonEvent` from a C callback via `Unmanaged`. That works today because C function pointer types bypass actor isolation checks in the compiler. The `MainActor.assumeIsolated` approach is strictly better — it adds a runtime assertion that the invariant holds.
+
 ### CGEventTap Implementation
 
 ```swift
 private func setupFnEventTap() throws {
     let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
 
-    // C callback — only safe state is via the userData pointer
+    // C callback — runs on main run loop. Uses MainActor.assumeIsolated
+    // to re-enter actor isolation with a runtime check.
     let callback: CGEventTapCallBack = { proxy, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
-        let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo)
-            .takeUnretainedValue()
 
-        if type == .tapDisabledByTimeout {
-            // System disabled our tap — re-enable it
-            if let port = monitor.fnEventTapPort {
-                CGEvent.tapEnable(tap: port, enable: true)
+        return MainActor.assumeIsolated {
+            let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(userInfo)
+                .takeUnretainedValue()
+
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                monitor.tapReEnableAttempts += 1
+                if monitor.tapReEnableAttempts <= monitor.maxTapReEnableAttempts {
+                    if case .fnEventTap(let port, _) = monitor.activeBackend {
+                        CGEvent.tapEnable(tap: port, enable: true)
+                    }
+                }
+                return Unmanaged.passUnretained(event)
             }
-            return Unmanaged.passUnretained(event)
-        }
 
-        if let result = monitor.handleFnFlagsChanged(event) {
-            return Unmanaged.passUnretained(result)
+            // Reset re-enable counter on successful callback
+            monitor.tapReEnableAttempts = 0
+
+            if let result = monitor.handleFnFlagsChanged(event) {
+                return Unmanaged.passUnretained(result)
+            }
+            return nil  // consume the event
         }
-        return nil  // consume the event
     }
 
     let selfPtr = Unmanaged.passUnretained(self).toOpaque()
@@ -141,10 +163,12 @@ private func setupFnEventTap() throws {
 ### Fn Event Filtering
 
 ```swift
-private func handleFnFlagsChanged(_ event: CGEvent) -> CGEvent? {
+/// Called from within MainActor.assumeIsolated in the CGEventTap callback.
+/// Regular @MainActor-isolated method — full access to all instance state.
+private func handleFnFlagsChanged(_ event: CGEvent) -> Unmanaged<CGEvent>? {
     let keycode = event.getIntegerValueField(.keyboardEventKeycode)
     guard keycode == Int64(Self.fnKeyCode) else {
-        return event  // not Fn, pass through
+        return Unmanaged.passUnretained(event)  // not Fn, pass through
     }
 
     let flags = event.flags
@@ -152,7 +176,7 @@ private func handleFnFlagsChanged(_ event: CGEvent) -> CGEvent? {
     // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
     let otherModifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
     if !flags.intersection(otherModifiers).isEmpty {
-        return event
+        return Unmanaged.passUnretained(event)
     }
 
     let isFnDown = flags.contains(.maskSecondaryFn)
@@ -167,7 +191,7 @@ private func handleFnFlagsChanged(_ event: CGEvent) -> CGEvent? {
         return nil  // consume
     }
 
-    return event
+    return Unmanaged.passUnretained(event)
 }
 ```
 
@@ -182,6 +206,7 @@ func unregister() {
     case .fnEventTap(let machPort, let runLoopSource):
         CGEvent.tapEnable(tap: machPort, enable: false)
         CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        CFMachPortInvalidate(machPort)
     case .none:
         break
     }

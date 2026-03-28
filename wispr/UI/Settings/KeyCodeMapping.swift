@@ -37,6 +37,8 @@ struct KeyCodeMapping {
         // Navigation
         115: "Home", 119: "End", 116: "PageUp", 121: "PageDown",
         123: "\u{2190}", 124: "\u{2192}", 125: "\u{2193}", 126: "\u{2191}",
+        // Globe/Fn key
+        63: "🌐 Fn",
     ]
 
     /// Derived reverse mapping: lowercase character → virtual key code.
