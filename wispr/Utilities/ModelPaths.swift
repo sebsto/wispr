@@ -30,6 +30,33 @@ enum ModelPaths {
     /// but both WhisperService and ParakeetService (custom actors) need synchronous
     /// access. This is safe — the property is a pure computation with no mutable state.
     nonisolated static var base: URL {
+        // macOS sets APP_SANDBOX_CONTAINER_ID for sandboxed processes.
+        let isSandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+        if isSandboxed {
+            // Inside the sandbox (GUI app): FileManager automatically redirects
+            // to ~/Library/Containers/<bundle-id>/Data/Library/Application Support/
+            guard let appSupport = FileManager.default.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first else {
+                fatalError("Application Support directory unavailable — cannot store models")
+            }
+            return appSupport.appendingPathComponent("wispr", isDirectory: true)
+        }
+
+        // Outside the sandbox (wispr-cli): read models from the GUI app's
+        // sandbox container so the CLI finds models the GUI downloaded.
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let containerPath = home.appendingPathComponent(
+            "Library/Containers/com.stormacq.mac.wispr/Data/Library/Application Support/wispr"
+        )
+        if FileManager.default.fileExists(atPath: containerPath.path) {
+            return containerPath
+        }
+
+        // Container doesn't exist yet (GUI never launched). Fall back to the
+        // standard Application Support path so the CLI can still start up,
+        // though no models will be found until the GUI downloads them.
         guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask

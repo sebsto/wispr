@@ -10,6 +10,7 @@ The implementation adds one new Xcode target, one new source file (`AudioFileDec
 |---|---|
 | `wispr-cli/main.swift` | **New file** — CLI entry point, argument parsing, orchestration |
 | `wispr/Services/AudioFileDecoder.swift` | **New file** — AVAssetReader-based audio decoding to `[Float]` |
+| `wispr/Utilities/ModelPaths.swift` | Add sandbox-aware path resolution for non-sandboxed CLI |
 | `wispr/UI/MenuBarController.swift` | Add "Install Command Line Tool..." menu item |
 | `wispr/UI/CLIInstallDialog.swift` | **New file** — SwiftUI dialog showing the install command |
 | Xcode project | New `wispr-cli` command-line tool target with shared source membership |
@@ -89,7 +90,7 @@ wispr.xcodeproj
 │   │   ├── Models/ModelStatus.swift
 │   │   ├── Models/WisprError.swift
 │   │   └── Utilities/ModelPaths.swift
-│   ├── Frameworks: WhisperKit, FluidAudio
+│   ├── Frameworks: WhisperKit, FluidAudio, ArgumentParser
 │   └── Embed in: wispr.app/Contents/Resources/bin/
 │
 ├── Target: wisprTests
@@ -121,6 +122,10 @@ graph TB
     CLI -->|"reads"| INPUT
     CLI -->|"links"| FW
     GUI -->|"manages models in"| MODELS
+
+    subgraph SandboxNote["Note"]
+        N["GUI writes to ~/Library/Containers/&lt;bundle-id&gt;/.../wispr/models/<br/>CLI reads from the same container path (no sandbox redirect)"]
+    end
 ```
 
 ### Data Flow: CLI File Transcription
@@ -170,7 +175,9 @@ A new actor that decodes audio/video files into PCM float samples using AVFounda
 actor AudioFileDecoder {
 
     /// Decoded audio metadata returned alongside samples.
-    struct AudioMetadata: Sendable {
+    /// Explicitly nonisolated + Sendable so it can cross from this
+    /// actor's isolation back to @MainActor callers.
+    nonisolated struct AudioMetadata: Sendable {
         let duration: TimeInterval
         let sampleRate: Double
         let channelCount: Int
@@ -189,10 +196,14 @@ actor AudioFileDecoder {
     ///
     /// Each chunk contains `chunkDuration` seconds of audio at
     /// 16 kHz mono (default: 30 seconds = 480,000 samples).
+    /// Consecutive chunks overlap by `overlapDuration` seconds
+    /// (default: 1 second = 16,000 samples) so that words
+    /// straddling a boundary are fully captured by at least one chunk.
     /// The last chunk may be shorter.
     func decodeChunked(
         fileURL: URL,
-        chunkDuration: TimeInterval = 30.0
+        chunkDuration: TimeInterval = 30.0,
+        overlapDuration: TimeInterval = 1.0
     ) -> AsyncThrowingStream<[Float], Error>
 }
 ```
@@ -200,51 +211,122 @@ actor AudioFileDecoder {
 **Implementation notes:**
 - Creates `AVAsset` from the file URL, reads the first audio track.
 - Configures `AVAssetReaderTrackOutput` with output settings: `kAudioFormatLinearPCM`, 16000 Hz, 1 channel, Float32.
-- For `decodeChunked`, reads sample buffers incrementally and yields when the chunk threshold is reached — keeps memory usage bounded regardless of file length.
+- For `decodeChunked`, reads sample buffers incrementally and yields when the chunk threshold is reached — keeps memory usage bounded regardless of file length. Each chunk overlaps the previous by `overlapDuration` seconds (default 1s / 16,000 samples) so words at boundaries are not split.
 - Throws descriptive errors for: file not found, no audio track, unsupported format, read failure.
+
+### 1b. ModelPaths Sandbox-Aware Resolution
+
+The existing `ModelPaths.base` uses `FileManager.urls(for: .applicationSupportDirectory)`, which returns different paths depending on whether the caller is sandboxed. The GUI app (sandboxed) writes models to `~/Library/Containers/com.stormacq.mac.wispr/Data/Library/Application Support/wispr/`, while the CLI (non-sandboxed) would resolve to `~/Library/Application Support/wispr/` — a different, empty directory.
+
+**Fix:** Update `ModelPaths.base` to detect the sandbox container and prefer it when it exists:
+
+```swift
+nonisolated static var base: URL {
+    // When running outside the sandbox (e.g. wispr-cli), the GUI app's
+    // models live in its sandbox container. Prefer that path when it exists
+    // so the CLI finds models the GUI downloaded.
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    let containerPath = home.appendingPathComponent(
+        "Library/Containers/com.stormacq.mac.wispr/Data/Library/Application Support/wispr"
+    )
+    if FileManager.default.fileExists(atPath: containerPath.path) {
+        return containerPath
+    }
+
+    // Fallback: standard Application Support (works inside the sandbox,
+    // or if the container doesn't exist yet).
+    guard let appSupport = FileManager.default.urls(
+        for: .applicationSupportDirectory,
+        in: .userDomainMask
+    ).first else {
+        fatalError("Application Support directory unavailable — cannot store models")
+    }
+    return appSupport.appendingPathComponent("wispr", isDirectory: true)
+}
+```
+
+**Why this works:** macOS allows any process running as the same user to read files inside another app's sandbox container. The GUI app writes models there; the CLI reads them. No App Group provisioning or model migration is needed.
+
+**Trade-off:** Couples the CLI to the GUI's bundle identifier (`com.stormacq.mac.wispr`). If the bundle ID ever changes, this path must be updated. This is acceptable for Phase A — the bundle ID is stable, and a future App Group migration (Phase B) would remove this coupling.
 
 ### 2. CLI Entry Point (`wispr-cli/main.swift`)
 
-The CLI entry point uses Swift's `ArgumentParser`-style manual parsing (no external dependency) to keep the binary lean.
+The CLI is single-threaded and defaults all execution to `@MainActor`. This avoids unnecessary concurrency complexity — the CLI processes one file sequentially and does not benefit from multi-threaded dispatch. Since the project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, the entry point struct and all free functions are implicitly `@MainActor` — no explicit annotation is needed. Only individual actors (`AudioFileDecoder`, the transcription engine actors) run on their own isolation domains.
+
+The CLI entry point uses `swift-argument-parser` for argument parsing, providing built-in `--help` generation, validation, and error messages.
 
 ```swift
 /// wispr-cli entry point.
 ///
 /// Usage:
-///   wispr-cli <file> [--model <name>] [--language <code>] [--verbose]
+///   wispr-cli <file> [--model <name>] [--language <code>] [--output <file>] [--verbose]
 ///   wispr-cli --list-models
-///   wispr-cli --help
 ///   wispr-cli --version
+/// @MainActor is inherited from SWIFT_DEFAULT_ACTOR_ISOLATION — no
+/// explicit annotation needed on the struct or its methods.
 @main
-struct WisprCLI {
-    static func main() async throws {
-        let args = parseArguments(CommandLine.arguments)
+struct WisprCLI: AsyncParsableCommand {
+    // static let — required by AsyncParsableCommand protocol, cannot be an instance property.
+    static let configuration = CommandConfiguration(
+        commandName: "wispr-cli",
+        abstract: "Transcribe audio and video files using on-device models.",
+        version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    )
 
-        switch args.command {
-        case .help:
-            printUsage()
-        case .version:
-            printVersion()
-        case .listModels:
-            try await listModels()
-        case .transcribe(let config):
-            try await transcribe(config)
+    @Argument(help: "Path to the audio or video file to transcribe.")
+    var file: String?
+
+    @Option(name: .long, help: "Model name to use for transcription.")
+    var model: String?
+
+    @Option(name: .long, help: "Language code for transcription (e.g., en, fr, ja).")
+    var language: String?
+
+    @Option(name: .long, help: "Write transcription to a file instead of stdout.")
+    var output: String?
+
+    @Flag(name: .long, help: "Print progress and timing information to stderr.")
+    var verbose = false
+
+    @Flag(name: .long, help: "List all downloaded models and exit.")
+    var listModels = false
+
+    mutating func run() async throws {
+        if listModels {
+            try await doListModels()
+        } else {
+            guard let file else {
+                throw ValidationError("Missing required argument: <file>")
+            }
+            try await transcribe(TranscribeConfig(
+                filePath: file,
+                modelName: model,
+                languageCode: language,
+                outputPath: output,
+                verbose: verbose
+            ))
         }
     }
+
+    // All helper methods are instance methods on WisprCLI — see
+    // sections 3–5 below for their signatures and implementations.
+    // No free functions or static helpers.
 }
 ```
 
 ```swift
-struct TranscribeConfig: Sendable {
+nonisolated struct TranscribeConfig: Sendable {
     let filePath: String
     let modelName: String?
     let languageCode: String?
+    let outputPath: String?
     let verbose: Bool
 }
 ```
 
 **Argument parsing implementation:**
-- Manual parsing of `CommandLine.arguments` — no dependency on `swift-argument-parser` to keep the binary small and avoid adding a dependency to the GUI app target.
+- Uses `swift-argument-parser` (`ArgumentParser` package) for declarative argument definitions, automatic `--help` generation, and input validation.
+- The `swift-argument-parser` dependency is added to the Xcode project's Swift Package dependencies and linked only to the `wispr-cli` target (not the GUI app).
 - Validates file existence early (before model loading) to fail fast.
 - Reads `activeModelName` from `UserDefaults(suiteName: nil)` for the default model (same UserDefaults domain as the GUI app since both run as the same user).
 
@@ -252,7 +334,8 @@ struct TranscribeConfig: Sendable {
 
 ```swift
 /// Core transcription flow for the CLI.
-func transcribe(_ config: TranscribeConfig) async throws {
+/// Instance method on WisprCLI — not a free function.
+mutating func transcribe(_ config: TranscribeConfig) async throws {
     let fileURL = URL(fileURLWithPath: config.filePath)
 
     // 1. Resolve model
@@ -283,15 +366,26 @@ func transcribe(_ config: TranscribeConfig) async throws {
     let language: TranscriptionLanguage = config.languageCode
         .map { .specific(code: $0) } ?? .autoDetect
 
+    // Output destination: file or stdout
+    let writeOutput: (String) throws -> Void
+    if let outputPath = config.outputPath {
+        var accumulated = ""
+        writeOutput = { text in accumulated += text + "\n" }
+        defer { try? accumulated.write(toFile: outputPath, atomically: true, encoding: .utf8) }
+    } else {
+        writeOutput = { text in print(text) }
+    }
+
     if meta.duration <= 30.0 {
         // Short file — single-shot transcription
         let samples = try await decoder.decode(fileURL: fileURL)
         let result = try await engine.transcribe(samples, language: language)
-        print(result.text)
+        try writeOutput(result.text)
     } else {
-        // Long file — chunked transcription
+        // Long file — chunked transcription with overlap deduplication
         let chunks = decoder.decodeChunked(fileURL: fileURL)
         var chunkIndex = 0
+        var previousText: String? = nil
         for try await chunk in chunks {
             chunkIndex += 1
             if config.verbose {
@@ -299,24 +393,65 @@ func transcribe(_ config: TranscribeConfig) async throws {
             }
             let result = try await engine.transcribe(chunk, language: language)
             if !result.text.isEmpty {
-                print(result.text)
+                let text = deduplicateOverlap(
+                    previous: previousText,
+                    current: result.text
+                )
+                if !text.isEmpty {
+                    try writeOutput(text)
+                }
+                previousText = result.text
             }
         }
     }
 }
 ```
 
-### 4. Model Discovery
+### 4. Overlap Deduplication
+
+```swift
+/// Removes duplicated words at the boundary between two consecutive
+/// chunk transcriptions caused by the audio overlap.
+///
+/// Compares the last N words of `previous` with the first N words of
+/// `current` (where N = min(wordCount, 8)). When a suffix of `previous`
+/// matches a prefix of `current`, the matching prefix is stripped from
+/// `current` to avoid repeated text in the output.
+///
+/// Instance method on WisprCLI — not a free function.
+func deduplicateOverlap(previous: String?, current: String) -> String {
+    guard let previous, !previous.isEmpty else { return current }
+
+    let prevWords = previous.split(separator: " ")
+    let currWords = current.split(separator: " ")
+    let maxCompare = min(min(prevWords.count, currWords.count), 8)
+
+    // Find the longest suffix of prevWords that matches a prefix of currWords
+    for length in stride(from: maxCompare, through: 1, by: -1) {
+        let suffix = prevWords.suffix(length)
+        let prefix = currWords.prefix(length)
+        if suffix.elementsEqual(prefix, by: { $0.lowercased() == $1.lowercased() }) {
+            // Strip the matched prefix from current
+            return currWords.dropFirst(length).joined(separator: " ")
+        }
+    }
+    return current
+}
+```
+
+### 5. Model Discovery
 
 ```swift
 /// Resolves which model to use, in priority order:
 /// 1. Explicit --model flag
 /// 2. GUI app's active model from UserDefaults
-/// 3. Smallest downloaded model
+/// 3. Error — no default model
+///
+/// Instance method on WisprCLI — not a free function.
 func resolveModel(_ explicitName: String?) throws -> String {
     let downloadedModels = discoverDownloadedModels()
     guard !downloadedModels.isEmpty else {
-        throw CLIError.noModelsDownloaded
+        throw CLIError.noActiveModel
     }
 
     if let name = explicitName {
@@ -335,24 +470,21 @@ func resolveModel(_ explicitName: String?) throws -> String {
         return active
     }
 
-    // Fall back to smallest downloaded model
-    return downloadedModels.sorted(by: { $0.sizeOnDisk < $1.sizeOnDisk }).first!.name
+    throw CLIError.noActiveModel
 }
 
 /// Scans the shared models directory for downloaded models.
+/// Uses ModelPaths.models which resolves to the GUI app's sandbox
+/// container when running outside the sandbox (CLI).
+///
+/// Instance method on WisprCLI — not a free function.
 func discoverDownloadedModels() -> [DownloadedModelInfo] {
-    // Scans ~/Library/Application Support/wispr/models/
+    // Scans ModelPaths.models (sandbox-aware)
     // Each subdirectory with valid model files is a downloaded model
-}
-
-struct DownloadedModelInfo {
-    let name: String
-    let sizeOnDisk: Int64
-    let path: URL
 }
 ```
 
-### 5. CLI Install Dialog (GUI App)
+### 6. CLI Install Dialog (GUI App)
 
 ```swift
 /// Dialog shown when user selects "Install Command Line Tool..." from the menu.
@@ -396,26 +528,46 @@ struct CLIInstallDialogView: View {
 }
 ```
 
-### 6. MenuBarController Changes
+### 7. MenuBarController Changes
 
-Add a single menu item to the existing dropdown:
+Add a single menu item to the existing dropdown, shown only when the CLI is not installed:
 
 ```swift
 // In MenuBarController, inside menu construction
-let installCLIItem = NSMenuItem(
-    title: "Install Command Line Tool...",
-    action: #selector(showCLIInstallDialog),
-    keyEquivalent: ""
-)
+if !isCLIInstalled() {
+    let installCLIItem = NSMenuItem(
+        title: "Install Command Line Tool...",
+        action: #selector(showCLIInstallDialog),
+        keyEquivalent: ""
+    )
+}
+```
+
+```swift
+/// Checks whether /usr/local/bin/wispr exists and points to the
+/// wispr-cli binary inside the current app bundle.
+private func isCLIInstalled() -> Bool {
+    let symlinkPath = "/usr/local/bin/wispr"
+    let fm = FileManager.default
+    guard let dest = try? fm.destinationOfSymbolicLink(atPath: symlinkPath) else {
+        return false
+    }
+    let expectedDest = Bundle.main.bundlePath + "/Contents/Resources/bin/wispr-cli"
+    return dest == expectedDest
+}
 ```
 
 The action presents `CLIInstallDialogView` as a sheet or floating panel.
 
-### 7. CLI Error Types
+### 8. CLI Error Types
 
 ```swift
-enum CLIError: Error, CustomStringConvertible {
-    case noModelsDownloaded
+/// Explicitly nonisolated: with @MainActor as default isolation, this
+/// enum would otherwise be @MainActor, preventing it from being
+/// constructed or thrown inside custom actors (AudioFileDecoder,
+/// transcription engines) without hopping to MainActor.
+nonisolated enum CLIError: Error, CustomStringConvertible, Sendable {
+    case noActiveModel
     case modelNotFound(String, available: [String])
     case fileNotFound(String)
     case noAudioTrack(String)
@@ -425,8 +577,8 @@ enum CLIError: Error, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .noModelsDownloaded:
-            "No models downloaded. Open Wispr.app and download a model first."
+        case .noActiveModel:
+            "No active model set. Use --model <name> or select a model in Wispr.app. Run --list-models to see available models."
         case .modelNotFound(let name, let available):
             "Model '\(name)' not found. Available models: \(available.joined(separator: ", "))"
         case .fileNotFound(let path):
@@ -457,8 +609,9 @@ enum CLIError: Error, CustomStringConvertible {
 | Strict Concurrency | `complete` |
 | `ENABLE_HARDENED_RUNTIME` | `YES` |
 | `ENABLE_APP_SANDBOX` | `NO` |
+| `SWIFT_DEFAULT_ACTOR_ISOLATION` | `MainActor` |
 | Deployment Target | macOS 26.2 |
-| Frameworks | WhisperKit, FluidAudio |
+| Frameworks | WhisperKit, FluidAudio, ArgumentParser |
 
 ### Embedding the CLI in the App Bundle
 
@@ -498,28 +651,53 @@ No new data models are introduced for transcription. The CLI reuses all existing
 New types specific to the CLI:
 
 ```swift
-/// Parsed CLI arguments.
-enum CLICommand: Sendable {
-    case help
-    case version
-    case listModels
-    case transcribe(TranscribeConfig)
-}
-
-struct TranscribeConfig: Sendable {
+nonisolated struct TranscribeConfig: Sendable {
     let filePath: String
     let modelName: String?
     let languageCode: String?
+    let outputPath: String?
     let verbose: Bool
 }
 
 /// Metadata about a downloaded model discovered on disk.
-struct DownloadedModelInfo: Sendable {
+nonisolated struct DownloadedModelInfo: Sendable {
     let name: String
     let sizeOnDisk: Int64
     let path: URL
 }
 ```
+
+## Concurrency Design Notes
+
+### Default Actor Isolation
+
+The project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_STRICT_CONCURRENCY = complete`. The CLI target MUST match these settings so shared source files compile with identical isolation semantics in both targets.
+
+**Consequence:** Every top-level type, function, and property is implicitly `@MainActor` unless explicitly marked `nonisolated` or defined inside a custom actor.
+
+### When to use `nonisolated`
+
+Pure data types that cross isolation boundaries (between `@MainActor` and custom actors like `AudioFileDecoder`, `WhisperService`, `ParakeetService`) MUST be explicitly `nonisolated` and `Sendable`:
+
+- `CLIError` — thrown from custom actors, caught on `@MainActor`
+- `TranscribeConfig` — passed from `@MainActor` to helper functions
+- `DownloadedModelInfo` — returned from model discovery, used across contexts
+- `AudioFileDecoder.AudioMetadata` — returned from actor methods to `@MainActor` callers
+
+Without `nonisolated`, the compiler would require `await` to construct these types from a non-`@MainActor` context (e.g., inside `AudioFileDecoder`), which is incorrect for simple value types.
+
+### `nonisolated(unsafe)` in shared code
+
+The following existing usages in shared source files are justified and require no changes for the CLI:
+
+- `WhisperService.whisperKit` — WhisperKit type is not `Sendable`; actor isolation guarantees serial access.
+- `ParakeetService.asrManager` / `eouManager` — FluidAudio types are not `Sendable`; actor isolation guarantees serial access.
+
+The CLI spec introduces **no new** `nonisolated(unsafe)` usage. `AudioFileDecoder` stores AVFoundation types (`AVAssetReader`, etc.) as local variables within actor methods rather than as stored properties, so `nonisolated(unsafe)` is not needed.
+
+### Why `AudioFileDecoder` is an actor (not `@MainActor`)
+
+File I/O and AVAssetReader decoding are blocking operations that should not run on the main actor. Making `AudioFileDecoder` a custom actor gives it its own serial executor, keeping the main actor responsive. The CLI's `@MainActor` orchestration code `await`s into the actor for decoding, then resumes on `@MainActor` to print results.
 
 ## Correctness Properties
 
@@ -531,15 +709,21 @@ struct DownloadedModelInfo: Sendable {
 
 ### Property 2: Model resolution determinism
 
-*For any* combination of `--model` flag value, UserDefaults `activeModelName`, and set of downloaded models, the `resolveModel()` function SHALL return the same model name given the same inputs, following the priority order: explicit flag > UserDefaults > smallest downloaded.
+*For any* combination of `--model` flag value, UserDefaults `activeModelName`, and set of downloaded models, the `resolveModel()` function SHALL return the same model name given the same inputs, following the priority order: explicit flag > UserDefaults > error.
 
 **Validates: Requirements 3.2, 3.3, 3.4**
 
 ### Property 3: Chunked transcription completeness
 
-*For any* audio file of duration D seconds, the concatenation of all chunk transcription outputs SHALL cover the entire audio content. No audio samples SHALL be skipped between chunks. The last chunk MAY be shorter than the configured chunk duration.
+*For any* audio file of duration D seconds, the concatenation of all chunk transcription outputs SHALL cover the entire audio content. Consecutive chunks SHALL overlap by exactly `overlapDuration` seconds of audio. No audio samples SHALL be skipped between chunks. The last chunk MAY be shorter than the configured chunk duration.
 
-**Validates: Requirements 7.1, 7.2**
+**Validates: Requirements 7.1, 7.2, 7.4**
+
+### Property 5: Overlap deduplication correctness
+
+*For any* pair of consecutive chunk transcriptions where the audio overlap produces identical words at the boundary, the `deduplicateOverlap` function SHALL remove the duplicated words exactly once. The final concatenated output SHALL NOT contain repeated words caused by the overlap, and SHALL NOT remove words that were not part of the overlap.
+
+**Validates: Requirements 7.2, 7.3**
 
 ### Property 4: Memory boundedness for long files
 
@@ -555,6 +739,7 @@ struct DownloadedModelInfo: Sendable {
 | No audio track in file | Print error to stderr | 1 |
 | Unsupported format | Print error to stderr | 1 |
 | No models downloaded | Print error + instructions to stderr | 1 |
+| No active model set | Print error + instructions to stderr | 1 |
 | Specified model not found | Print error + list available models to stderr | 1 |
 | Model loading failure | Print error to stderr | 1 |
 | Transcription failure | Print error to stderr | 1 |

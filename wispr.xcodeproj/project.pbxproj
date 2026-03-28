@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		000C012F2F50C874003B4CDA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 000C012E2F50C874003B4CDA /* WhisperKit */; };
 		00FA01002F58A00000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00FA01012F58A00000000001 /* FluidAudio */; };
+		00C1100D2F60A00100000001 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110102F60A00100000001 /* WhisperKit */; };
+		00C1100E2F60A00100000002 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110112F60A00100000002 /* FluidAudio */; };
+		00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110122F60A00100000003 /* ArgumentParser */; };
+		00C1100A2F60A00100000004 /* wispr-cli in CopyFiles */ = {isa = PBXBuildFile; fileRef = 00C110012F60A00100000005 /* wispr-cli */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,17 +30,63 @@
 			remoteGlobalIDString = 00A1C0B52F50AD06001D1A22;
 			remoteInfo = wispr;
 		};
+		00C1100C2F60A00100000006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00A1C0AE2F50AD06001D1A22 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 00C110052F60A00100000007;
+			remoteInfo = "wispr-cli";
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		00C110092F60A00100000008 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = bin;
+			dstSubfolderSpec = 7;
+			files = (
+				00C1100A2F60A00100000004 /* wispr-cli in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00A1C0B62F50AD06001D1A22 /* wispr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = wispr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		00A1C0C32F50AD09001D1A22 /* wisprTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = wisprTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00A1C0CD2F50AD09001D1A22 /* wisprUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = wisprUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		00C110012F60A00100000005 /* wispr-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wispr-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		00C110142F60A00100000009 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Models/DownloadProgress.swift",
+				"Models/ModelInfo.swift",
+				"Models/ModelStatus.swift",
+				"Models/TranscriptionLanguage.swift",
+				"Models/TranscriptionResult.swift",
+				"Models/WisprError.swift",
+				"Services/AudioFileDecoder.swift",
+				"Services/CompositeTranscriptionEngine.swift",
+				"Services/ParakeetService.swift",
+				"Services/TranscriptionEngine.swift",
+				"Services/WhisperService.swift",
+				"Utilities/Logger.swift",
+				"Utilities/ModelPaths.swift",
+			);
+			target = 00C110052F60A00100000007 /* wispr-cli */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00A1C0B82F50AD06001D1A22 /* wispr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				00C110142F60A00100000009 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
 			path = wispr;
 			sourceTree = "<group>";
 		};
@@ -48,6 +98,11 @@
 		00A1C0D02F50AD09001D1A22 /* wisprUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = wisprUITests;
+			sourceTree = "<group>";
+		};
+		00C110022F60A0010000000A /* wispr-cli */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "wispr-cli";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -76,6 +131,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		00C110042F60A0010000000B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00C1100D2F60A00100000001 /* WhisperKit in Frameworks */,
+				00C1100E2F60A00100000002 /* FluidAudio in Frameworks */,
+				00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -83,6 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				00A1C0B82F50AD06001D1A22 /* wispr */,
+				00C110022F60A0010000000A /* wispr-cli */,
 				00A1C0C62F50AD09001D1A22 /* wisprTests */,
 				00A1C0D02F50AD09001D1A22 /* wisprUITests */,
 				00A1C0B72F50AD06001D1A22 /* Products */,
@@ -93,6 +159,7 @@
 			isa = PBXGroup;
 			children = (
 				00A1C0B62F50AD06001D1A22 /* wispr.app */,
+				00C110012F60A00100000005 /* wispr-cli */,
 				00A1C0C32F50AD09001D1A22 /* wisprTests.xctest */,
 				00A1C0CD2F50AD09001D1A22 /* wisprUITests.xctest */,
 			);
@@ -109,10 +176,12 @@
 				00A1C0B22F50AD06001D1A22 /* Sources */,
 				00A1C0B32F50AD06001D1A22 /* Frameworks */,
 				00A1C0B42F50AD06001D1A22 /* Resources */,
+				00C110092F60A00100000008 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				00C1100B2F60A0010000000C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				00A1C0B82F50AD06001D1A22 /* wispr */,
@@ -172,6 +241,30 @@
 			productReference = 00A1C0CD2F50AD09001D1A22 /* wisprUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		00C110052F60A00100000007 /* wispr-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00C110082F60A0010000000D /* Build configuration list for PBXNativeTarget "wispr-cli" */;
+			buildPhases = (
+				00C110032F60A0010000000E /* Sources */,
+				00C110042F60A0010000000B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				00C110022F60A0010000000A /* wispr-cli */,
+			);
+			name = "wispr-cli";
+			packageProductDependencies = (
+				00C110102F60A00100000001 /* WhisperKit */,
+				00C110112F60A00100000002 /* FluidAudio */,
+				00C110122F60A00100000003 /* ArgumentParser */,
+			);
+			productName = "wispr-cli";
+			productReference = 00C110012F60A00100000005 /* wispr-cli */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -193,6 +286,9 @@
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 00A1C0B52F50AD06001D1A22;
 					};
+					00C110052F60A00100000007 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 00A1C0B12F50AD06001D1A22 /* Build configuration list for PBXProject "wispr" */;
@@ -207,6 +303,7 @@
 			packageReferences = (
 				000C012D2F50C874003B4CDA /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				00C110132F60A0010000000F /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 00A1C0B72F50AD06001D1A22 /* Products */;
@@ -214,6 +311,7 @@
 			projectRoot = "";
 			targets = (
 				00A1C0B52F50AD06001D1A22 /* wispr */,
+				00C110052F60A00100000007 /* wispr-cli */,
 				00A1C0C22F50AD09001D1A22 /* wisprTests */,
 				00A1C0CC2F50AD09001D1A22 /* wisprUITests */,
 			);
@@ -266,6 +364,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		00C110032F60A0010000000E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +383,11 @@
 			isa = PBXTargetDependency;
 			target = 00A1C0B52F50AD06001D1A22 /* wispr */;
 			targetProxy = 00A1C0CE2F50AD09001D1A22 /* PBXContainerItemProxy */;
+		};
+		00C1100B2F60A0010000000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 00C110052F60A00100000007 /* wispr-cli */;
+			targetProxy = 00C1100C2F60A00100000006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -594,6 +704,56 @@
 			};
 			name = Release;
 		};
+		00C110062F60A00100000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 260322.240;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 56U756R2L2;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.stormacq.mac.wispr-cli";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		00C110072F60A00100000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 260322.240;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 56U756R2L2;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.stormacq.mac.wispr-cli";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -633,6 +793,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		00C110082F60A0010000000D /* Build configuration list for PBXNativeTarget "wispr-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00C110062F60A00100000010 /* Debug */,
+				00C110072F60A00100000011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -652,6 +821,14 @@
 				minimumVersion = 0.12.1;
 			};
 		};
+		00C110132F60A0010000000F /* XCRemoteSwiftPackageReference "swift-argument-parser" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-argument-parser.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -664,6 +841,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		00C110102F60A00100000001 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000C012D2F50C874003B4CDA /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+		00C110112F60A00100000002 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
+		};
+		00C110122F60A00100000003 /* ArgumentParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00C110132F60A0010000000F /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
+			productName = ArgumentParser;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -11,7 +11,7 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 - **wispr-cli**: The command-line executable embedded in the Wispr application bundle for file-based transcription.
 - **CLI_Target**: The Xcode build target that produces the `wispr-cli` binary.
 - **GUI_App**: The existing sandboxed Wispr menu bar application.
-- **Shared_Models_Directory**: The directory `~/Library/Application Support/wispr/models/` where both the GUI_App and wispr-cli read transcription models.
+- **Shared_Models_Directory**: The directory where both the GUI_App and wispr-cli read transcription models. Because the GUI_App is sandboxed, models are stored at `~/Library/Containers/com.stormacq.mac.wispr/Data/Library/Application Support/wispr/models/`. The non-sandboxed CLI resolves this path directly.
 - **AudioFileDecoder**: The component responsible for decoding audio/video files into raw PCM float samples suitable for the transcription engines.
 - **TranscriptionEngine**: The existing protocol abstracting speech-to-text backends (WhisperKit, FluidAudio).
 - **Install_CLI_Action**: The GUI_App menu item or onboarding step that helps the user create a symlink to wispr-cli in their PATH.
@@ -29,7 +29,8 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 3. THE `wispr-cli` binary SHALL be signed with Hardened Runtime enabled.
 4. THE `wispr-cli` binary SHALL NOT have App Sandbox entitlements.
 5. THE `wispr-cli` binary SHALL be included in the notarization of the Wispr application bundle.
-6. THE CLI_Target SHALL compile under Swift 6 with strict concurrency checking enabled.
+6. THE CLI_Target SHALL compile under Swift 6 with strict concurrency checking enabled (`complete`), default actor isolation set to `MainActor` (matching the GUI_App target), and no warnings.
+7. ALL data types used across isolation boundaries (error enums, config structs, metadata structs) SHALL be explicitly marked `nonisolated` and conform to `Sendable` so they can cross between `@MainActor` and custom actor isolation domains without compiler errors.
 
 ### Requirement 2: Audio and Video File Decoding
 
@@ -51,12 +52,12 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 
 #### Acceptance Criteria
 
-1. THE wispr-cli SHALL read models from the Shared_Models_Directory (`~/Library/Application Support/wispr/models/`).
+1. THE wispr-cli SHALL read models from the GUI_App's sandboxed Shared_Models_Directory. Because the GUI_App runs inside the App Sandbox, its models are stored under `~/Library/Containers/<bundle-id>/Data/Library/Application Support/wispr/models/`. The non-sandboxed wispr-cli SHALL resolve this container path so that it reads the same models the GUI_App downloaded, without requiring the user to copy or move files.
 2. THE wispr-cli SHALL accept a `--model <name>` option to specify which downloaded model to use for transcription.
 3. IF no `--model` option is provided, THE wispr-cli SHALL use the model persisted as active in the GUI_App's UserDefaults (key: `activeModelName`).
-4. IF no `--model` option is provided AND no active model is found in UserDefaults, THE wispr-cli SHALL fall back to the smallest downloaded model available.
+4. IF no `--model` option is provided AND no active model is found in UserDefaults, THE wispr-cli SHALL print a descriptive error message to stderr and exit with a non-zero status code.
 5. IF the specified model is not downloaded, THEN wispr-cli SHALL print an error message listing available downloaded models and exit with a non-zero status code.
-6. THE wispr-cli SHALL accept a `--list-models` flag that prints all downloaded models with their names and sizes, then exits.
+6. THE wispr-cli SHALL accept a `--list-models` flag that prints all downloaded models with their names and sizes, download status, then exits.
 
 ### Requirement 4: Transcription and Output
 
@@ -65,13 +66,14 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 #### Acceptance Criteria
 
 1. WHEN wispr-cli receives a valid file path and a valid model, IT SHALL decode the audio, load the model, transcribe the audio, and print the transcribed text to stdout.
-2. THE wispr-cli SHALL accept a `--language <code>` option to specify the transcription language (e.g., `en`, `fr`, `ja`).
-3. IF no `--language` option is provided, THE wispr-cli SHALL use automatic language detection.
-4. THE wispr-cli SHALL print only the transcribed text to stdout, with no additional formatting, headers, or metadata, unless a verbose flag is set.
-5. THE wispr-cli SHALL print progress and diagnostic messages to stderr so they do not interfere with stdout piping.
-6. THE wispr-cli SHALL accept a `--verbose` flag that prints model loading progress, audio duration, and transcription timing to stderr.
-7. THE wispr-cli SHALL exit with status code 0 on success and a non-zero status code on any error.
-8. THE wispr-cli SHALL perform all transcription locally on-device, consistent with the GUI_App's privacy guarantees.
+2. THE wispr-cli SHALL accept a `--output <file>` option to specify an output file path. WHEN `--output` is specified, THE wispr-cli SHALL write the transcribed text to the specified file and SHALL NOT write it to stdout.
+3. THE wispr-cli SHALL accept a `--language <code>` option to specify the transcription language (e.g., `en`, `fr`, `ja`).
+4. IF no `--language` option is provided, THE wispr-cli SHALL use automatic language detection.
+5. THE wispr-cli SHALL print only the transcribed text to stdout, with no additional formatting, headers, or metadata, unless a verbose flag is set.
+6. THE wispr-cli SHALL print progress and diagnostic messages to stderr so they do not interfere with stdout piping.
+7. THE wispr-cli SHALL accept a `--verbose` flag that prints model loading progress, audio duration, and transcription timing to stderr.
+8. THE wispr-cli SHALL exit with status code 0 on success and a non-zero status code on any error.
+9. THE wispr-cli SHALL perform all transcription locally on-device, consistent with the GUI_App's privacy guarantees.
 
 ### Requirement 5: CLI Usage and Help
 
@@ -90,12 +92,11 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 
 #### Acceptance Criteria
 
-1. THE GUI_App's menu SHALL include an "Install Command Line Tool..." item.
+1. THE GUI_App's menu SHALL include an "Install Command Line Tool..." item only WHEN the CLI symlink at `/usr/local/bin/wispr` does not exist or does not point to the correct binary.
 2. WHEN the user selects "Install Command Line Tool...", THE GUI_App SHALL display a dialog explaining the installation and showing the exact shell command to run.
 3. THE displayed command SHALL create a symbolic link from `/usr/local/bin/wispr` to the `wispr-cli` binary inside the app bundle.
 4. THE dialog SHALL include a "Copy Command" button that copies the shell command to the clipboard.
-5. IF `/usr/local/bin/wispr` already exists and points to the correct binary, THE GUI_App SHALL inform the user that the CLI is already installed.
-6. THE GUI_App SHALL NOT attempt to execute the symlink creation itself, as the sandboxed app cannot write to `/usr/local/bin/`.
+5. THE GUI_App SHALL NOT attempt to execute the symlink creation itself, as the sandboxed app cannot write to `/usr/local/bin/`.
 
 ### Requirement 7: Long File Handling
 
@@ -104,9 +105,11 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 #### Acceptance Criteria
 
 1. FOR audio files longer than 30 seconds, THE wispr-cli SHALL split the decoded audio into chunks suitable for the transcription engine.
-2. THE wispr-cli SHALL transcribe each chunk sequentially and concatenate the results.
-3. WHEN `--verbose` is set, THE wispr-cli SHALL print chunk progress (e.g., "Transcribing chunk 3/12...") to stderr.
-4. THE wispr-cli SHALL stream decoded audio in chunks rather than loading the entire file into memory at once, to support files of arbitrary length.
+2. THE wispr-cli SHALL use an overlap of 1 second (16,000 samples) between consecutive chunks so that words straddling a chunk boundary are fully captured by at least one chunk.
+3. THE wispr-cli SHALL deduplicate the overlap region when concatenating chunk results by detecting matching words at the end of chunk N and the beginning of chunk N+1, and removing the duplicated portion.
+4. THE wispr-cli SHALL transcribe each chunk sequentially and concatenate the deduplicated results.
+5. WHEN `--verbose` is set, THE wispr-cli SHALL print chunk progress (e.g., "Transcribing chunk 3/12...") to stderr.
+6. THE wispr-cli SHALL stream decoded audio in chunks rather than loading the entire file into memory at once, to support files of arbitrary length.
 
 ### Requirement 8: Shared Code Between CLI and GUI
 

@@ -72,6 +72,9 @@ final class MenuBarController {
     /// Retained reference to the model management window.
     private var modelManagementWindow: NSWindow?
 
+    /// Retained reference to the CLI install window.
+    private var cliInstallWindow: NSWindow?
+
     // MARK: - Menu Items (retained for dynamic updates)
 
     private let recordingMenuItem = NSMenuItem()
@@ -203,6 +206,21 @@ final class MenuBarController {
         menu.addItem(updateMenuItem)
 
         refreshUpdateMenuItem()
+
+        // Install CLI (shown only when not installed)
+        if !isCLIInstalled() {
+            menu.addItem(NSMenuItem.separator())
+            let installCLIItem = NSMenuItem(
+                title: "Install Command Line Tool\u{2026}",
+                action: #selector(MenuBarActionHandler.showCLIInstallDialog(_:)),
+                keyEquivalent: ""
+            )
+            installCLIItem.image = NSImage(
+                systemSymbolName: "terminal",
+                accessibilityDescription: "Install CLI"
+            )
+            menu.addItem(installCLIItem)
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -547,6 +565,39 @@ final class MenuBarController {
         stateManager.currentLanguage = mode
     }
 
+    /// Checks whether /usr/local/bin/wispr exists and points to the
+    /// wispr-cli binary inside the current app bundle.
+    private func isCLIInstalled() -> Bool {
+        let symlinkPath = "/usr/local/bin/wispr"
+        let fm = FileManager.default
+        guard let dest = try? fm.destinationOfSymbolicLink(atPath: symlinkPath) else {
+            return false
+        }
+        let expectedDest = Bundle.main.bundlePath + "/Contents/Resources/bin/wispr-cli"
+        return dest == expectedDest
+    }
+
+    /// Presents the CLI install dialog as a floating window.
+    func showCLIInstallDialog() {
+        NSApp.activate()
+
+        if let window = cliInstallWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            return
+        }
+
+        let dialogView = CLIInstallDialogView(appBundlePath: Bundle.main.bundlePath)
+        let hostingController = NSHostingController(rootView: dialogView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Install Command Line Tool"
+        window.styleMask = [.titled, .closable]
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        cliInstallWindow = window
+    }
+
     /// Quits the application after cleaning up resources.
     ///
     /// Requirement 5.5: Clean up all resources and terminate.
@@ -597,6 +648,11 @@ final class MenuBarActionHandler: NSObject {
     @MainActor
     @objc func openUpdateDownload(_ sender: NSMenuItem) {
         menuBarController?.openUpdateDownload()
+    }
+
+    @MainActor
+    @objc func showCLIInstallDialog(_ sender: NSMenuItem) {
+        menuBarController?.showCLIInstallDialog()
     }
 
     @MainActor
