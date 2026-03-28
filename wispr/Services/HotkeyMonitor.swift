@@ -342,6 +342,9 @@ final class HotkeyMonitor {
                         if case .fnEventTap(let port, _) = monitor.activeBackend {
                             CGEvent.tapEnable(tap: port, enable: true)
                         }
+                    } else {
+                        Log.hotkey.error("CGEventTap failed to re-enable after \(monitor.maxTapReEnableAttempts) attempts — unregistering Fn hotkey")
+                        monitor.unregister()
                     }
                     return false
                 }
@@ -369,7 +372,11 @@ final class HotkeyMonitor {
             throw WisprError.hotkeyRegistrationFailed
         }
 
-        let source = CFMachPortCreateRunLoopSource(nil, tap, 0)!
+        guard let source = CFMachPortCreateRunLoopSource(nil, tap, 0) else {
+            Log.hotkey.error("setupFnEventTap — CFMachPortCreateRunLoopSource returned nil")
+            CFMachPortInvalidate(tap)
+            throw WisprError.hotkeyRegistrationFailed
+        }
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 

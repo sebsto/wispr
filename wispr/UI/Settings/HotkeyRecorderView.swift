@@ -79,9 +79,11 @@ struct HotkeyRecorderView: View {
 
     private func installFnMonitor() {
         fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
-            guard isRecording, event.keyCode == HotkeyMonitor.fnKeyCode else { return event }
+            guard isRecording else { return event }
 
-            // Only accept the press (function flag set), not the release
+            // Detect Fn via the .function modifier flag rather than keyCode,
+            // because Apple Silicon Macs may report a keycode other than 63.
+            // Only accept the press (function flag set), not the release.
             if event.modifierFlags.contains(.function) {
                 keyCode = UInt32(HotkeyMonitor.fnKeyCode)
                 modifiers = 0

@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import os
 
 // MARK: - Reusable Components
 
@@ -118,10 +119,16 @@ struct SettingsView: View {
             if recording {
                 hotkeyMonitor.unregister()
             } else {
-                try? hotkeyMonitor.register(
-                    keyCode: settingsStore.hotkeyKeyCode,
-                    modifiers: settingsStore.hotkeyModifiers
-                )
+                do {
+                    try hotkeyMonitor.register(
+                        keyCode: settingsStore.hotkeyKeyCode,
+                        modifiers: settingsStore.hotkeyModifiers
+                    )
+                    hotkeyError = nil
+                } catch {
+                    hotkeyError = error.localizedDescription
+                    Log.hotkey.error("Settings — failed to re-register hotkey: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -155,7 +162,7 @@ struct SettingsView: View {
                     Text("The Globe key may conflict with macOS features like the emoji picker or input source switching. ")
                     + Text("If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\".")
                 } icon: {
-                    Image(systemName: "info.circle.fill")
+                    Image(systemName: SFSymbols.info)
                         .foregroundStyle(.blue)
                 }
                 .font(.caption)
