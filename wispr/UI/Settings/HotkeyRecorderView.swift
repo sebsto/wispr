@@ -6,6 +6,7 @@
 //  key combination when activated.
 //
 
+import AppKit
 import SwiftUI
 import Carbon
 
@@ -80,6 +81,14 @@ struct HotkeyRecorderView: View {
     private func installFnMonitor() {
         fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
             guard isRecording else { return event }
+
+            // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
+            // This matches HotkeyMonitor.handleFnFlagsChanged() which also
+            // rejects combined modifier presses.
+            let otherModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+            if !event.modifierFlags.intersection(otherModifiers).isEmpty {
+                return event
+            }
 
             // Detect Fn via the .function modifier flag rather than keyCode,
             // because Apple Silicon Macs may report a keycode other than 63.
