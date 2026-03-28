@@ -134,6 +134,19 @@ Added `Log.hotkey` logger category and structured logging throughout `HotkeyMoni
 | ARCHS=arm64 drops Intel (Debug) | project.pbxproj | Invalid — Apple Silicon only by design | Dismissed |
 | ARCHS=arm64 drops Intel (Release) | project.pbxproj | Invalid — same as above | Dismissed |
 
+## Copilot Code Review (PR #38) — Round 3
+
+6 new comments evaluated (001e72c) — all spec/doc alignment:
+
+| Comment | File | Verdict | Action |
+|---------|------|---------|--------|
+| Update AppleFnUsageType snippet | design.md:301 | Valid — stale code snippet | Fixed in 001e72c |
+| Update recorder keyCode guard | design.md:267 | Valid — snippet uses keyCode not flag | Fixed in 001e72c |
+| Update Req 4 acceptance criteria | requirements.md:45 | Valid — still references defaults reading | Fixed in 001e72c |
+| Update Req 2 Fn+key limitation | requirements.md:22 | Valid — undocumented limitation | Fixed in 001e72c |
+| Update Task 4 for static warning | tasks.md:43 | Valid — still references UserDefaults | Fixed in 001e72c |
+| Update Task 3.3 keycode detection | tasks.md:34 | Valid — still references keyCode guard | Fixed in 001e72c |
+
 ## Files Modified
 
 | File | Nature |
