@@ -159,8 +159,7 @@ struct SettingsView: View {
             if settingsStore.hotkeyKeyCode == HotkeyMonitor.fnKeyCode
                 && settingsStore.hotkeyModifiers == 0 {
                 Label {
-                    Text("The Globe key may conflict with macOS features like the emoji picker or input source switching. ")
-                    + Text("If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\".")
+                    Text("The Globe key may conflict with macOS features like the emoji picker or input source switching. If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\".")
                 } icon: {
                     Image(systemName: SFSymbols.info)
                         .foregroundStyle(.blue)
