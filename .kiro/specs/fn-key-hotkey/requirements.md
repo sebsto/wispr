@@ -19,7 +19,8 @@
 - When the configured hotkey is keycode 63 with modifiers 0, `HotkeyMonitor` internally uses a `CGEventTap` instead of Carbon's `RegisterEventHotKey`.
 - The event tap intercepts `flagsChanged` events and detects Fn press (keycode 63, `CGEventFlags.maskSecondaryFn` set) and release (flag cleared).
 - Bare Fn events are consumed (suppressed) to prevent the emoji/Character Viewer from opening.
-- Fn combined with other keys (Fn+F1, Fn+Delete, etc.) is passed through unmodified.
+- Fn combined with modifier keys (Fn+Cmd, Fn+Opt, etc.) is passed through unmodified.
+- Note: bare Fn press/release events are consumed, which may affect some Fn-as-modifier combos (Fn+F1, Fn+Delete) — this is a known limitation documented in status.md.
 - The event tap requires Accessibility permission (already granted for Wispr).
 
 ## Requirement 3: Unified HotkeyMonitor
@@ -39,10 +40,10 @@
 **User Story:** As a user, I want Wispr to warn me if my system Globe key setting will conflict with Fn key dictation so I know how to fix it.
 
 **Acceptance Criteria:**
-- When the user records the Fn key as their hotkey, the Settings view checks the system's Globe key setting (`AppleFnUsageType` in `com.apple.HIToolbox` defaults).
-- If the Globe key is set to open the emoji picker (value 0) or Character Viewer (value 2), a non-blocking warning is shown in the Settings view with guidance to change it in System Settings → Keyboard → "Press 🌐 key to" → "Do Nothing".
-- If the Globe key is set to "Do Nothing" (value 1) or "Change Input Source" (value 3), no warning is shown.
-- The warning appears/disappears reactively when the hotkey is changed to/from Fn.
+- When the user records the Fn key as their hotkey, the Settings view shows a non-blocking, static informational message about potential Globe-key conflicts.
+- The message provides guidance to change the Globe key behavior in System Settings → Keyboard → "Press 🌐 key to" → "Do Nothing" to avoid conflicts with Fn-based dictation.
+- The app does not read or display the current system Globe key setting (`AppleFnUsageType`); the message is purely instructional (on macOS 26 the value is unreliable).
+- The informational message is shown when the Fn key is the configured hotkey and hidden for other hotkeys (appearing/disappearing when the hotkey is changed to/from Fn).
 
 ## Requirement 5: Event Tap Robustness
 

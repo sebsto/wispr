@@ -29,7 +29,7 @@
 
 - [ ] 3.1 Add `@State private var fnMonitor: Any?` for NSEvent local monitor
 - [ ] 3.2 Install `NSEvent.addLocalMonitorForEvents(matching: .flagsChanged)` when recording starts
-- [ ] 3.3 In the monitor callback: if keycode == 63 and `.function` flag is set, accept as `keyCode = 63, modifiers = 0`, exit recording
+- [ ] 3.3 In the monitor callback: detect Fn via `.function` modifier flag (not keyCode — Apple Silicon may report non-63 keycodes), reject when other modifiers are held, accept as `keyCode = 63, modifiers = 0`, exit recording
 - [ ] 3.4 Remove the monitor when recording ends (onChange of isRecording, or onDisappear)
 - [ ] 3.5 No change needed to `handleKeyPress()` modifier guard — Fn is captured by NSEvent monitor, not `.onKeyPress`
 
@@ -37,10 +37,10 @@
 **Requirements:** 4
 **Files:** `wispr/UI/Settings/SettingsView.swift`
 
-- [ ] 4.1 When `hotkeyKeyCode == 63 && hotkeyModifiers == 0`, read `AppleFnUsageType` from UserDefaults
-- [ ] 4.2 If value is 0 (emoji) or 2 (Character Viewer), show a warning label below the hotkey recorder
-- [ ] 4.3 Warning text: guidance to change Globe key setting in System Settings → Keyboard
-- [ ] 4.4 Warning appears/disappears reactively when hotkey changes to/from Fn
+- [ ] 4.1 When `hotkeyKeyCode == 63 && hotkeyModifiers == 0`, show a static Globe/Fn conflict info label below the hotkey recorder
+- [ ] 4.2 Warning text: explain that macOS may reserve the Globe/Fn key for emoji/Character Viewer, with guidance to change it in System Settings → Keyboard
+- [ ] 4.3 The warning is purely instructional — do not attempt to read `AppleFnUsageType` (unreliable on macOS 26)
+- [ ] 4.4 Warning appears/disappears reactively when the hotkey changes to/from bare Fn
 
 ## Task 5: Write Tests
 **Requirements:** 1, 2, 3, 5

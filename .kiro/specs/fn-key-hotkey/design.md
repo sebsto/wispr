@@ -254,11 +254,18 @@ struct HotkeyRecorderView: View {
 
     private func installFnMonitor() {
         fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
-            guard isRecording, event.keyCode == 63 else { return event }
+            guard isRecording else { return event }
 
-            // Detect Fn press (not release)
+            // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
+            let otherModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+            if !event.modifierFlags.intersection(otherModifiers).isEmpty {
+                return event
+            }
+
+            // Detect Fn via the .function modifier flag rather than keyCode,
+            // because Apple Silicon Macs may report a keycode other than 63.
             if event.modifierFlags.contains(.function) {
-                keyCode = 63
+                keyCode = UInt32(HotkeyMonitor.fnKeyCode)
                 modifiers = 0
                 isRecording = false
                 errorMessage = nil
@@ -281,24 +288,19 @@ The existing `handleKeyPress()` modifier guard (`carbonModifiers != 0`) stays un
 
 ### Settings View: Globe Key Conflict Warning
 
-When the hotkey is configured as Fn (keyCode 63, modifiers 0), the Settings view shows a contextual warning if the system Globe key conflicts:
+When the hotkey is configured as Fn (keyCode 63, modifiers 0), the Settings view shows a static informational warning about potential Globe key conflicts. The app does not attempt to read `AppleFnUsageType` from system defaults — on macOS 26 this value is unreliable (returns stale data).
 
 ```swift
 // In SettingsView, below the hotkey recorder
 if settingsStore.hotkeyKeyCode == HotkeyMonitor.fnKeyCode
     && settingsStore.hotkeyModifiers == 0 {
-    let fnUsage = UserDefaults.standard.integer(forKey: "AppleFnUsageType")
-    if fnUsage == 0 || fnUsage == 2 {
-        // 0 = Emoji & Symbols (default), 2 = Character Viewer
-        Label {
-            Text("Your Globe key is set to open the emoji picker. ")
-            + Text("Change it in System Settings → Keyboard → \"Press 🌐 key to\" → \"Do Nothing\".")
-        } icon: {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.yellow)
-        }
-        .font(.caption)
+    Label {
+        Text("The Globe key may conflict with macOS features like the emoji picker or input source switching. If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\".")
+    } icon: {
+        Image(systemName: SFSymbols.info)
+            .foregroundStyle(.blue)
     }
+    .font(.caption)
 }
 ```
 
