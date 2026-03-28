@@ -87,6 +87,13 @@ final class SettingsStore {
         didSet { guard !isLoading else { return }; defaults.set(autoSuffixText, forKey: Keys.autoSuffixText) }
     }
 
+    // MARK: - Filler Word Removal Settings
+
+    /// When true, removes common filler words (um, uh, ah, etc.) from transcriptions before insertion.
+    var removeFillerWords: Bool {
+        didSet { guard !isLoading else { return }; defaults.set(removeFillerWords, forKey: Keys.removeFillerWords) }
+    }
+
     // MARK: - Auto-Send Enter Settings
 
     /// When true, simulates an Enter/Return keystroke after text insertion.
@@ -109,6 +116,7 @@ final class SettingsStore {
         static let soundFeedbackEnabled = "soundFeedbackEnabled"
         static let autoSuffixEnabled = "autoSuffixEnabled"
         static let autoSuffixText = "autoSuffixText"
+        static let removeFillerWords = "removeFillerWords"
         static let autoSendEnterEnabled = "autoSendEnterEnabled"
     }
     
@@ -130,6 +138,7 @@ final class SettingsStore {
         static let soundFeedbackEnabled: Bool = false
         static let autoSuffixEnabled: Bool = false
         static let autoSuffixText: String = " "
+        static let removeFillerWords: Bool = false
         static let autoSendEnterEnabled: Bool = false
     }
 
@@ -155,6 +164,7 @@ final class SettingsStore {
         self.soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         self.autoSuffixEnabled = Defaults.autoSuffixEnabled
         self.autoSuffixText = Defaults.autoSuffixText
+        self.removeFillerWords = Defaults.removeFillerWords
         self.autoSendEnterEnabled = Defaults.autoSendEnterEnabled
 
         // Load persisted values
@@ -178,6 +188,7 @@ final class SettingsStore {
         soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         autoSuffixEnabled = Defaults.autoSuffixEnabled
         autoSuffixText = Defaults.autoSuffixText
+        removeFillerWords = Defaults.removeFillerWords
         autoSendEnterEnabled = Defaults.autoSendEnterEnabled
     }
     
@@ -200,6 +211,7 @@ final class SettingsStore {
         defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled)
         defaults.set(autoSuffixEnabled, forKey: Keys.autoSuffixEnabled)
         defaults.set(autoSuffixText, forKey: Keys.autoSuffixText)
+        defaults.set(removeFillerWords, forKey: Keys.removeFillerWords)
         defaults.set(autoSendEnterEnabled, forKey: Keys.autoSendEnterEnabled)
 
         if let encoded = try? JSONEncoder().encode(languageMode) {
@@ -268,6 +280,11 @@ final class SettingsStore {
 
         if let suffixText = defaults.string(forKey: Keys.autoSuffixText) {
             self.autoSuffixText = suffixText
+        }
+
+        // Load filler word removal setting
+        if defaults.object(forKey: Keys.removeFillerWords) != nil {
+            self.removeFillerWords = defaults.bool(forKey: Keys.removeFillerWords)
         }
 
         // Load auto-send Enter settings

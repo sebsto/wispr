@@ -52,6 +52,7 @@ struct SettingsView: View {
         static let alwaysUseLanguage = "When enabled, always transcribes in the selected language instead of detecting per-recording"
 
         // After Transcription section
+        static let removeFillerWords = "When enabled, removes filler words like um, uh, and ah from transcriptions"
         static let autoInsertSuffix = "When enabled, appends a suffix to transcribed text"
         static let autoSendEnter = "When enabled, simulates pressing Enter after text insertion"
 
@@ -260,6 +261,9 @@ struct SettingsView: View {
     private var afterTranscriptionSection: some View {
         Section {
             @Bindable var store = settingsStore
+            Toggle("Remove Filler Words", isOn: $store.removeFillerWords)
+                .accessibilityHint(AccessibilityHints.removeFillerWords)
+
             Toggle("Auto-Insert Suffix", isOn: $store.autoSuffixEnabled)
                 .accessibilityHint(AccessibilityHints.autoInsertSuffix)
 
