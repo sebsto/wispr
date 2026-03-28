@@ -230,6 +230,14 @@ final class StateManager {
         eouMonitoringTask = nil
     }
 
+    // MARK: - Filler Word Removal
+
+    /// Removes filler words from transcribed text when the setting is enabled.
+    func applyFillerWordRemoval(to text: String) -> String {
+        guard settingsStore.removeFillerWords, !text.isEmpty else { return text }
+        return FillerWordCleaner.clean(text)
+    }
+
     // MARK: - Auto-Suffix & Auto-Send Helpers
 
     /// Applies optional suffix to transcribed text based on settings.
@@ -271,7 +279,15 @@ final class StateManager {
             return
         }
 
-        let finalText = applyAutoSuffix(to: text)
+        let cleaned = applyFillerWordRemoval(to: text)
+
+        // If filler removal left the text empty, treat as empty transcription
+        guard !cleaned.isEmpty else {
+            await resetToIdle()
+            return
+        }
+
+        let finalText = applyAutoSuffix(to: cleaned)
 
         do {
             try await textInsertionService.insertText(finalText)

@@ -537,6 +537,65 @@ struct StateManagerTests {
         return cases
     }()
 
+    // MARK: - Filler Word Removal
+
+    @Test("applyFillerWordRemoval removes fillers when enabled")
+    func testFillerRemovalEnabled() {
+        let defaults = UserDefaults(suiteName: "test.wispr.filler.on.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.removeFillerWords = true
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        let result = sm.applyFillerWordRemoval(to: "I um think uh it works")
+        #expect(result == "I think it works")
+    }
+
+    @Test("applyFillerWordRemoval passes text through when disabled")
+    func testFillerRemovalDisabled() {
+        let defaults = UserDefaults(suiteName: "test.wispr.filler.off.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.removeFillerWords = false
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        let result = sm.applyFillerWordRemoval(to: "I um think uh it works")
+        #expect(result == "I um think uh it works")
+    }
+
+    @Test("applyFillerWordRemoval returns empty text unchanged")
+    func testFillerRemovalEmptyText() {
+        let defaults = UserDefaults(suiteName: "test.wispr.filler.empty.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.removeFillerWords = true
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        let result = sm.applyFillerWordRemoval(to: "")
+        #expect(result == "")
+    }
+
     // MARK: - switchActiveModel
 
     @Test("switchActiveModel no-ops when switching to the current model")

@@ -277,6 +277,34 @@ struct SettingsStoreTests {
         #expect(newStore.soundFeedbackEnabled == true, "soundFeedbackEnabled should persist")
     }
 
+    // MARK: - Filler Word Removal Tests
+
+    @Test("SettingsStore removeFillerWords defaults to false")
+    func testRemoveFillerWordsDefault() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        #expect(store.removeFillerWords == false)
+    }
+
+    @Test("SettingsStore persists removeFillerWords")
+    func testRemoveFillerWordsPersistence() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.removeFillerWords = true
+
+        let newStore = SettingsStore(defaults: defaults)
+        #expect(newStore.removeFillerWords == true, "removeFillerWords should persist")
+    }
+
+    @Test("SettingsStore restoreDefaults resets removeFillerWords to false")
+    func testRestoreDefaultsResetsRemoveFillerWords() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.removeFillerWords = true
+        store.restoreDefaults()
+        #expect(store.removeFillerWords == false)
+    }
+
     // MARK: - Property-Based Tests
 
     // Feature: auto-suffix-insertion, Property 1: Settings persistence round-trip

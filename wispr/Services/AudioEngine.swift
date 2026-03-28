@@ -31,7 +31,6 @@ actor AudioEngine {
     private var audioContinuation: AsyncStream<[Float]>.Continuation?
     private var selectedDeviceID: AudioDeviceID?
     private var isCapturing = false
-    private var audioConverter: AVAudioConverter?
     
     // MARK: - Configuration
     
@@ -56,6 +55,8 @@ actor AudioEngine {
         
         return deviceIDs.compactMap { id in
             let device = CoreAudioDevice(id: id)
+            // Filter out aggregate devices created by AVAudioEngine internally
+            guard device.transportType != kAudioDeviceTransportTypeAggregate else { return nil }
             guard device.hasInputStreams,
                   let name = device.name,
                   let uid = device.uid else { return nil }
@@ -72,35 +73,7 @@ actor AudioEngine {
         guard !isCapturing else {
             throw WisprError.audioRecordingFailed("Already capturing")
         }
-        
-        // Create and configure the audio engine
-        let audioEngine = AVAudioEngine()
-        self.engine = audioEngine
 
-        let inputNode = audioEngine.inputNode
-
-        // Apply the user's selected input device before reading the format.
-        // kAudioOutputUnitProperty_CurrentDevice must be set on the input
-        // node's AudioUnit prior to engine.start() so that AVAudioEngine
-        // captures from the chosen device instead of the system default.
-        if let deviceID = selectedDeviceID, let audioUnit = inputNode.audioUnit {
-            var devID = deviceID
-            let status = AudioUnitSetProperty(
-                audioUnit,
-                kAudioOutputUnitProperty_CurrentDevice,
-                kAudioUnitScope_Global,
-                0,
-                &devID,
-                UInt32(MemoryLayout<AudioDeviceID>.size)
-            )
-            if status != noErr {
-                Log.audioEngine.warning("Failed to set input device \(deviceID), using system default (OSStatus: \(status))")
-                selectedDeviceID = nil
-            }
-        }
-
-        let inputFormat = inputNode.outputFormat(forBus: 0)
-        
         // WhisperKit requires 16kHz mono Float32 audio
         guard let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -110,82 +83,138 @@ actor AudioEngine {
         ) else {
             throw WisprError.audioRecordingFailed("Failed to create 16kHz target format")
         }
-        
-        // Create converter from system sample rate to 16kHz
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
-            throw WisprError.audioRecordingFailed(
-                "Failed to create audio converter from \(inputFormat.sampleRate)Hz to 16kHz"
-            )
-        }
-        self.audioConverter = converter
-        
-        Log.audioEngine.debug("startCapture — inputFormat sampleRate: \(inputFormat.sampleRate), targetFormat: 16kHz mono Float32, converter created: true")
-        
+
         // Reset audio buffer
         audioBuffer.removeAll()
         isCapturing = true
-        
+
         // Create the AsyncStream for audio levels
-        // We use makeStream to get the continuation separately, avoiding nonisolated closure issues
         let (stream, continuation) = AsyncStream.makeStream(of: Float.self)
         self.levelContinuation = continuation
-        
-        // Capture converter as a local let so the @Sendable closure can use it
-        let tapConverter = converter
-        let sampleRateRatio = targetFormat.sampleRate / inputFormat.sampleRate
-        
-        // Install tap on input node to capture audio
-        // Task {} here bridges from AVAudioEngine's sync C callback to async actor method
-        // This IS structured: task is scoped to the tap's lifetime (removed when tap is removed)
+
+        let audioEngine = AVAudioEngine()
+        self.engine = audioEngine
+        let inputNode = audioEngine.inputNode
+
+        // Assign the selected device to this engine's input AudioUnit
+        // BEFORE reading any format or installing taps (Req 2.1, 2.3).
+        // For selected devices, build an explicit tap format from CoreAudio
+        // since inputNode's cached format may be stale after device switches.
+        // For system-default devices, nil lets AVAudioEngine use its cache.
+        var tapFormat: AVAudioFormat? = nil
+        if let deviceID = selectedDeviceID {
+            var devID = deviceID
+            let status = AudioUnitSetProperty(
+                inputNode.audioUnit!,
+                kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global,
+                0,
+                &devID,
+                UInt32(MemoryLayout<AudioDeviceID>.size)
+            )
+            if status == noErr {
+                Log.audioEngine.debug("Per-engine input device set to \(deviceID)")
+            } else {
+                Log.audioEngine.warning("AudioUnitSetProperty failed (OSStatus: \(status)) for device \(deviceID), falling back to system default")
+                selectedDeviceID = nil
+            }
+
+            if selectedDeviceID != nil {
+                let device = CoreAudioDevice(id: deviceID)
+
+                // Bluetooth devices switch from A2DP (48kHz) to HFP/SCO
+                // (16/24kHz) when the mic is activated. Wait for the rate
+                // to settle before querying the hardware format.
+                let isBluetooth = device.transportType == kAudioDeviceTransportTypeBluetooth
+                    || device.transportType == kAudioDeviceTransportTypeBluetoothLE
+                if isBluetooth {
+                    try await waitForBluetoothHFP(deviceID: deviceID)
+                }
+
+                // Build tap format from the actual hardware rate.
+                let rate = device.nominalSampleRate ?? 48000
+                let channels = max(device.inputChannelCount, 1)
+                guard let format = AVAudioFormat(
+                    commonFormat: .pcmFormatFloat32,
+                    sampleRate: rate,
+                    channels: AVAudioChannelCount(channels),
+                    interleaved: false
+                ) else {
+                    isCapturing = false
+                    levelContinuation?.finish()
+                    levelContinuation = nil
+                    self.engine = nil
+                    throw WisprError.audioRecordingFailed("Failed to create tap format at \(rate)Hz \(channels)ch")
+                }
+                tapFormat = format
+            }
+        }
+
+        let deviceDescription = selectedDeviceID.map { String($0) } ?? "system default"
+        Log.audioEngine.debug("startCapture — device: \(deviceDescription), tapFormat: \(tapFormat?.description ?? "nil (system default)")")
+
+        // The converter is created lazily from the first buffer's actual format.
+        nonisolated(unsafe) var converter: AVAudioConverter?
+        nonisolated(unsafe) var sampleRateRatio: Double = 0
         nonisolated(unsafe) var hasLoggedFirstBuffer = false
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: tapFormat) { [weak self] buffer, _ in
             guard let self, buffer.frameLength > 0 else { return }
-            
-            // Calculate output frame count based on sample rate ratio
+
+            // Lazily create converter from the actual buffer format
+            if converter == nil {
+                let bufferFormat = buffer.format
+                guard bufferFormat.sampleRate > 0, bufferFormat.channelCount > 0 else { return }
+                guard let newConverter = AVAudioConverter(from: bufferFormat, to: targetFormat) else { return }
+                converter = newConverter
+                sampleRateRatio = targetFormat.sampleRate / bufferFormat.sampleRate
+                Log.audioEngine.debug("Tap started — hwFormat: \(bufferFormat.sampleRate)Hz \(bufferFormat.channelCount)ch, converter created")
+            }
+
+            guard let tapConverter = converter else { return }
+
             let outputFrameCount = AVAudioFrameCount(Double(buffer.frameLength) * sampleRateRatio)
             guard let outputBuffer = AVAudioPCMBuffer(
                 pcmFormat: targetFormat,
                 frameCapacity: outputFrameCount
             ) else { return }
-            
-            // Resample from system rate to 16kHz
-            // The input block captures `buffer` which is non-Sendable (AVAudioPCMBuffer),
-            // but it's used synchronously within the same tap callback scope.
+
             nonisolated(unsafe) let inputBuffer = buffer
             var conversionError: NSError?
             let status = tapConverter.convert(to: outputBuffer, error: &conversionError) { _, outStatus in
                 outStatus.pointee = .haveData
                 return inputBuffer
             }
-            
+
             guard status != .error,
                   let channelData = outputBuffer.floatChannelData?[0],
                   outputBuffer.frameLength > 0 else { return }
-            
+
             let bufferCopy = Array(UnsafeBufferPointer(start: channelData, count: Int(outputBuffer.frameLength)))
-            
+
             if !hasLoggedFirstBuffer {
                 hasLoggedFirstBuffer = true
                 Log.audioEngine.debug("First buffer — inputFrames: \(buffer.frameLength), outputFrames: \(outputBuffer.frameLength)")
             }
-            
+
             Task {
                 await self.processAudioBufferData(bufferCopy)
             }
         }
-        
+
         // Start the engine
         do {
             try audioEngine.start()
+            return stream
         } catch {
+            Log.audioEngine.error("engine.start() failed: \(error.localizedDescription)")
+            audioEngine.stop()
+            inputNode.removeTap(onBus: 0)
+            self.engine = nil
             isCapturing = false
             levelContinuation?.finish()
             levelContinuation = nil
-            self.engine = nil
             throw WisprError.audioRecordingFailed("Failed to start audio engine: \(error.localizedDescription)")
         }
-        
-        return stream
     }
     
     /// Stops audio capture and returns the recorded audio samples
@@ -293,6 +322,7 @@ actor AudioEngine {
         guard status == noErr, deviceID != kAudioObjectUnknown else { return nil }
         return deviceID
     }
+
     
     // MARK: - Private Helpers
     
@@ -306,8 +336,28 @@ actor AudioEngine {
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
         self.engine = nil
-        self.audioConverter = nil
         audioBuffer.removeAll()
+    }
+
+    /// Waits for a Bluetooth device to complete the A2DP → HFP/SCO profile
+    /// switch by polling `kAudioDevicePropertyNominalSampleRate`.
+    /// HFP typically runs at 8/16/24 kHz; A2DP at 44.1/48 kHz.
+    /// Returns once the rate drops below 44100 or after a timeout.
+    private func waitForBluetoothHFP(deviceID: AudioDeviceID, timeoutMs: Int = 3000) async throws {
+        let pollInterval = 100 // ms
+        let maxPolls = timeoutMs / pollInterval
+        let device = CoreAudioDevice(id: deviceID)
+
+        for poll in 0..<maxPolls {
+            if let rate = device.nominalSampleRate, rate < 44100 {
+                Log.audioEngine.debug("Bluetooth HFP settled at \(rate)Hz after \(poll * pollInterval)ms")
+                return
+            }
+            try await Task.sleep(for: .milliseconds(pollInterval))
+        }
+        // Timeout — proceed with whatever rate the device reports now.
+        let finalRate = device.nominalSampleRate ?? 0
+        Log.audioEngine.warning("Bluetooth HFP timeout after \(timeoutMs)ms, rate: \(finalRate)Hz")
     }
     
     private func getSystemDeviceIDs() -> [AudioDeviceID]? {
@@ -374,6 +424,49 @@ nonisolated private struct CoreAudioDevice: Sendable {
     
     nonisolated var uid: String? {
         getStringProperty(kAudioDevicePropertyDeviceUID)
+    }
+
+    /// The transport type of the device (USB, Bluetooth, Built-In, etc.)
+    nonisolated var transportType: UInt32 {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var value: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value)
+        return status == noErr ? value : 0
+    }
+
+    /// The device's current nominal sample rate as reported by CoreAudio.
+    nonisolated var nominalSampleRate: Double? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var rate: Float64 = 0
+        var size = UInt32(MemoryLayout<Float64>.size)
+        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &rate)
+        return status == noErr ? rate : nil
+    }
+
+    /// Number of input channels on this device.
+    nonisolated var inputChannelCount: UInt32 {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return 0 }
+        let rawPointer = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { rawPointer.deallocate() }
+        let bufferListPointer = rawPointer.bindMemory(to: AudioBufferList.self, capacity: 1)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, bufferListPointer) == noErr else { return 0 }
+        let bufferList = UnsafeMutableAudioBufferListPointer(bufferListPointer)
+        return bufferList.reduce(0) { $0 + $1.mNumberChannels }
     }
     
     nonisolated private func getStringProperty(_ selector: AudioObjectPropertySelector) -> String? {

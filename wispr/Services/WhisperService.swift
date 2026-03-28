@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import WhisperKit
+@preconcurrency import WhisperKit
 import AVFoundation
 import os
 
@@ -366,24 +366,24 @@ actor WhisperService {
             Log.whisperService.error("transcribe — whisperKit is nil, no model loaded")
             throw WisprError.modelNotDownloaded
         }
-        
+
         let sampleCount = audioSamples.count
         let audioDuration = Double(sampleCount) / 16000.0
         Log.whisperService.debug("transcribe — samples: \(sampleCount), duration: \(audioDuration, format: .fixed(precision: 2))s")
-        
+
         // Guard against audio too short for meaningful transcription.
         // WhisperKit needs at least ~0.5s of audio to produce results.
         guard audioSamples.count >= 8000 else {
             Log.whisperService.debug("transcribe — audio too short (\(audioSamples.count) samples), skipping")
             throw WisprError.emptyTranscription
         }
-        
+
         let startTime = Date()
-        
+
         do {
             // Configure language parameter based on mode
             var languageCode: String? = nil
-            
+
             // Requirement 16.2: Auto-detect mode
             // Requirement 16.4: Specific and pinned language modes
             switch language {
@@ -393,7 +393,7 @@ actor WhisperService {
                 languageCode = code
             }
 
-            
+
             // Perform transcription (Requirements 3.1, 3.2)
             // When language is nil (auto-detect), enable detectLanguage so
             // WhisperKit runs its language identification pass instead of
