@@ -17,7 +17,7 @@ struct CLIInstallDialogView: View {
     }
 
     private var installCommand: String {
-        "ln -s \"\(cliSourcePath)\" /usr/local/bin/wispr"
+        "ln -sf \"\(cliSourcePath)\" /usr/local/bin/wispr"
     }
 
     var body: some View {

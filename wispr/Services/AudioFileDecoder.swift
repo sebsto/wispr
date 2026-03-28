@@ -103,6 +103,10 @@ actor AudioFileDecoder {
         chunkDuration: TimeInterval = 30.0,
         overlapDuration: TimeInterval = 1.0
     ) async throws -> AsyncThrowingStream<[Float], Error> {
+        precondition(chunkDuration > 0, "chunkDuration must be positive")
+        precondition(overlapDuration >= 0, "overlapDuration must be non-negative")
+        precondition(overlapDuration < chunkDuration, "overlapDuration must be less than chunkDuration")
+
         let (reader, output) = try await Self.makeReader(for: fileURL)
 
         guard reader.startReading() else {
@@ -196,6 +200,8 @@ actor AudioFileDecoder {
 
         let length = CMBlockBufferGetDataLength(blockBuffer)
         let floatCount = length / MemoryLayout<Float>.size
+
+        guard length > 0 else { return [] }
 
         var data = Data(count: length)
         let status = data.withUnsafeMutableBytes { rawPtr in

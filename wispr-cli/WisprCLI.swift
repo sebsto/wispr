@@ -17,10 +17,6 @@ nonisolated enum CLIError: Error, CustomStringConvertible, Sendable {
     case noActiveModel
     case modelNotFound(String, available: [String])
     case fileNotFound(String)
-    case noAudioTrack(String)
-    case unsupportedFormat(String)
-    case decodingFailed(String)
-    case transcriptionFailed(String)
 
     var description: String {
         switch self {
@@ -34,14 +30,6 @@ nonisolated enum CLIError: Error, CustomStringConvertible, Sendable {
             "Model '\(name)' not found. Available models: \(available.joined(separator: ", "))"
         case .fileNotFound(let path):
             "File not found: \(path)"
-        case .noAudioTrack(let path):
-            "No audio track found in: \(path)"
-        case .unsupportedFormat(let path):
-            "Unsupported file format: \(path)"
-        case .decodingFailed(let detail):
-            "Audio decoding failed: \(detail)"
-        case .transcriptionFailed(let detail):
-            "Transcription failed: \(detail)"
         }
     }
 }
@@ -215,8 +203,10 @@ struct WisprCLI: AsyncParsableCommand {
             return name
         }
 
-        // Try GUI app's active model from UserDefaults
-        if let active = UserDefaults.standard.string(forKey: "activeModelName"),
+        // Try GUI app's active model from its UserDefaults domain.
+        // The GUI app is sandboxed, so its defaults live in a separate domain.
+        let guiDefaults = UserDefaults(suiteName: "com.stormacq.mac.wispr")
+        if let active = guiDefaults?.string(forKey: "activeModelName"),
            downloadedModels.contains(where: { $0.name == active }) {
             return active
         }

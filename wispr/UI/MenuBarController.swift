@@ -216,7 +216,7 @@ final class MenuBarController {
                 keyEquivalent: ""
             )
             installCLIItem.image = NSImage(
-                systemSymbolName: "terminal",
+                systemSymbolName: SFSymbols.terminal,
                 accessibilityDescription: "Install CLI"
             )
             menu.addItem(installCLIItem)

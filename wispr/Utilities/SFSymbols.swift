@@ -122,6 +122,9 @@ enum SFSymbols {
     /// Chevron up/down icon for menu disclosure.
     static let chevronUpDown = "chevron.up.chevron.down"
 
+    /// Terminal icon for CLI install menu item.
+    static let terminal = "terminal"
+
     // MARK: - Model Status Icons
 
     /// Plain checkmark for active/completion states.
