@@ -94,4 +94,26 @@ enum ModelPaths {
     nonisolated static var parakeetEouParent: URL {
         models
     }
+
+    /// URL of the GUI app's UserDefaults plist.
+    /// Inside the sandbox this is the standard location; outside (CLI) it
+    /// points into the GUI's container so the CLI reads current values
+    /// rather than a stale `~/Library/Preferences/` copy.
+    nonisolated static var guiDefaultsPlist: URL {
+        let isSandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+        if isSandboxed {
+            guard let prefs = FileManager.default.urls(
+                for: .libraryDirectory,
+                in: .userDomainMask
+            ).first?.appendingPathComponent("Preferences/com.stormacq.mac.wispr.plist") else {
+                fatalError("Library directory unavailable")
+            }
+            return prefs
+        }
+
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return home.appendingPathComponent(
+            "Library/Containers/com.stormacq.mac.wispr/Data/Library/Preferences/com.stormacq.mac.wispr.plist"
+        )
+    }
 }

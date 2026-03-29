@@ -11,14 +11,16 @@ import Foundation
 
 // MARK: - CLI Error Types
 
-nonisolated enum CLIError: Error, CustomStringConvertible, Sendable {
+enum CLIError: Error, CustomStringConvertible, Sendable {
     case noModelsDirectory
     case noDownloadedModels
     case noActiveModel
     case modelNotFound(String, available: [String])
     case fileNotFound(String)
 
-    var description: String {
+    // nonisolated because ArgumentParser accesses error descriptions
+    // outside MainActor when formatting CLI error output.
+    nonisolated var description: String {
         switch self {
         case .noModelsDirectory:
             "Wispr.app has not been set up yet. Please launch Wispr.app and download at least one model before using the CLI."
@@ -36,7 +38,7 @@ nonisolated enum CLIError: Error, CustomStringConvertible, Sendable {
 
 // MARK: - Supporting Types
 
-nonisolated struct TranscribeConfig: Sendable {
+struct TranscribeConfig: Sendable {
     let filePath: String
     let modelName: String?
     let languageCode: String?
@@ -44,7 +46,7 @@ nonisolated struct TranscribeConfig: Sendable {
     let verbose: Bool
 }
 
-nonisolated struct DownloadedModelInfo: Sendable {
+struct DownloadedModelInfo: Sendable {
     let name: String
     let sizeOnDisk: Int64
     let path: URL
@@ -115,9 +117,13 @@ struct WisprCLI: AsyncParsableCommand {
 
         // 1. Resolve model
         let modelName = try resolveModel(config.modelName)
-        if config.verbose {
-            printStderr("Using model: \(modelName)")
-        }
+        printStderr("Using model: \(modelName)")
+
+        // Suppress FluidAudio SDK logs unless --verbose is set.
+        // The SDK writes INFO-level messages to stderr with no public
+        // log-level filter, so we redirect the fd during engine calls.
+        let savedFd = config.verbose ? Int32(-1) : suppressStderr()
+        defer { if !config.verbose { restoreStderr(savedFd) } }
 
         // 2. Load model
         let engine = CompositeTranscriptionEngine(
@@ -173,10 +179,8 @@ struct WisprCLI: AsyncParsableCommand {
             return name
         }
 
-        // Try GUI app's active model from its UserDefaults domain.
-        // The GUI app is sandboxed, so its defaults live in a separate domain.
-        let guiDefaults = UserDefaults(suiteName: "com.stormacq.mac.wispr")
-        if let active = guiDefaults?.string(forKey: "activeModelName"),
+        // Try GUI app's active model from its sandboxed container plist.
+        if let active = guiDefaultsString(forKey: "activeModelName"),
            downloadedModels.contains(where: { $0.name == active }) {
             return active
         }
@@ -214,16 +218,29 @@ struct WisprCLI: AsyncParsableCommand {
             }
         }
 
-        // Scan Parakeet models
-        let parakeetEntries = [
-            ("parakeet-v3", modelsDir.appendingPathComponent("parakeet-tdt-v3")),
-            ("parakeet-eou-160ms", ModelPaths.parakeetEou)
-        ]
-        for (name, path) in parakeetEntries {
-            if fm.fileExists(atPath: path.path) {
-                let size = directorySize(at: path)
-                results.append(DownloadedModelInfo(name: name, sizeOnDisk: size, path: path))
+        // Scan Parakeet V3 models: directories matching "parakeet-tdt-*-v3*"
+        // The SDK leaf name varies by FluidAudio version (e.g. "parakeet-tdt-0.6b-v3").
+        if let entries = try? fm.contentsOfDirectory(atPath: modelsDir.path) {
+            for entry in entries where entry.hasPrefix("parakeet-tdt-") && entry.contains("v3") {
+                let entryURL = modelsDir.appendingPathComponent(entry)
+                var isDir: ObjCBool = false
+                if fm.fileExists(atPath: entryURL.path, isDirectory: &isDir), isDir.boolValue {
+                    let size = directorySize(at: entryURL)
+                    results.append(DownloadedModelInfo(
+                        name: "parakeet-v3",
+                        sizeOnDisk: size,
+                        path: entryURL
+                    ))
+                    break // Only one V3 model
+                }
             }
+        }
+
+        // Scan Parakeet EOU model
+        let eouPath = ModelPaths.parakeetEou
+        if fm.fileExists(atPath: eouPath.path) {
+            let size = directorySize(at: eouPath)
+            results.append(DownloadedModelInfo(name: "parakeet-eou-160ms", sizeOnDisk: size, path: eouPath))
         }
 
         return results
@@ -260,16 +277,51 @@ struct WisprCLI: AsyncParsableCommand {
             throw CLIError.noDownloadedModels
         }
 
+        let activeModel = guiDefaultsString(forKey: "activeModelName")
+
         for model in models {
             let sizeMB = Double(model.sizeOnDisk) / 1_000_000
-            print("\(model.name)\t\(String(format: "%.0f", sizeMB)) MB")
+            let active = model.name == activeModel ? " (active)" : ""
+            print("\(model.name)\t\(String(format: "%.0f", sizeMB)) MB\(active)")
         }
+    }
+
+    // MARK: - GUI Defaults
+
+    /// Reads a string value from the GUI app's UserDefaults plist.
+    /// Uses `ModelPaths.guiDefaultsPlist` which resolves to the sandboxed
+    /// container plist when running outside the sandbox (CLI).
+    private func guiDefaultsString(forKey key: String) -> String? {
+        guard let data = try? Data(contentsOf: ModelPaths.guiDefaultsPlist),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return nil }
+        return plist[key] as? String
     }
 
     // MARK: - Output Helpers
 
     func printStderr(_ message: String) {
         FileHandle.standardError.write(Data((message + "\n").utf8))
+    }
+
+    /// Redirects stderr to /dev/null to suppress third-party SDK logging.
+    /// Returns the saved file descriptor to pass to `restoreStderr`.
+    @discardableResult
+    private func suppressStderr() -> Int32 {
+        let saved = dup(STDERR_FILENO)
+        let devNull = open("/dev/null", O_WRONLY)
+        if devNull >= 0 {
+            dup2(devNull, STDERR_FILENO)
+            close(devNull)
+        }
+        return saved
+    }
+
+    /// Restores stderr from a previously saved file descriptor.
+    private func restoreStderr(_ saved: Int32) {
+        guard saved >= 0 else { return }
+        dup2(saved, STDERR_FILENO)
+        close(saved)
     }
 
     private func writeOutput(_ text: String, to outputPath: String?) throws {

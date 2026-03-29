@@ -654,7 +654,6 @@ final class MenuOpenDelegate: NSObject, NSMenuDelegate {
         self.controller = controller
     }
 
-    @MainActor
     func menuWillOpen(_ menu: NSMenu) {
         controller?.refreshCLIInstallMenuItem()
     }
