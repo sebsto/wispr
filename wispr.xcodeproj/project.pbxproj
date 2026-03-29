@@ -8,11 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		000C012F2F50C874003B4CDA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 000C012E2F50C874003B4CDA /* WhisperKit */; };
-		00FA01002F58A00000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00FA01012F58A00000000001 /* FluidAudio */; };
+		00C1100A2F60A00100000004 /* wispr-cli in CopyFiles */ = {isa = PBXBuildFile; fileRef = 00C110012F60A00100000005 /* wispr-cli */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		00C1100D2F60A00100000001 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110102F60A00100000001 /* WhisperKit */; };
 		00C1100E2F60A00100000002 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110112F60A00100000002 /* FluidAudio */; };
 		00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110122F60A00100000003 /* ArgumentParser */; };
-		00C1100A2F60A00100000004 /* wispr-cli in CopyFiles */ = {isa = PBXBuildFile; fileRef = 00C110012F60A00100000005 /* wispr-cli */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		00FA01002F58A00000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00FA01012F58A00000000001 /* FluidAudio */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,22 +60,22 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		00C110142F60A00100000009 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		00C110142F60A00100000009 /* Exceptions for "wispr" folder in "wispr-cli" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Models/DownloadProgress.swift",
-				"Models/ModelInfo.swift",
-				"Models/ModelStatus.swift",
-				"Models/TranscriptionLanguage.swift",
-				"Models/TranscriptionResult.swift",
-				"Models/WisprError.swift",
-				"Services/AudioFileDecoder.swift",
-				"Services/CompositeTranscriptionEngine.swift",
-				"Services/ParakeetService.swift",
-				"Services/TranscriptionEngine.swift",
-				"Services/WhisperService.swift",
-				"Utilities/Logger.swift",
-				"Utilities/ModelPaths.swift",
+				Models/DownloadProgress.swift,
+				Models/ModelInfo.swift,
+				Models/ModelStatus.swift,
+				Models/TranscriptionLanguage.swift,
+				Models/TranscriptionResult.swift,
+				Models/WisprError.swift,
+				Services/AudioFileDecoder.swift,
+				Services/CompositeTranscriptionEngine.swift,
+				Services/ParakeetService.swift,
+				Services/TranscriptionEngine.swift,
+				Services/WhisperService.swift,
+				Utilities/Logger.swift,
+				Utilities/ModelPaths.swift,
 			);
 			target = 00C110052F60A00100000007 /* wispr-cli */;
 		};
@@ -85,7 +85,7 @@
 		00A1C0B82F50AD06001D1A22 /* wispr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				00C110142F60A00100000009 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				00C110142F60A00100000009 /* Exceptions for "wispr" folder in "wispr-cli" target */,
 			);
 			path = wispr;
 			sourceTree = "<group>";
@@ -711,6 +711,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
 				CURRENT_PROJECT_VERSION = 260329.260;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 56U756R2L2;
@@ -737,6 +738,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
 				CURRENT_PROJECT_VERSION = 260329.260;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 56U756R2L2;
@@ -817,20 +819,20 @@
 				minimumVersion = 0.15.0;
 			};
 		};
-		00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.12.1;
-			};
-		};
 		00C110132F60A0010000000F /* XCRemoteSwiftPackageReference "swift-argument-parser" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-argument-parser.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.5.0;
+			};
+		};
+		00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.12.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -840,11 +842,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 000C012D2F50C874003B4CDA /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
-		};
-		00FA01012F58A00000000001 /* FluidAudio */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */;
-			productName = FluidAudio;
 		};
 		00C110102F60A00100000001 /* WhisperKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -860,6 +857,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 00C110132F60A0010000000F /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
 			productName = ArgumentParser;
+		};
+		00FA01012F58A00000000001 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
