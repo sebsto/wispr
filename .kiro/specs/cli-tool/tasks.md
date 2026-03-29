@@ -38,39 +38,27 @@ Incrementally build the `wispr-cli` command-line tool embedded in the Wispr app 
   - [ ] 2.1 Create `wispr/Services/AudioFileDecoder.swift` with the `AudioFileDecoder` actor
     - Implement `AudioMetadata` as `nonisolated struct AudioMetadata: Sendable` with `duration`, `sampleRate`, `channelCount`, `estimatedSampleCount`. Must be `nonisolated` and `Sendable` to cross from the actor's isolation back to `@MainActor` callers.
     - Implement `metadata(for:)` using `AVAsset` to read audio track info without decoding
-    - Implement `decode(fileURL:)` using `AVAssetReader` + `AVAssetReaderTrackOutput` configured for 16 kHz mono Float32 PCM output
-    - Implement `decodeChunked(fileURL:chunkDuration:overlapDuration:)` returning `AsyncThrowingStream<[Float], Error>` that yields fixed-size chunks with configurable overlap (default 30s chunks, 1s overlap)
+    - Implement `decode(fileURL:)` using `AVAssetReader` + `AVAssetReaderTrackOutput` configured for 16 kHz mono Float32 PCM output. This is the primary decoding path — the full audio is decoded and passed to the transcription engine, which handles its own chunking internally.
+    - Optionally implement `decodeChunked(fileURL:chunkDuration:overlapDuration:)` returning `AsyncThrowingStream<[Float], Error>` for potential future use, but the CLI SHALL NOT use it for transcription (engines handle chunking natively).
     - Throw descriptive errors for: file not found, no audio track, unsupported format, read failure
     - Add target membership for both `wispr` and `wispr-cli` targets
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 7.1, 7.2, 7.6, 8.1_
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 8.1_
 
-  - [ ]* 2.2 Write property test: Chunked transcription completeness (Property 3)
-    - **Property 3: Chunked transcription completeness**
-    - Generate random audio durations and verify that the concatenation of all chunks from `decodeChunked` covers every sample of the input with no gaps
-    - Verify consecutive chunks overlap by exactly `overlapDuration` seconds (16,000 samples at 16 kHz)
-    - Verify the last chunk may be shorter but no samples are skipped
-    - **Validates: Requirements 7.1, 7.2, 7.4**
-
-  - [ ]* 2.3 Write property test: Memory boundedness for long files (Property 4)
-    - **Property 4: Memory boundedness for long files**
-    - For varying file durations, verify that `decodeChunked` never holds more than O(chunkDuration * sampleRate) samples in memory at once
-    - Verify the full file is not loaded into memory when using chunked decoding
-    - **Validates: Requirements 7.4**
-
-  - [ ]* 2.4 Write unit tests for AudioFileDecoder
+  - [ ]* 2.2 Write unit tests for AudioFileDecoder
     - Test decoding of each supported format (MP3, WAV, M4A, FLAC, AAC, MP4, MOV) using short bundled test fixtures
     - Verify output is 16 kHz mono Float32
     - Test error cases: missing file, no audio track, unsupported format
     - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.6, 2.7_
 
 - [ ] 3. Implement CLI error types and model discovery
-  - [ ] 3.1 Create `CLIError` enum and `DownloadedModelInfo` in `wispr-cli/main.swift` (or a supporting file)
-    - Implement `CLIError` as `nonisolated enum CLIError: Error, CustomStringConvertible, Sendable` with cases: `noActiveModel`, `modelNotFound`, `fileNotFound`, `noAudioTrack`, `unsupportedFormat`, `decodingFailed`, `transcriptionFailed`. Must be `nonisolated` because with `@MainActor` default isolation it would otherwise be `@MainActor`, preventing construction inside custom actors (`AudioFileDecoder`).
+  - [ ] 3.1 Create `CLIError` enum and `DownloadedModelInfo` in `wispr-cli/WisprCLI.swift`
+    - Implement `CLIError` as `nonisolated enum CLIError: Error, CustomStringConvertible, Sendable` with cases: `noModelsDirectory`, `noDownloadedModels`, `noActiveModel`, `modelNotFound`, `fileNotFound`. Must be `nonisolated` because with `@MainActor` default isolation it would otherwise be `@MainActor`, preventing construction inside custom actors.
+    - Audio decoding errors are thrown by `AudioFileDecoder` as `AudioDecoderError` — no wrapping in `CLIError` needed.
     - Implement `DownloadedModelInfo` as `nonisolated struct DownloadedModelInfo: Sendable` with `name`, `sizeOnDisk`, `path`. Must be `nonisolated` for the same reason — used across isolation boundaries.
-    - _Requirements: 1.7, 2.5, 2.6, 2.7, 3.4, 3.5, 4.8_
+    - _Requirements: 1.7, 3.4, 3.5, 4.8_
   - [ ] 3.2 Implement `discoverDownloadedModels()` and `resolveModel(_:)` as instance methods on `WisprCLI`
     - `discoverDownloadedModels()` scans `ModelPaths.models` (sandbox-aware, resolves to the GUI app's container) for valid model subdirectories
-    - `resolveModel(_:)` follows priority: explicit `--model` flag > `UserDefaults.standard.string(forKey: "activeModelName")` > error
+    - `resolveModel(_:)` follows priority: explicit `--model` flag > `UserDefaults(suiteName: "com.stormacq.mac.wispr").string(forKey: "activeModelName")` > error
     - Throw `CLIError.modelNotFound` with available model names when specified model is missing
     - Throw `CLIError.noActiveModel` when no default can be determined
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
@@ -86,64 +74,51 @@ Incrementally build the `wispr-cli` command-line tool embedded in the Wispr app 
     - Exit with code 0 after listing
     - _Requirements: 3.6_
 
-- [ ] 4. Implement overlap deduplication
-  - [ ] 4.1 Implement `deduplicateOverlap(previous:current:)` as an instance method on `WisprCLI`
-    - Compare the last N words of `previous` with the first N words of `current` (N = min(wordCount, 8))
-    - Find the longest matching suffix/prefix and strip the matched prefix from `current`
-    - Use case-insensitive comparison for matching
-    - _Requirements: 7.3_
-
-  - [ ]* 4.2 Write property test: Overlap deduplication correctness (Property 5)
-    - **Property 5: Overlap deduplication correctness**
-    - For any pair of strings with a known overlapping word sequence, verify `deduplicateOverlap` removes the duplicated words exactly once
-    - Verify non-overlapping words are never removed
-    - Verify the function is idempotent on already-deduplicated input
-    - **Validates: Requirements 7.2, 7.3**
-
-- [ ] 5. Checkpoint - Ensure all tests pass
+- [ ] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Implement CLI entry point and transcription orchestration
-  - [ ] 6.1 Create `wispr-cli/main.swift` with `WisprCLI` struct using `swift-argument-parser`
+- [ ] 5. Implement CLI entry point and transcription orchestration
+  - [ ] 5.1 Create `wispr-cli/WisprCLI.swift` with `WisprCLI` struct using `swift-argument-parser`
     - Implement `@main struct WisprCLI: AsyncParsableCommand` with all arguments and flags: `file` (argument), `--model`, `--language`, `--output`, `--verbose`, `--list-models`, `--version`, `--help`. Note: `@MainActor` is implicit from `SWIFT_DEFAULT_ACTOR_ISOLATION` — do not add it explicitly.
     - `static let configuration` is required by `AsyncParsableCommand` protocol — this is the only acceptable static property. Use `Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")` for the version string (no separate `AppVersion` type).
-    - All helper functions (`transcribe`, `resolveModel`, `discoverDownloadedModels`, `deduplicateOverlap`, `doListModels`, `printStderr`) are instance methods on `WisprCLI` — no free functions or static helpers.
+    - All helper functions (`transcribe`, `resolveModel`, `discoverDownloadedModels`, `doListModels`, `printStderr`, `writeOutput`) are instance methods on `WisprCLI` — no free functions or static helpers.
     - Validate that when invoked with no arguments, usage info is printed to stderr and exits non-zero
     - _Requirements: 4.3, 4.7, 5.1, 5.2, 5.3, 5.4_
-  - [ ] 6.2 Implement the `transcribe(_:)` orchestration as an instance method on `WisprCLI`
-    - Validate file existence, resolve model, load model via `CompositeTranscriptionEngine`, decode audio via `AudioFileDecoder`
-    - For files ≤ 30s: single-shot decode and transcribe
-    - For files > 30s: chunked decode with overlap deduplication, sequential transcription of each chunk
+  - [ ] 5.2 Implement the `transcribe(_:)` orchestration as an instance method on `WisprCLI`
+    - Validate file existence, resolve model, load model via `CompositeTranscriptionEngine`, decode full audio via `AudioFileDecoder.decode(fileURL:)`
+    - Pass the full decoded audio to the engine in a single `engine.transcribe(samples, language:)` call — the engine handles its own chunking internally
     - Write transcribed text to stdout (default) or to `--output` file
-    - Print progress/timing to stderr when `--verbose` is set (model load time, audio duration, chunk progress)
+    - Print progress/timing to stderr when `--verbose` is set (model load time, audio duration, sample count)
     - Print only transcribed text to stdout with no headers or metadata
-    - _Requirements: 4.1, 4.2, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 7.1, 7.2, 7.3, 7.4, 7.5_
-  - [ ] 6.3 Implement `printStderr(_:)` as an instance method on `WisprCLI` and wire all error/diagnostic output to stderr
+    - _Requirements: 4.1, 4.2, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 7.1, 7.2_
+  - [ ] 5.3 Implement `printStderr(_:)` as an instance method on `WisprCLI` and wire all error/diagnostic output to stderr
     - All `CLIError` messages, verbose output, and progress messages go to stderr
     - Only transcribed text goes to stdout
     - _Requirements: 4.5, 4.6_
 
-  - [ ]* 6.4 Write property test: Output isolation (Property 1)
+  - [ ]* 5.4 Write property test: Output isolation (Property 1)
     - **Property 1: Output isolation**
     - For any invocation of the transcription flow, verify all diagnostic and progress messages are written to stderr and only transcribed text is written to stdout
     - **Validates: Requirements 4.4, 4.5**
 
-- [ ] 7. Checkpoint - Ensure all tests pass
+- [ ] 6. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Implement CLI installation UI in the GUI app
-  - [ ] 8.1 Create `wispr/UI/CLIInstallDialog.swift` with `CLIInstallDialogView`
-    - SwiftUI view showing the `ln -s` command to create the symlink from `/usr/local/bin/wispr` to the app bundle's `wispr-cli`
+- [ ] 7. Implement CLI installation UI in the GUI app
+  - [ ] 7.1 Create `wispr/UI/CLIInstallDialog.swift` with `CLIInstallDialogView`
+    - SwiftUI view showing the `ln -sf` command to create the symlink from `/usr/local/bin/wispr` to the app bundle's `wispr-cli`
+    - Uses `-sf` to handle existing symlinks pointing to wrong targets
     - Include a "Copy Command" button that copies the command to the clipboard via `NSPasteboard`
     - Include a "Done" button to dismiss
     - _Requirements: 6.2, 6.3, 6.4, 6.5_
-  - [ ] 8.2 Add "Install Command Line Tool..." menu item to `MenuBarController`
+  - [ ] 7.2 Add "Install Command Line Tool..." menu item to `MenuBarController`
     - Add `isCLIInstalled()` check: verify `/usr/local/bin/wispr` exists and points to the correct binary in the current app bundle
     - Show the menu item only when the CLI is not installed (symlink missing or pointing to wrong location)
+    - Use `SFSymbols.terminal` constant for the menu item icon
     - Wire the menu item action to present `CLIInstallDialogView`
     - _Requirements: 6.1, 6.2, 6.5_
 
-- [ ] 9. Final checkpoint - Ensure all tests pass
+- [ ] 8. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

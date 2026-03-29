@@ -54,7 +54,7 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 
 1. THE wispr-cli SHALL read models from the GUI_App's sandboxed Shared_Models_Directory. Because the GUI_App runs inside the App Sandbox, its models are stored under `~/Library/Containers/<bundle-id>/Data/Library/Application Support/wispr/models/`. The non-sandboxed wispr-cli SHALL resolve this container path so that it reads the same models the GUI_App downloaded, without requiring the user to copy or move files.
 2. THE wispr-cli SHALL accept a `--model <name>` option to specify which downloaded model to use for transcription.
-3. IF no `--model` option is provided, THE wispr-cli SHALL use the model persisted as active in the GUI_App's UserDefaults (key: `activeModelName`).
+3. IF no `--model` option is provided, THE wispr-cli SHALL use the model persisted as active in the GUI_App's UserDefaults domain (`com.stormacq.mac.wispr`, key: `activeModelName`), accessed via `UserDefaults(suiteName:)`.
 4. IF no `--model` option is provided AND no active model is found in UserDefaults, THE wispr-cli SHALL print a descriptive error message to stderr and exit with a non-zero status code.
 5. IF the specified model is not downloaded, THEN wispr-cli SHALL print an error message listing available downloaded models and exit with a non-zero status code.
 6. THE wispr-cli SHALL accept a `--list-models` flag that prints all downloaded models with their names and sizes, download status, then exits.
@@ -100,16 +100,13 @@ The CLI binary is embedded inside `Wispr.app/Contents/Resources/bin/` and is sig
 
 ### Requirement 7: Long File Handling
 
-**User Story:** As a user, I want to transcribe long recordings (meetings, podcasts) without the CLI running out of memory or producing truncated results.
+**User Story:** As a user, I want to transcribe long recordings (meetings, podcasts) without the CLI producing truncated results.
 
 #### Acceptance Criteria
 
-1. FOR audio files longer than 30 seconds, THE wispr-cli SHALL split the decoded audio into chunks suitable for the transcription engine.
-2. THE wispr-cli SHALL use an overlap of 1 second (16,000 samples) between consecutive chunks so that words straddling a chunk boundary are fully captured by at least one chunk.
-3. THE wispr-cli SHALL deduplicate the overlap region when concatenating chunk results by detecting matching words at the end of chunk N and the beginning of chunk N+1, and removing the duplicated portion.
-4. THE wispr-cli SHALL transcribe each chunk sequentially and concatenate the deduplicated results.
-5. WHEN `--verbose` is set, THE wispr-cli SHALL print chunk progress (e.g., "Transcribing chunk 3/12...") to stderr.
-6. THE wispr-cli SHALL stream decoded audio in chunks rather than loading the entire file into memory at once, to support files of arbitrary length.
+1. FOR audio files of any duration, THE wispr-cli SHALL decode the full audio and pass it to the transcription engine in a single call.
+2. THE wispr-cli SHALL NOT perform its own chunking or overlap deduplication. The transcription engines (WhisperKit and Parakeet/FluidAudio) have built-in chunk processors with frame-aligned boundaries, mel spectrogram context, and proper token deduplication that produce significantly better results than external chunking.
+3. THE AudioFileDecoder MAY retain a chunked decoding API (`decodeChunked`) for future use, but the CLI SHALL NOT use it for transcription.
 
 ### Requirement 8: Shared Code Between CLI and GUI
 

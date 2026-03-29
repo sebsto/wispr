@@ -66,6 +66,9 @@ final class MenuBarController {
     /// Observation tracking for state changes.
     private var observationTask: Task<Void, Never>?
 
+    /// Path where the CLI symlink is installed.
+    private let cliSymlinkPath = "/usr/local/bin/wispr"
+
     /// Key used for the Core Animation pulse on the status button during processing.
     private static let processingAnimationKey = "wispr.processing.pulse"
 
@@ -78,6 +81,9 @@ final class MenuBarController {
     /// Retained reference to the CLI install window.
     private var cliInstallWindow: NSWindow?
 
+    /// Menu delegate that refreshes dynamic items when the menu opens.
+    private lazy var menuDelegate = MenuOpenDelegate(controller: self)
+
     // MARK: - Menu Items (retained for dynamic updates)
 
     private let recordingMenuItem = NSMenuItem()
@@ -85,6 +91,8 @@ final class MenuBarController {
     private let languageSubmenu = NSMenu()
     private let updateMenuItem = NSMenuItem()
     private let updateSeparator = NSMenuItem.separator()
+    private let cliInstallSeparator = NSMenuItem.separator()
+    private var cliInstallMenuItem: NSMenuItem?
 
     // MARK: - Initialization
 
@@ -122,6 +130,7 @@ final class MenuBarController {
 
         configureStatusButton()
         buildMenu()
+        menu.delegate = menuDelegate
         startObservingState()
     }
 
@@ -212,20 +221,20 @@ final class MenuBarController {
 
         refreshUpdateMenuItem()
 
-        // Install CLI (shown only when not installed)
-        if !isCLIInstalled() {
-            menu.addItem(NSMenuItem.separator())
-            let installCLIItem = NSMenuItem(
-                title: "Install Command Line Tool\u{2026}",
-                action: #selector(MenuBarActionHandler.showCLIInstallDialog(_:)),
-                keyEquivalent: ""
-            )
-            installCLIItem.image = NSImage(
-                systemSymbolName: SFSymbols.terminal,
-                accessibilityDescription: "Install CLI"
-            )
-            menu.addItem(installCLIItem)
-        }
+        // Install CLI (hidden dynamically when installed)
+        menu.addItem(cliInstallSeparator)
+        let installCLIItem = NSMenuItem(
+            title: "Install Command Line Tool\u{2026}",
+            action: #selector(MenuBarActionHandler.showCLIInstallDialog(_:)),
+            keyEquivalent: ""
+        )
+        installCLIItem.image = NSImage(
+            systemSymbolName: SFSymbols.terminal,
+            accessibilityDescription: "Install CLI"
+        )
+        menu.addItem(installCLIItem)
+        cliInstallMenuItem = installCLIItem
+        refreshCLIInstallMenuItem()
 
         menu.addItem(NSMenuItem.separator())
 
@@ -273,6 +282,15 @@ final class MenuBarController {
 
         // Disable during processing
         recordingMenuItem.isEnabled = stateManager.appState != .processing
+    }
+
+    // MARK: - CLI Install Menu Item
+
+    /// Hides the CLI install menu item once the symlink is in place.
+    func refreshCLIInstallMenuItem() {
+        let installed = isCLIInstalled()
+        cliInstallMenuItem?.isHidden = installed
+        cliInstallSeparator.isHidden = installed
     }
 
     // MARK: - Update Menu Item
@@ -574,9 +592,8 @@ final class MenuBarController {
     /// Checks whether /usr/local/bin/wispr exists and points to the
     /// wispr-cli binary inside the current app bundle.
     private func isCLIInstalled() -> Bool {
-        let symlinkPath = "/usr/local/bin/wispr"
         let fm = FileManager.default
-        guard let dest = try? fm.destinationOfSymbolicLink(atPath: symlinkPath) else {
+        guard let dest = try? fm.destinationOfSymbolicLink(atPath: cliSymlinkPath) else {
             return false
         }
         let expectedDest = Bundle.main.bundlePath + "/Contents/Resources/bin/wispr-cli"
@@ -593,11 +610,25 @@ final class MenuBarController {
             return
         }
 
-        let dialogView = CLIInstallDialogView(appBundlePath: Bundle.main.bundlePath)
-        let hostingController = NSHostingController(rootView: dialogView)
-        let window = NSWindow(contentViewController: hostingController)
+        // Discard any previously closed window to avoid stale hosting controller state.
+        cliInstallWindow = nil
+
+        let window = NSWindow()
         window.title = "Install Command Line Tool"
         window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+
+        let dialogView = CLIInstallDialogView(
+            appBundlePath: Bundle.main.bundlePath,
+            symlinkPath: cliSymlinkPath,
+            onDismiss: { [weak self, weak window] in
+                window?.close()
+                self?.cliInstallWindow = nil
+            }
+        )
+        let hostingController = NSHostingController(rootView: dialogView)
+        window.contentViewController = hostingController
+        window.setContentSize(hostingController.view.fittingSize)
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
@@ -610,6 +641,22 @@ final class MenuBarController {
     func quitApp() {
         stopObserving()
         NSApp.terminate(nil)
+    }
+}
+
+// MARK: - Menu Open Delegate
+
+/// Refreshes filesystem-dependent menu items each time the dropdown opens.
+final class MenuOpenDelegate: NSObject, NSMenuDelegate {
+    private weak var controller: MenuBarController?
+
+    init(controller: MenuBarController) {
+        self.controller = controller
+    }
+
+    @MainActor
+    func menuWillOpen(_ menu: NSMenu) {
+        controller?.refreshCLIInstallMenuItem()
     }
 }
 

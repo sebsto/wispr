@@ -138,51 +138,21 @@ struct WisprCLI: AsyncParsableCommand {
         }
 
         // 4. Decode and transcribe
+        // Decode the full audio and let the transcription engine handle its
+        // own chunking strategy. Both WhisperKit and Parakeet have built-in
+        // chunk processors with proper overlap, context windows, and token
+        // deduplication that produce significantly better results than naive
+        // external chunking.
         let language: TranscriptionLanguage = config.languageCode
             .map { .specific(code: $0) } ?? .autoDetect
 
-        if meta.duration <= 30.0 {
-            // Short file — single-shot transcription
-            let samples = try await decoder.decode(fileURL: fileURL)
-            let result = try await engine.transcribe(samples, language: language)
-            try writeOutput(result.text, to: config.outputPath)
-        } else {
-            // Long file — chunked transcription with overlap deduplication
-            let chunks = try await decoder.decodeChunked(fileURL: fileURL)
-            var chunkIndex = 0
-            var previousText: String?
-            var accumulated = ""
-
-            for try await chunk in chunks {
-                chunkIndex += 1
-                if config.verbose {
-                    printStderr("Transcribing chunk \(chunkIndex)...")
-                }
-                let result = try await engine.transcribe(chunk, language: language)
-                if !result.text.isEmpty {
-                    let text = deduplicateOverlap(
-                        previous: previousText,
-                        current: result.text
-                    )
-                    if !text.isEmpty {
-                        if config.outputPath != nil {
-                            accumulated += (accumulated.isEmpty ? "" : " ") + text
-                        } else {
-                            print(text)
-                        }
-                    }
-                    previousText = result.text
-                }
-            }
-
-            if let outputPath = config.outputPath {
-                try accumulated.write(
-                    toFile: outputPath,
-                    atomically: true,
-                    encoding: .utf8
-                )
-            }
+        let samples = try await decoder.decode(fileURL: fileURL)
+        if config.verbose {
+            printStderr("Decoded \(samples.count) samples")
         }
+
+        let result = try await engine.transcribe(samples, language: language)
+        try writeOutput(result.text, to: config.outputPath)
     }
 
     // MARK: - Model Discovery
@@ -294,25 +264,6 @@ struct WisprCLI: AsyncParsableCommand {
             let sizeMB = Double(model.sizeOnDisk) / 1_000_000
             print("\(model.name)\t\(String(format: "%.0f", sizeMB)) MB")
         }
-    }
-
-    // MARK: - Overlap Deduplication
-
-    func deduplicateOverlap(previous: String?, current: String) -> String {
-        guard let previous, !previous.isEmpty else { return current }
-
-        let prevWords = previous.split(separator: " ")
-        let currWords = current.split(separator: " ")
-        let maxCompare = min(min(prevWords.count, currWords.count), 8)
-
-        for length in stride(from: maxCompare, through: 1, by: -1) {
-            let suffix = prevWords.suffix(length)
-            let prefix = currWords.prefix(length)
-            if suffix.elementsEqual(prefix, by: { $0.lowercased() == $1.lowercased() }) {
-                return currWords.dropFirst(length).joined(separator: " ")
-            }
-        }
-        return current
     }
 
     // MARK: - Output Helpers

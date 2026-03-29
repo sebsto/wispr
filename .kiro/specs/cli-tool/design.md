@@ -147,15 +147,14 @@ sequenceDiagram
 
     CLI->>AFD: decode("recording.m4a")
     AFD->>AFD: AVAssetReader → 16kHz mono PCM [Float]
+    AFD-->>CLI: allSamples: [Float]
 
-    loop For each chunk
-        AFD-->>CLI: audioChunk: [Float]
-        CLI->>CTE: transcribe(audioChunk, language: .autoDetect)
-        CTE->>E: transcribe(audioChunk, language)
-        E-->>CLI: TranscriptionResult
-        CLI->>U: print(result.text) → stdout
-    end
+    CLI->>CTE: transcribe(allSamples, language: .autoDetect)
+    CTE->>E: transcribe(allSamples, language)
+    Note over E: Engine handles internal chunking<br/>(Parakeet ChunkProcessor / WhisperKit chunkingStrategy)
+    E-->>CLI: TranscriptionResult
 
+    CLI->>U: print(result.text) → stdout
     CLI->>U: exit(0)
 ```
 
@@ -328,7 +327,7 @@ nonisolated struct TranscribeConfig: Sendable {
 - Uses `swift-argument-parser` (`ArgumentParser` package) for declarative argument definitions, automatic `--help` generation, and input validation.
 - The `swift-argument-parser` dependency is added to the Xcode project's Swift Package dependencies and linked only to the `wispr-cli` target (not the GUI app).
 - Validates file existence early (before model loading) to fail fast.
-- Reads `activeModelName` from `UserDefaults(suiteName: nil)` for the default model (same UserDefaults domain as the GUI app since both run as the same user).
+- Reads `activeModelName` from `UserDefaults(suiteName: "com.stormacq.mac.wispr")` to access the GUI app's sandboxed defaults domain.
 
 ### 3. CLI Transcription Orchestration
 
@@ -363,83 +362,29 @@ mutating func transcribe(_ config: TranscribeConfig) async throws {
     }
 
     // 4. Decode and transcribe
+    // Decode the full audio and let the transcription engine handle its
+    // own chunking strategy. Both WhisperKit and Parakeet have built-in
+    // chunk processors with proper overlap, context windows, and token
+    // deduplication that produce significantly better results than naive
+    // external chunking.
     let language: TranscriptionLanguage = config.languageCode
         .map { .specific(code: $0) } ?? .autoDetect
 
-    // Output destination: file or stdout
-    let writeOutput: (String) throws -> Void
+    let samples = try await decoder.decode(fileURL: fileURL)
+    if config.verbose {
+        printStderr("Decoded \(samples.count) samples")
+    }
+
+    let result = try await engine.transcribe(samples, language: language)
     if let outputPath = config.outputPath {
-        var accumulated = ""
-        writeOutput = { text in accumulated += text + "\n" }
-        defer { try? accumulated.write(toFile: outputPath, atomically: true, encoding: .utf8) }
+        try result.text.write(toFile: outputPath, atomically: true, encoding: .utf8)
     } else {
-        writeOutput = { text in print(text) }
-    }
-
-    if meta.duration <= 30.0 {
-        // Short file — single-shot transcription
-        let samples = try await decoder.decode(fileURL: fileURL)
-        let result = try await engine.transcribe(samples, language: language)
-        try writeOutput(result.text)
-    } else {
-        // Long file — chunked transcription with overlap deduplication
-        let chunks = decoder.decodeChunked(fileURL: fileURL)
-        var chunkIndex = 0
-        var previousText: String? = nil
-        for try await chunk in chunks {
-            chunkIndex += 1
-            if config.verbose {
-                printStderr("Transcribing chunk \(chunkIndex)...")
-            }
-            let result = try await engine.transcribe(chunk, language: language)
-            if !result.text.isEmpty {
-                let text = deduplicateOverlap(
-                    previous: previousText,
-                    current: result.text
-                )
-                if !text.isEmpty {
-                    try writeOutput(text)
-                }
-                previousText = result.text
-            }
-        }
+        print(result.text)
     }
 }
 ```
 
-### 4. Overlap Deduplication
-
-```swift
-/// Removes duplicated words at the boundary between two consecutive
-/// chunk transcriptions caused by the audio overlap.
-///
-/// Compares the last N words of `previous` with the first N words of
-/// `current` (where N = min(wordCount, 8)). When a suffix of `previous`
-/// matches a prefix of `current`, the matching prefix is stripped from
-/// `current` to avoid repeated text in the output.
-///
-/// Instance method on WisprCLI — not a free function.
-func deduplicateOverlap(previous: String?, current: String) -> String {
-    guard let previous, !previous.isEmpty else { return current }
-
-    let prevWords = previous.split(separator: " ")
-    let currWords = current.split(separator: " ")
-    let maxCompare = min(min(prevWords.count, currWords.count), 8)
-
-    // Find the longest suffix of prevWords that matches a prefix of currWords
-    for length in stride(from: maxCompare, through: 1, by: -1) {
-        let suffix = prevWords.suffix(length)
-        let prefix = currWords.prefix(length)
-        if suffix.elementsEqual(prefix, by: { $0.lowercased() == $1.lowercased() }) {
-            // Strip the matched prefix from current
-            return currWords.dropFirst(length).joined(separator: " ")
-        }
-    }
-    return current
-}
-```
-
-### 5. Model Discovery
+### 4. Model Discovery
 
 ```swift
 /// Resolves which model to use, in priority order:
@@ -464,8 +409,10 @@ func resolveModel(_ explicitName: String?) throws -> String {
         return name
     }
 
-    // Try GUI app's active model
-    if let active = UserDefaults.standard.string(forKey: "activeModelName"),
+    // Try GUI app's active model from its UserDefaults domain.
+    // The GUI app is sandboxed, so its defaults live in a separate domain.
+    let guiDefaults = UserDefaults(suiteName: "com.stormacq.mac.wispr")
+    if let active = guiDefaults?.string(forKey: "activeModelName"),
        downloadedModels.contains(where: { $0.name == active }) {
         return active
     }
@@ -497,7 +444,7 @@ struct CLIInstallDialogView: View {
     }
 
     private var installCommand: String {
-        "ln -s \"\(cliSourcePath)\" /usr/local/bin/wispr"
+        "sudo ln -sf \"\(cliSourcePath)\" /usr/local/bin/wispr"
     }
 
     var body: some View {
@@ -567,33 +514,30 @@ The action presents `CLIInstallDialogView` as a sheet or floating panel.
 /// constructed or thrown inside custom actors (AudioFileDecoder,
 /// transcription engines) without hopping to MainActor.
 nonisolated enum CLIError: Error, CustomStringConvertible, Sendable {
+    case noModelsDirectory
+    case noDownloadedModels
     case noActiveModel
     case modelNotFound(String, available: [String])
     case fileNotFound(String)
-    case noAudioTrack(String)
-    case unsupportedFormat(String)
-    case decodingFailed(String)
-    case transcriptionFailed(String)
 
     var description: String {
         switch self {
+        case .noModelsDirectory:
+            "Wispr.app has not been set up yet. Please launch Wispr.app and download at least one model before using the CLI."
+        case .noDownloadedModels:
+            "No models downloaded. Please open Wispr.app and download at least one model, then try again. Run --list-models to verify."
         case .noActiveModel:
             "No active model set. Use --model <name> or select a model in Wispr.app. Run --list-models to see available models."
         case .modelNotFound(let name, let available):
             "Model '\(name)' not found. Available models: \(available.joined(separator: ", "))"
         case .fileNotFound(let path):
             "File not found: \(path)"
-        case .noAudioTrack(let path):
-            "No audio track found in: \(path)"
-        case .unsupportedFormat(let path):
-            "Unsupported file format: \(path)"
-        case .decodingFailed(let detail):
-            "Audio decoding failed: \(detail)"
-        case .transcriptionFailed(let detail):
-            "Transcription failed: \(detail)"
         }
     }
 }
+```
+
+**Note:** Audio decoding errors (`noAudioTrack`, `unsupportedFormat`, `decodingFailed`) are thrown by `AudioFileDecoder` as `AudioDecoderError`, not `CLIError`. Transcription errors are thrown by the engines as `WisprError`. The CLI catches and displays these at the top level — no wrapping needed.
 ```
 
 ## Xcode Project Configuration
@@ -713,23 +657,11 @@ File I/O and AVAssetReader decoding are blocking operations that should not run 
 
 **Validates: Requirements 3.2, 3.3, 3.4**
 
-### Property 3: Chunked transcription completeness
+### Property 3: Engine-native chunking
 
-*For any* audio file of duration D seconds, the concatenation of all chunk transcription outputs SHALL cover the entire audio content. Consecutive chunks SHALL overlap by exactly `overlapDuration` seconds of audio. No audio samples SHALL be skipped between chunks. The last chunk MAY be shorter than the configured chunk duration.
+*For any* audio file regardless of duration, the CLI SHALL pass the full decoded audio to the transcription engine in a single call. The engine's built-in chunk processor (Parakeet's `ChunkProcessor` with frame-aligned boundaries and mel context, or WhisperKit's `chunkingStrategy`) SHALL handle segmentation, overlap, and token deduplication internally. The CLI SHALL NOT perform its own chunking or overlap deduplication.
 
-**Validates: Requirements 7.1, 7.2, 7.4**
-
-### Property 5: Overlap deduplication correctness
-
-*For any* pair of consecutive chunk transcriptions where the audio overlap produces identical words at the boundary, the `deduplicateOverlap` function SHALL remove the duplicated words exactly once. The final concatenated output SHALL NOT contain repeated words caused by the overlap, and SHALL NOT remove words that were not part of the overlap.
-
-**Validates: Requirements 7.2, 7.3**
-
-### Property 4: Memory boundedness for long files
-
-*For any* audio file regardless of length, peak memory usage of the decode step SHALL be bounded by O(chunkDuration * sampleRate) rather than O(fileDuration * sampleRate). The full file SHALL NOT be loaded into memory at once when using chunked decoding.
-
-**Validates: Requirements 7.4**
+**Validates: Requirements 7.1, 7.2**
 
 ## Error Handling
 
