@@ -74,8 +74,8 @@ actor ParakeetService {
         Log.whisperService.debug("ParakeetService — V3 downloadAndLoad completed")
     }
 
-    private func unload() {
-        asrManager?.cleanup()
+    private func unload() async {
+        await asrManager?.cleanup()
         asrManager = nil
         if activeModelName == ModelInfo.KnownID.parakeetV3 { activeModelName = nil }
         Log.whisperService.debug("ParakeetService — V3 model unloaded")
@@ -323,7 +323,7 @@ extension ParakeetService: TranscriptionEngine {
             }
             isEouDownloaded = false
         } else {
-            unload()
+            await unload()
             let sdkLeaf = AsrModels.defaultCacheDirectory(for: .v3).lastPathComponent
             let cacheDir = ModelPaths.parakeetV3(sdkLeafName: sdkLeaf)
             if FileManager.default.fileExists(atPath: cacheDir.path) {
@@ -357,7 +357,7 @@ extension ParakeetService: TranscriptionEngine {
 
     func switchModel(to modelName: String) async throws {
         if modelName == ModelInfo.KnownID.parakeetEou {
-            unload()
+            await unload()
         } else {
             unloadEou()
         }
@@ -365,7 +365,7 @@ extension ParakeetService: TranscriptionEngine {
     }
 
     func unloadCurrentModel() async {
-        unload()
+        await unload()
         unloadEou()
     }
 
@@ -424,7 +424,7 @@ extension ParakeetService: TranscriptionEngine {
                     unloadEou()
                     try await downloadAndLoadEou()
                 } else {
-                    unload()
+                    await unload()
                     try await downloadAndLoad()
                 }
                 activeModelName = currentModel
@@ -435,7 +435,7 @@ extension ParakeetService: TranscriptionEngine {
             }
         }
 
-        if isEou { unloadEou() } else { unload() }
+        if isEou { unloadEou() } else { await unload() }
         let displayName = isEou ? "Parakeet EOU" : "Parakeet V3"
         let description = lastError?.localizedDescription ?? "Unknown error"
         throw WisprError.modelLoadFailed(

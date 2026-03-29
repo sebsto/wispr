@@ -48,32 +48,14 @@ Requires macOS 15.0+ and Xcode 16+
 
 ### Xcode 26.4 build fix
 
-Xcode 26.4 (17E192) introduces stricter Swift 6 concurrency checking that
-breaks FluidAudio 0.12.4 with `sending 'asrManager' risks causing data races`
-errors. Xcode 26.3 builds fine without changes. WhisperKit 0.17.0 pins
-`swift-transformers` to `< 1.2.0`, which caps FluidAudio at 0.12.4 and
-prevents upgrading to a fixed version.
+~~Previously, Xcode 26.4 required a manual patch to FluidAudio's `AsrManager`
+for Swift 6 concurrency compliance. This is no longer needed — FluidAudio
+dropped its `swift-transformers` dependency (removing the version conflict with
+WhisperKit) and resolved the concurrency issue in their latest release
+([FluidInference/FluidAudio#448](https://github.com/FluidInference/FluidAudio/issues/448)).
+No workaround is required; the project builds cleanly on Xcode 26.4.~~
 
-**Workaround:** after Xcode resolves packages, run the following from the
-project root to patch the FluidAudio checkout:
-
-```bash
-# Path to the FluidAudio checkout inside DerivedData
-FLUID_ASR="$(xcodebuild -showBuildSettings 2>/dev/null | grep -m1 BUILD_DIR | awk '{print $3}' | sed 's|/Build/Products||')/SourcePackages/checkouts/FluidAudio/Sources/FluidAudio/ASR/AsrManager.swift"
-
-# Make writable and apply the patch
-chmod u+w "$FLUID_ASR"
-sed -i '' 's/^public final class AsrManager {/public final class AsrManager: @unchecked Sendable {/' "$FLUID_ASR"
-```
-
-This adds `@unchecked Sendable` conformance to `AsrManager`, which is safe
-because it is only accessed from within `StreamingAsrManager`'s actor isolation
-domain. The patch must be reapplied whenever Xcode re-resolves packages (e.g.
-after a clean or `Package.resolved` change).
-
-The fix will no longer be needed once the upstream issues are resolved:
-[argmaxinc/WhisperKit#451](https://github.com/argmaxinc/WhisperKit/issues/451),
-[FluidInference/FluidAudio#448](https://github.com/FluidInference/FluidAudio/issues/448).
+See also: [argmaxinc/WhisperKit#451](https://github.com/argmaxinc/WhisperKit/issues/451).
 
 ## Requirements
 
