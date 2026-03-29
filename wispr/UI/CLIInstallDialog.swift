@@ -47,7 +47,7 @@ struct CLIInstallDialogView: View {
                 } label: {
                     Label(
                         copied ? "Copied!" : "Copy Command",
-                        systemImage: copied ? SFSymbols.checkmarkPlain : "doc.on.doc"
+                        systemImage: copied ? SFSymbols.checkmarkPlain : SFSymbols.copy
                     )
                 }
                 .controlSize(.large)

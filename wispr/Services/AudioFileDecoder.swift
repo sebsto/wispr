@@ -203,8 +203,10 @@ actor AudioFileDecoder {
 
         guard length > 0 else { return [] }
 
-        var data = Data(count: length)
-        let status = data.withUnsafeMutableBytes { rawPtr in
+        // Allocate a properly Float-aligned buffer and copy directly
+        // into it, avoiding Data's unspecified alignment guarantees.
+        var floats = [Float](repeating: 0, count: floatCount)
+        let status = floats.withUnsafeMutableBytes { rawPtr in
             CMBlockBufferCopyDataBytes(
                 blockBuffer,
                 atOffset: 0,
@@ -217,9 +219,7 @@ actor AudioFileDecoder {
             throw AudioDecoderError.decodingFailed("Failed to copy sample buffer data")
         }
 
-        return data.withUnsafeBytes { rawPtr in
-            Array(rawPtr.bindMemory(to: Float.self).prefix(floatCount))
-        }
+        return floats
     }
 }
 

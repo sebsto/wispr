@@ -11,21 +11,26 @@ import Foundation
 
 /// Shared model storage paths.
 ///
-/// All downloaded models (Whisper and Parakeet) are stored under:
-///   `~/Library/Application Support/wispr/`
+/// The GUI app (sandboxed) stores models under its container:
+///   `~/Library/Containers/com.stormacq.mac.wispr/Data/Library/Application Support/wispr/`
+///
+/// The CLI (non-sandboxed) reads from the same container path so both
+/// targets share a single set of downloaded models. Falls back to
+/// `~/Library/Application Support/wispr/` only if the container doesn't exist.
 ///
 /// WhisperKit appends its own `models/argmaxinc/whisperkit-coreml/<variant>/`
 /// subtree beneath this root. FluidAudio's `AsrModels.downloadAndLoad(to:)`
 /// and `DownloadUtils.downloadRepo(_:to:)` are given a base directory under
 /// which they manage per-repo folders (for example,
-/// `.../Application Support/wispr/models/parakeet-tdt-v3`).
+/// `.../Application Support/wispr/models/parakeet-tdt-0.6b-v3`).
 enum ModelPaths {
 
     /// Base directory shared by all model engines.
     ///
     /// Resolves to:
-    /// - Sandboxed:     `~/Library/Containers/<bundle-id>/Data/Library/Application Support/wispr/`
-    /// - Non-sandboxed: `~/Library/Application Support/wispr/`
+    /// - Sandboxed (GUI):     `~/Library/Containers/<bundle-id>/Data/Library/Application Support/wispr/`
+    /// - Non-sandboxed (CLI): Same container path (preferred), or
+    ///                        `~/Library/Application Support/wispr/` if container doesn't exist.
     /// `nonisolated` because the project uses `@MainActor` as default isolation,
     /// but both WhisperService and ParakeetService (custom actors) need synchronous
     /// access. This is safe — the property is a pure computation with no mutable state.

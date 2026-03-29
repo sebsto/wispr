@@ -597,7 +597,8 @@ final class MenuBarController {
             return false
         }
         let expectedDest = Bundle.main.bundlePath + "/Contents/Resources/bin/wispr-cli"
-        return dest == expectedDest
+        return (dest as NSString).resolvingSymlinksInPath
+            == (expectedDest as NSString).resolvingSymlinksInPath
     }
 
     /// Presents the CLI install dialog as a floating window.
