@@ -55,8 +55,9 @@ actor AudioEngine {
         
         return deviceIDs.compactMap { id in
             let device = CoreAudioDevice(id: id)
-            // Filter out aggregate devices created by AVAudioEngine internally
-            guard device.transportType != kAudioDeviceTransportTypeAggregate else { return nil }
+            // Filter out private aggregate devices created by AVAudioEngine internally,
+            // but allow user-created aggregates from Audio MIDI Setup.
+            guard !device.isPrivateAggregate else { return nil }
             guard device.hasInputStreams,
                   let name = device.name,
                   let uid = device.uid else { return nil }
@@ -424,6 +425,28 @@ nonisolated private struct CoreAudioDevice: Sendable {
     
     nonisolated var uid: String? {
         getStringProperty(kAudioDevicePropertyDeviceUID)
+    }
+
+    /// Whether this aggregate device is marked as private (created internally by AVAudioEngine).
+    /// User-created aggregates from Audio MIDI Setup are not private.
+    nonisolated var isPrivateAggregate: Bool {
+        guard transportType == kAudioDeviceTransportTypeAggregate else { return false }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioAggregateDevicePropertyComposition,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return false }
+        var dict: CFDictionary?
+        var cfSize = UInt32(MemoryLayout<CFDictionary>.size)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &cfSize, &dict) == noErr,
+              let composition = dict as? [String: Any] else { return false }
+        // kAudioAggregateDeviceIsPrivateKey == "priv"
+        if let isPrivate = composition["priv"] as? Int, isPrivate == 1 {
+            return true
+        }
+        return false
     }
 
     /// The transport type of the device (USB, Bluetooth, Built-In, etc.)
