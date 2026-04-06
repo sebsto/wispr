@@ -62,8 +62,7 @@ nonisolated var isPrivateAggregate: Bool {
     guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr,
           size > 0 else { return false }
     var dict: CFDictionary?
-    var cfSize = UInt32(MemoryLayout<CFDictionary>.size)
-    guard AudioObjectGetPropertyData(id, &address, 0, nil, &cfSize, &dict) == noErr,
+    guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &dict) == noErr,
           let composition = dict as? [String: Any] else { return false }
     if let isPrivate = composition["priv"] as? Int, isPrivate == 1 {
         return true
