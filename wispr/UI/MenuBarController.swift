@@ -614,22 +614,19 @@ final class MenuBarController {
         // Discard any previously closed window to avoid stale hosting controller state.
         cliInstallWindow = nil
 
-        let window = NSWindow()
-        window.title = "Install Command Line Tool"
-        window.styleMask = [.titled, .closable]
-        window.isReleasedWhenClosed = false
-
         let dialogView = CLIInstallDialogView(
             appBundlePath: Bundle.main.bundlePath,
             symlinkPath: cliSymlinkPath,
-            onDismiss: { [weak self, weak window] in
-                window?.close()
+            onDismiss: { [weak self] in
+                self?.cliInstallWindow?.close()
                 self?.cliInstallWindow = nil
             }
         )
         let hostingController = NSHostingController(rootView: dialogView)
-        window.contentViewController = hostingController
-        window.setContentSize(hostingController.view.fittingSize)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Install Command Line Tool"
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
