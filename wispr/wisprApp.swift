@@ -32,6 +32,10 @@ struct WisprApp: App {
         // imperatively via NSWindow + NSHostingController from the app delegate
         // and MenuBarController, because SwiftUI Window scenes don't reliably
         // open in accessory (menu-bar-only) apps.
+        //
+        // The Settings scene provides the standard "Settings…" (⌘,) menu item.
+        // Its body is never shown — the delegate intercepts the action via
+        // showSettingsWindow: and opens the real settings window instead.
         Settings {
             EmptyView()
         }
@@ -253,6 +257,13 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         // Without this, in-memory changes (e.g. onboardingCompleted) can be
         // lost if the app is terminated quickly (Xcode stop, NSApp.terminate).
         settingsStore.flush()
+    }
+
+    /// Intercepts the standard "Settings…" (⌘,) menu item so it opens the
+    /// real settings window managed by MenuBarController instead of the
+    /// empty SwiftUI Settings scene.
+    @objc func showSettingsWindow(_ sender: Any?) {
+        menuBarController?.openSettings()
     }
 
     // MARK: - Onboarding Window
