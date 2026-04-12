@@ -306,13 +306,16 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if settingsStore.aiTextCorrectionEnabled, textCorrectionService.availability == .available {
-                Picker("Correction Style", selection: $store.aiTextCorrectionStyle) {
-                    ForEach(CorrectionStyle.allCases, id: \.self) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-            }
+            // Correction style picker hidden — fullRephrase mode not reliable with
+            // Apple's on-device model (interprets input as instructions instead of
+            // correcting it). Keeping the code for when the model improves.
+            // if settingsStore.aiTextCorrectionEnabled, textCorrectionService.availability == .available {
+            //     Picker("Correction Style", selection: $store.aiTextCorrectionStyle) {
+            //         ForEach(CorrectionStyle.allCases, id: \.self) { style in
+            //             Text(style.displayName).tag(style)
+            //         }
+            //     }
+            // }
 
             Toggle("Auto-Insert Suffix", isOn: $store.autoSuffixEnabled)
                 .accessibilityHint(AccessibilityHints.autoInsertSuffix)
