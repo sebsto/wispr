@@ -306,7 +306,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if settingsStore.aiTextCorrectionEnabled {
+            if settingsStore.aiTextCorrectionEnabled, textCorrectionService.availability == .available {
                 Picker("Correction Style", selection: $store.aiTextCorrectionStyle) {
                     ForEach(CorrectionStyle.allCases, id: \.self) { style in
                         Text(style.displayName).tag(style)

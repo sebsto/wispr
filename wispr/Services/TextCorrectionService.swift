@@ -67,6 +67,9 @@ final class TextCorrectionService: TextCorrecting {
                 let corrected = response.content
                 return corrected.isEmpty ? text : corrected
             }
+        } catch is CancellationError {
+            Log.textCorrection.debug("AI text correction timed out, using original text")
+            return text
         } catch {
             Log.textCorrection.warning("AI text correction failed: \(error.localizedDescription)")
             return text

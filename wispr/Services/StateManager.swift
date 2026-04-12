@@ -251,7 +251,9 @@ final class StateManager {
     /// Applies AI text correction if enabled and available.
     /// Returns the corrected text, or the original text if disabled, unavailable, or on failure.
     private func applyAITextCorrection(to text: String) async -> String {
-        guard settingsStore.aiTextCorrectionEnabled, !text.isEmpty else { return text }
+        guard settingsStore.aiTextCorrectionEnabled,
+              textCorrectionService.availability == .available,
+              !text.isEmpty else { return text }
         processingStatusText = "Correcting…"
         let corrected = await textCorrectionService.correctText(
             text,
