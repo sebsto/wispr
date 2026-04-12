@@ -101,6 +101,23 @@ final class SettingsStore {
         didSet { guard !isLoading else { return }; defaults.set(autoSendEnterEnabled, forKey: Keys.autoSendEnterEnabled) }
     }
 
+    // MARK: - AI Text Correction Settings
+
+    /// When true, applies on-device AI text correction after filler word removal.
+    var aiTextCorrectionEnabled: Bool {
+        didSet { guard !isLoading else { return }; defaults.set(aiTextCorrectionEnabled, forKey: Keys.aiTextCorrectionEnabled) }
+    }
+
+    /// The correction style used by AI text correction.
+    var aiTextCorrectionStyle: CorrectionStyle {
+        didSet {
+            guard !isLoading else { return }
+            if let encoded = try? JSONEncoder().encode(aiTextCorrectionStyle) {
+                defaults.set(encoded, forKey: Keys.aiTextCorrectionStyle)
+            }
+        }
+    }
+
     // MARK: - UserDefaults Keys
     private enum Keys {
         static let hotkeyKeyCode = "hotkeyKeyCode"
@@ -118,6 +135,8 @@ final class SettingsStore {
         static let autoSuffixText = "autoSuffixText"
         static let removeFillerWords = "removeFillerWords"
         static let autoSendEnterEnabled = "autoSendEnterEnabled"
+        static let aiTextCorrectionEnabled = "aiTextCorrectionEnabled"
+        static let aiTextCorrectionStyle = "aiTextCorrectionStyle"
     }
     
     // MARK: - Default Values
@@ -140,6 +159,8 @@ final class SettingsStore {
         static let autoSuffixText: String = " "
         static let removeFillerWords: Bool = false
         static let autoSendEnterEnabled: Bool = false
+        static let aiTextCorrectionEnabled: Bool = false
+        static let aiTextCorrectionStyle: CorrectionStyle = .minimal
     }
 
     // MARK: - Dependencies
@@ -166,6 +187,8 @@ final class SettingsStore {
         self.autoSuffixText = Defaults.autoSuffixText
         self.removeFillerWords = Defaults.removeFillerWords
         self.autoSendEnterEnabled = Defaults.autoSendEnterEnabled
+        self.aiTextCorrectionEnabled = Defaults.aiTextCorrectionEnabled
+        self.aiTextCorrectionStyle = Defaults.aiTextCorrectionStyle
 
         // Load persisted values
         load()
@@ -190,6 +213,8 @@ final class SettingsStore {
         autoSuffixText = Defaults.autoSuffixText
         removeFillerWords = Defaults.removeFillerWords
         autoSendEnterEnabled = Defaults.autoSendEnterEnabled
+        aiTextCorrectionEnabled = Defaults.aiTextCorrectionEnabled
+        aiTextCorrectionStyle = Defaults.aiTextCorrectionStyle
     }
     
     // MARK: - Persistence
@@ -213,9 +238,14 @@ final class SettingsStore {
         defaults.set(autoSuffixText, forKey: Keys.autoSuffixText)
         defaults.set(removeFillerWords, forKey: Keys.removeFillerWords)
         defaults.set(autoSendEnterEnabled, forKey: Keys.autoSendEnterEnabled)
+        defaults.set(aiTextCorrectionEnabled, forKey: Keys.aiTextCorrectionEnabled)
 
         if let encoded = try? JSONEncoder().encode(languageMode) {
             defaults.set(encoded, forKey: Keys.languageMode)
+        }
+
+        if let encoded = try? JSONEncoder().encode(aiTextCorrectionStyle) {
+            defaults.set(encoded, forKey: Keys.aiTextCorrectionStyle)
         }
     }
 
@@ -290,6 +320,16 @@ final class SettingsStore {
         // Load auto-send Enter settings
         if defaults.object(forKey: Keys.autoSendEnterEnabled) != nil {
             self.autoSendEnterEnabled = defaults.bool(forKey: Keys.autoSendEnterEnabled)
+        }
+
+        // Load AI text correction settings
+        if defaults.object(forKey: Keys.aiTextCorrectionEnabled) != nil {
+            self.aiTextCorrectionEnabled = defaults.bool(forKey: Keys.aiTextCorrectionEnabled)
+        }
+
+        if let data = defaults.data(forKey: Keys.aiTextCorrectionStyle),
+           let decoded = try? JSONDecoder().decode(CorrectionStyle.self, from: data) {
+            self.aiTextCorrectionStyle = decoded
         }
     }
     

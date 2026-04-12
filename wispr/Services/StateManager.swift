@@ -39,11 +39,16 @@ final class StateManager {
     /// Set when recording begins, nil when idle.
     var audioLevelStream: AsyncStream<Float>?
 
+    /// Optional custom text shown in the processing overlay.
+    /// When nil, the overlay shows the default "Processing..." label.
+    var processingStatusText: String?
+
     // MARK: - Dependencies
 
     private let audioEngine: AudioEngine
     private let whisperService: any TranscriptionEngine
     private let textInsertionService: any TextInserting
+    private let textCorrectionService: any TextCorrecting
     private let hotkeyMonitor: HotkeyMonitor
     private let permissionManager: PermissionManager
     private let settingsStore: SettingsStore
@@ -66,6 +71,7 @@ final class StateManager {
     ///   - audioEngine: The audio capture engine.
     ///   - whisperService: The on-device transcription engine.
     ///   - textInsertionService: The text insertion service.
+    ///   - textCorrectionService: The AI text correction service.
     ///   - hotkeyMonitor: The global hotkey monitor.
     ///   - permissionManager: The permission manager.
     ///   - settingsStore: The persistent settings store.
@@ -73,6 +79,7 @@ final class StateManager {
         audioEngine: AudioEngine,
         whisperService: any TranscriptionEngine,
         textInsertionService: any TextInserting,
+        textCorrectionService: any TextCorrecting,
         hotkeyMonitor: HotkeyMonitor,
         permissionManager: PermissionManager,
         settingsStore: SettingsStore
@@ -80,6 +87,7 @@ final class StateManager {
         self.audioEngine = audioEngine
         self.whisperService = whisperService
         self.textInsertionService = textInsertionService
+        self.textCorrectionService = textCorrectionService
         self.hotkeyMonitor = hotkeyMonitor
         self.permissionManager = permissionManager
         self.settingsStore = settingsStore
@@ -238,6 +246,21 @@ final class StateManager {
         return FillerWordCleaner.clean(text)
     }
 
+    // MARK: - AI Text Correction
+
+    /// Applies AI text correction if enabled and available.
+    /// Returns the corrected text, or the original text if disabled, unavailable, or on failure.
+    private func applyAITextCorrection(to text: String) async -> String {
+        guard settingsStore.aiTextCorrectionEnabled, !text.isEmpty else { return text }
+        processingStatusText = "Correcting…"
+        let corrected = await textCorrectionService.correctText(
+            text,
+            style: settingsStore.aiTextCorrectionStyle
+        )
+        processingStatusText = nil
+        return corrected
+    }
+
     // MARK: - Auto-Suffix & Auto-Send Helpers
 
     /// Applies optional suffix to transcribed text based on settings.
@@ -287,7 +310,10 @@ final class StateManager {
             return
         }
 
-        let finalText = applyAutoSuffix(to: cleaned)
+        // AI text correction step (after filler removal, before suffix)
+        let corrected = await applyAITextCorrection(to: cleaned)
+
+        let finalText = applyAutoSuffix(to: corrected)
 
         do {
             try await textInsertionService.insertText(finalText)

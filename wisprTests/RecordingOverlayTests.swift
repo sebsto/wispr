@@ -29,6 +29,7 @@ private func createTestOverlayPanel() -> (RecordingOverlayPanel, StateManager, U
         audioEngine: audioEngine,
         whisperService: whisperService,
         textInsertionService: textInsertionService,
+        textCorrectionService: TextCorrectionService(),
         hotkeyMonitor: hotkeyMonitor,
         permissionManager: permissionManager,
         settingsStore: settingsStore

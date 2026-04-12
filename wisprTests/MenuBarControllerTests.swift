@@ -32,6 +32,7 @@ private func createTestController(
         audioEngine: audioEngine,
         whisperService: whisperService,
         textInsertionService: textInsertionService,
+        textCorrectionService: TextCorrectionService(),
         hotkeyMonitor: hotkeyMonitor,
         permissionManager: permissionManager,
         settingsStore: settingsStore
@@ -49,6 +50,7 @@ private func createTestController(
         audioEngine: audioEngine,
         whisperService: whisperService,
         permissionManager: permissionManager,
+        textCorrectionService: TextCorrectionService(),
         updateChecker: updateChecker
     )
 

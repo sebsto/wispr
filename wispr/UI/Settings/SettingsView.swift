@@ -54,6 +54,7 @@ struct SettingsView: View {
 
         // After Transcription section
         static let removeFillerWords = "When enabled, removes filler words like um, uh, and ah from transcriptions"
+        static let aiTextCorrection = "When enabled, uses on-device AI to correct grammar and improve transcription fluency. All processing stays on your Mac."
         static let autoInsertSuffix = "When enabled, appends a suffix to transcribed text"
         static let autoSendEnter = "When enabled, simulates pressing Enter after text insertion"
 
@@ -70,6 +71,7 @@ struct SettingsView: View {
     @Environment(UpdateChecker.self) private var updateChecker: UpdateChecker
     @Environment(StateManager.self) private var stateManager: StateManager
     @Environment(HotkeyMonitor.self) private var hotkeyMonitor: HotkeyMonitor
+    @Environment(TextCorrectionService.self) private var textCorrectionService: TextCorrectionService
 
     @State private var audioDevices: [AudioInputDevice] = []
     @State private var whisperModels: [ModelInfo] = []
@@ -293,6 +295,25 @@ struct SettingsView: View {
             Toggle("Remove Filler Words", isOn: $store.removeFillerWords)
                 .accessibilityHint(AccessibilityHints.removeFillerWords)
 
+            Toggle("Local AI Text Correction", isOn: $store.aiTextCorrectionEnabled)
+                .disabled(textCorrectionService.availability != .available)
+                .accessibilityHint(AccessibilityHints.aiTextCorrection)
+                .onAppear { textCorrectionService.checkAvailability() }
+
+            if case .notAvailable(let reason) = textCorrectionService.availability {
+                Label(reason, systemImage: SFSymbols.info)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if settingsStore.aiTextCorrectionEnabled {
+                Picker("Correction Style", selection: $store.aiTextCorrectionStyle) {
+                    ForEach(CorrectionStyle.allCases, id: \.self) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+            }
+
             Toggle("Auto-Insert Suffix", isOn: $store.autoSuffixEnabled)
                 .accessibilityHint(AccessibilityHints.autoInsertSuffix)
 
@@ -312,6 +333,7 @@ struct SettingsView: View {
             )
         }
         .motionRespectingAnimation(value: settingsStore.autoSuffixEnabled)
+        .motionRespectingAnimation(value: settingsStore.aiTextCorrectionEnabled)
     }
 
     // MARK: - Feedback Section
@@ -470,6 +492,7 @@ private struct SettingsPreview: View {
     @State private var theme = PreviewMocks.makeTheme()
     @State private var updateChecker = PreviewMocks.makeUpdateChecker()
     @State private var stateManager: StateManager
+    @State private var textCorrectionService = TextCorrectionService()
 
     private let whisperService: any TranscriptionEngine
 
@@ -507,6 +530,7 @@ private struct SettingsPreview: View {
         .environment(updateChecker)
         .environment(stateManager)
         .environment(HotkeyMonitor())
+        .environment(textCorrectionService)
     }
 }
 

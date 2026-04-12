@@ -37,6 +37,7 @@ func createTestStateManager(
         audioEngine: audioEngine,
         whisperService: whisperService,
         textInsertionService: textInsertionService,
+        textCorrectionService: TextCorrectionService(),
         hotkeyMonitor: hotkeyMonitor,
         permissionManager: permissionManager,
         settingsStore: settingsStore
@@ -64,6 +65,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "test.wispr.initialstate.\(UUID().uuidString)")!)
@@ -84,6 +86,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: pm,
             settingsStore: settingsStore
@@ -427,6 +430,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -549,6 +553,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -568,6 +573,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -587,6 +593,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -609,6 +616,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -633,6 +641,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -671,6 +680,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: pm,
             settingsStore: settingsStore
@@ -775,6 +785,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: mockTextService,
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -836,6 +847,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: mockTextService,
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -959,6 +971,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -980,6 +993,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -1002,6 +1016,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: mockTextService,
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -1028,6 +1043,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -1049,6 +1065,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -1071,6 +1088,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: mockTextService,
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore
@@ -1094,6 +1112,7 @@ struct StateManagerTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: mockTextService,
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore

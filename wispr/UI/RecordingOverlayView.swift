@@ -144,7 +144,7 @@ struct RecordingOverlayView: View {
                 .controlSize(.small)
                 .accessibilityHidden(true)
 
-            Text("Processing…")
+            Text(stateManager.processingStatusText ?? "Processing…")
                 .font(.callout)
                 .foregroundStyle(theme.primaryTextColor)
         }

@@ -302,6 +302,7 @@ struct StateManagerConcurrentRecordingTests {
             audioEngine: audioEngine,
             whisperService: whisperService,
             textInsertionService: textInsertionService,
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: hotkeyMonitor,
             permissionManager: permissionManager,
             settingsStore: settingsStore

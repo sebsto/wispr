@@ -280,6 +280,7 @@ struct StateManagerLanguageSyncTests {
             audioEngine: AudioEngine(),
             whisperService: WhisperService(),
             textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
             hotkeyMonitor: HotkeyMonitor(),
             permissionManager: PermissionManager(),
             settingsStore: settingsStore

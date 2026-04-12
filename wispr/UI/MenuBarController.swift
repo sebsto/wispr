@@ -60,6 +60,9 @@ final class MenuBarController {
     /// Permission manager for settings view.
     private let permissionManager: PermissionManager
 
+    /// AI text correction service for settings view.
+    private let textCorrectionService: TextCorrectionService
+
     /// Update checker for surfacing new versions.
     private let updateChecker: UpdateChecker
 
@@ -113,6 +116,7 @@ final class MenuBarController {
         audioEngine: AudioEngine,
         whisperService: any TranscriptionEngine,
         permissionManager: PermissionManager,
+        textCorrectionService: TextCorrectionService,
         updateChecker: UpdateChecker
     ) {
         self.stateManager = stateManager
@@ -122,6 +126,7 @@ final class MenuBarController {
         self.audioEngine = audioEngine
         self.transcriptionEngine = whisperService
         self.permissionManager = permissionManager
+        self.textCorrectionService = textCorrectionService
         self.updateChecker = updateChecker
 
         // Requirement 5.1: Create NSStatusItem in the menu bar
@@ -530,6 +535,7 @@ final class MenuBarController {
         .environment(stateManager)
         .environment(hotkeyMonitor)
         .environment(permissionManager)
+        .environment(textCorrectionService)
         .environment(updateChecker)
 
         let hostingController = NSHostingController(rootView: settingsView)
