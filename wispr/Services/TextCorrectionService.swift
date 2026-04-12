@@ -9,6 +9,7 @@
 import Foundation
 import FoundationModels
 import Observation
+import os
 
 /// Protocol for text correction, enabling dependency injection in tests.
 @MainActor
