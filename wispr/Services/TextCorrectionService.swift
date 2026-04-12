@@ -53,8 +53,9 @@ final class TextCorrectionService: TextCorrecting {
         guard case .available = availability else { return text }
         guard !text.isEmpty else { return text }
 
-        // Compute instructions on MainActor before entering the sendable closure
-        let instructions = systemInstructions(for: style)
+        // Compute on MainActor before entering the sendable closure
+        let instructions = style.systemInstructions
+        let prompt = style.userPrompt(for: text)
 
         do {
             return try await withThrowingTimeout(seconds: 5) {
@@ -62,7 +63,7 @@ final class TextCorrectionService: TextCorrecting {
                     model: .default,
                     instructions: instructions
                 )
-                let response = try await session.respond(to: text)
+                let response = try await session.respond(to: prompt)
                 let corrected = response.content
                 return corrected.isEmpty ? text : corrected
             }
@@ -72,37 +73,6 @@ final class TextCorrectionService: TextCorrecting {
         }
     }
 
-    private func systemInstructions(for style: CorrectionStyle) -> String {
-        switch style {
-        case .minimal:
-            """
-            You are a silent text correction tool. You receive spoken text and output ONLY \
-            the corrected version — nothing else. No introductions, no commentary, no quotes.
-
-            Rules:
-            - Fix grammar errors and typos.
-            - Remove speech artifacts: false starts, repetitions, filler words (um, uh, you know, like, etc.).
-            - Keep the original phrasing, tone, and language. Do NOT translate.
-            - Do not change the meaning or add new content.
-            - Preserve the original language of the input. If the input is in French, output French. \
-            If in Spanish, output Spanish. Never translate to English or any other language.
-            - Output the corrected text only. No preamble, no explanation.
-            """
-        case .fullRephrase:
-            """
-            You are a silent text rewriting tool. You receive spoken text and output ONLY \
-            the rewritten version — nothing else. No introductions, no commentary, no quotes.
-
-            Rules:
-            - Rewrite the spoken text as polished, natural written prose.
-            - Fix grammar, improve sentence structure and flow.
-            - Preserve the original meaning and key details. Do not add information.
-            - Preserve the original language of the input. If the input is in French, output French. \
-            If in Spanish, output Spanish. Never translate to English or any other language.
-            - Output the rewritten text only. No preamble, no explanation.
-            """
-        }
-    }
 }
 
 // MARK: - Timeout Helper
