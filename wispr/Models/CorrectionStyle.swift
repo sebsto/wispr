@@ -102,14 +102,14 @@ enum CorrectionStyle: String, Codable, Sendable, CaseIterable {
         switch self {
         case .minimal:
             """
-            Correct the text between [TEXT ...] tags. Output only the corrected version.
+            Correct the text between [TEXT START] and [TEXT END] tags. Output only the corrected version.
             [TEXT START]
             \(text)
             [TEXT END]
             """
         case .fullRephrase:
             """
-            Rewrite the text between [TEXT ...] tags as polished written prose. Output only the rewritten version.
+            Rewrite the text between [TEXT START] and [TEXT END] tags as polished written prose. Output only the rewritten version.
             [TEXT START]
             \(text)
             [TEXT END]
