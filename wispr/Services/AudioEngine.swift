@@ -97,13 +97,14 @@ actor AudioEngine {
         self.engine = audioEngine
         let inputNode = audioEngine.inputNode
 
-        // Assign the selected device to this engine's input AudioUnit
-        // BEFORE reading any format or installing taps (Req 2.1, 2.3).
-        // For selected devices, build an explicit tap format from CoreAudio
-        // since inputNode's cached format may be stale after device switches.
-        // For system-default devices, nil lets AVAudioEngine use its cache.
+        // Assign the input device to this engine's AudioUnit BEFORE reading
+        // any format or installing taps (Req 2.1, 2.3).
+        // Always resolve the actual device — even for "System Default" — so
+        // Bluetooth devices get the HFP/SCO settling wait and the tap format
+        // is built from real hardware properties rather than a stale cache.
         var tapFormat: AVAudioFormat? = nil
-        if let deviceID = selectedDeviceID {
+        let resolvedDeviceID = selectedDeviceID ?? getDefaultInputDeviceID()
+        if let deviceID = resolvedDeviceID {
             var devID = deviceID
             let status = AudioUnitSetProperty(
                 inputNode.audioUnit!,
@@ -114,13 +115,13 @@ actor AudioEngine {
                 UInt32(MemoryLayout<AudioDeviceID>.size)
             )
             if status == noErr {
-                Log.audioEngine.debug("Per-engine input device set to \(deviceID)")
+                let source = selectedDeviceID != nil ? "explicit" : "system default"
+                Log.audioEngine.debug("Per-engine input device set to \(deviceID) (\(source))")
             } else {
-                Log.audioEngine.warning("AudioUnitSetProperty failed (OSStatus: \(status)) for device \(deviceID), falling back to system default")
-                selectedDeviceID = nil
+                Log.audioEngine.warning("AudioUnitSetProperty failed (OSStatus: \(status)) for device \(deviceID), falling back to AVAudioEngine default")
             }
 
-            if selectedDeviceID != nil {
+            if status == noErr {
                 let device = CoreAudioDevice(id: deviceID)
 
                 // Bluetooth devices switch from A2DP (48kHz) to HFP/SCO
@@ -151,8 +152,8 @@ actor AudioEngine {
             }
         }
 
-        let deviceDescription = selectedDeviceID.map { String($0) } ?? "system default"
-        Log.audioEngine.debug("startCapture — device: \(deviceDescription), tapFormat: \(tapFormat?.description ?? "nil (system default)")")
+        let deviceDescription = resolvedDeviceID.map { "\($0)\(selectedDeviceID == nil ? " (system default)" : "")" } ?? "none"
+        Log.audioEngine.debug("startCapture — device: \(deviceDescription), tapFormat: \(tapFormat?.description ?? "nil")")
 
         // The converter is created lazily from the first buffer's actual format.
         nonisolated(unsafe) var converter: AVAudioConverter?
