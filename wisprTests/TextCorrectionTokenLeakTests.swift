@@ -32,11 +32,9 @@ struct TextCorrectionTokenLeakTests {
     }
 
     @Test("correctText minimal style must not leak delimiter tokens", .timeLimit(.minutes(2)))
-    func testMinimalStyleTokenLeak() async {
+    func testMinimalStyleTokenLeak() async throws {
         service.checkAvailability()
-        guard service.availability == .available else {
-            return // skip on machines without Apple Intelligence
-        }
+        try #require(service.availability == .available, "Apple Intelligence not available")
 
         let inputs = [
             "so um I was thinking we should like probably fix the uh the login page",
@@ -61,11 +59,9 @@ struct TextCorrectionTokenLeakTests {
     }
 
     @Test("correctText fullRephrase style must not leak delimiter tokens", .timeLimit(.minutes(2)))
-    func testFullRephraseStyleTokenLeak() async {
+    func testFullRephraseStyleTokenLeak() async throws {
         service.checkAvailability()
-        guard service.availability == .available else {
-            return
-        }
+        try #require(service.availability == .available, "Apple Intelligence not available")
 
         let inputs = [
             "so like the thing is we need to uh make sure that the users can actually log in properly you know",
@@ -85,8 +81,6 @@ struct TextCorrectionTokenLeakTests {
             }
         }
 
-        // withKnownIssue(isIntermittent: true) {
-            #expect(leakCount == 0, "\(leakCount) of \(inputs.count * iterations) responses contained delimiter tokens")
-        // }
+        #expect(leakCount == 0, "\(leakCount) of \(inputs.count * iterations) responses contained delimiter tokens")
     }
 }
