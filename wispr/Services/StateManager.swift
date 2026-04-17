@@ -174,8 +174,12 @@ final class StateManager {
         case .recording:
             cancelEouMonitoring()
             await endRecording()
-        case .loading, .processing, .error:
+        case .loading, .processing:
             break
+        case .error:
+            // Issue #52: dismiss error and start new recording
+            await resetToIdle()
+            await beginRecording()
         }
     }
 
@@ -351,7 +355,11 @@ final class StateManager {
     func beginRecording() async {
         // Requirement 12.5: Prevent concurrent recording sessions.
         // Only allow starting a new recording from the idle state.
-        // Ignore the request if already recording, processing, showing an error, or still loading.
+        // Ignore the request if already recording, processing, or still loading.
+        // Issue #52: If in error state, dismiss the error and proceed.
+        if case .error = appState {
+            await resetToIdle()
+        }
         guard appState == .idle else {
             if appState == .loading {
                 Log.stateManager.debug("beginRecording — still loading, ignoring hotkey")

@@ -46,7 +46,22 @@ case .loading, .processing:
 
 ## Testing
 
-- [ ] Add test: hotkey during `.error` state transitions to `.recording` (push-to-talk)
-- [ ] Add test: hotkey during `.error` state transitions to `.recording` (hands-free / toggle)
-- [ ] Add test: error dismiss timer is cancelled when hotkey interrupts error state
-- [ ] Verify existing tests still pass
+- [x] Add test: hotkey during `.error` state transitions to `.recording` (push-to-talk)
+- [x] Add test: hotkey during `.error` state transitions to `.recording` (hands-free / toggle)
+- [x] Add test: error dismiss timer is cancelled when hotkey interrupts error state
+- [x] Verify existing tests still pass
+
+## Implementation Summary
+
+### Changes in `StateManager.swift`
+
+1. **`beginRecording()`** — added `if case .error = appState { await resetToIdle() }` before the existing guard. Clears the error and lets recording proceed.
+2. **`toggleRecording()`** — split `.error` out of `case .loading, .processing, .error: break` into its own case that calls `resetToIdle()` then `beginRecording()`.
+
+### Tests updated in `StateManagerTests.swift`
+
+1. **`testBeginRecordingDismissesError`** — replaced old `testConcurrentRecordingPreventionWhileError` that asserted error stays. Now verifies error is dismissed and `errorMessage` is cleared on hotkey press (push-to-talk).
+2. **`testToggleRecordingDismissesError`** — new test verifying push-to-talk toggle path dismisses error.
+3. **`testToggleRecordingDismissesErrorHandsFree`** — replaced old `testToggleRecordingIgnoredWhileError`. Now verifies hands-free toggle dismisses error.
+
+All StateManager tests pass (0 failures).
