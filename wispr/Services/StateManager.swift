@@ -166,7 +166,8 @@ final class StateManager {
     /// Toggles recording state for hands-free mode.
     /// If idle, starts recording (with EOU monitoring when supported).
     /// If recording, stops recording.
-    /// Ignores calls during .loading, .processing, or .error states.
+    /// If in error state, dismisses the error and starts a new recording (issue #52).
+    /// Ignores calls during .loading or .processing states.
     func toggleRecording() async {
         switch appState {
         case .idle:

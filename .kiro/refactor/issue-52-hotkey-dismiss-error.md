@@ -48,7 +48,7 @@ case .loading, .processing:
 
 - [x] Add test: hotkey during `.error` state transitions to `.recording` (push-to-talk)
 - [x] Add test: hotkey during `.error` state transitions to `.recording` (hands-free / toggle)
-- [x] Add test: error dismiss timer is cancelled when hotkey interrupts error state
+- [ ] Add test: error dismiss timer is cancelled when hotkey interrupts error state (not directly testable — `errorDismissTask` is private)
 - [x] Verify existing tests still pass
 
 ## Implementation Summary
