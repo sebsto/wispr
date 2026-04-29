@@ -66,6 +66,9 @@ final class MenuBarController {
     /// Update checker for surfacing new versions.
     private let updateChecker: UpdateChecker
 
+    /// Meeting state manager for meeting transcription mode.
+    private let meetingStateManager: MeetingStateManager
+
     /// Observation tracking for state changes.
     private var observationTask: Task<Void, Never>?
 
@@ -117,7 +120,8 @@ final class MenuBarController {
         whisperService: any TranscriptionEngine,
         permissionManager: PermissionManager,
         textCorrectionService: TextCorrectionService,
-        updateChecker: UpdateChecker
+        updateChecker: UpdateChecker,
+        meetingStateManager: MeetingStateManager
     ) {
         self.stateManager = stateManager
         self.settingsStore = settingsStore
@@ -128,6 +132,7 @@ final class MenuBarController {
         self.permissionManager = permissionManager
         self.textCorrectionService = textCorrectionService
         self.updateChecker = updateChecker
+        self.meetingStateManager = meetingStateManager
 
         // Requirement 5.1: Create NSStatusItem in the menu bar
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -172,6 +177,18 @@ final class MenuBarController {
         // Start/Stop Recording
         updateRecordingMenuItem()
         menu.addItem(recordingMenuItem)
+
+        // Meeting Mode
+        let meetingItem = NSMenuItem(
+            title: "Meeting Transcription…",
+            action: #selector(MenuBarActionHandler.toggleMeetingMode(_:)),
+            keyEquivalent: ""
+        )
+        meetingItem.image = NSImage(
+            systemSymbolName: "person.2.wave.2",
+            accessibilityDescription: "Meeting Transcription"
+        )
+        menu.addItem(meetingItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -647,6 +664,11 @@ final class MenuBarController {
         stopObserving()
         NSApp.terminate(nil)
     }
+
+    /// Toggles the meeting transcription window.
+    func toggleMeetingMode() {
+        meetingStateManager.isWindowVisible = true
+    }
 }
 
 // MARK: - Menu Open Delegate
@@ -710,6 +732,11 @@ final class MenuBarActionHandler: NSObject {
     @MainActor
     @objc func showCLIInstallDialog(_ sender: NSMenuItem) {
         menuBarController?.showCLIInstallDialog()
+    }
+
+    @MainActor
+    @objc func toggleMeetingMode(_ sender: NSMenuItem) {
+        menuBarController?.toggleMeetingMode()
     }
 
     @MainActor

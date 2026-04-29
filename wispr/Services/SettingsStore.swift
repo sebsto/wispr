@@ -118,6 +118,12 @@ final class SettingsStore {
         }
     }
 
+    // MARK: - App Variant
+
+    /// When true, the app is running as the meeting transcription variant.
+    /// Disables features that require accessibility permission (text insertion at cursor).
+    var isMeetingMode: Bool = false
+
     // MARK: - UserDefaults Keys
     private enum Keys {
         static let hotkeyKeyCode = "hotkeyKeyCode"

@@ -103,19 +103,32 @@ struct OnboardingFlow: View {
 
     // MARK: - Step Indicator
 
+    /// The steps to display, excluding accessibility in meeting mode.
+    private var visibleSteps: [OnboardingStep] {
+        if settingsStore.isMeetingMode {
+            return OnboardingStep.allCases.filter { $0 != .accessibilityPermission }
+        }
+        return OnboardingStep.allCases
+    }
+
+    /// The 1-based index of the current step within the visible steps.
+    private var currentStepNumber: Int {
+        (visibleSteps.firstIndex(of: currentStep) ?? 0) + 1
+    }
+
     /// Displays connected dots representing each step with the current step highlighted.
     private var stepIndicator: some View {
         VStack(spacing: 10) {
-            Text("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
+            Text("Step \(currentStepNumber) of \(visibleSteps.count)")
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundStyle(theme.secondaryTextColor)
 
             HStack(spacing: 0) {
-                ForEach(OnboardingStep.allCases, id: \.rawValue) { step in
+                ForEach(Array(visibleSteps.enumerated()), id: \.element.rawValue) { index, step in
                     stepDot(for: step)
 
-                    if step != .completion {
+                    if index < visibleSteps.count - 1 {
                         Capsule()
                             .fill(step.rawValue < currentStep.rawValue
                                   ? theme.successColor.opacity(0.5)
@@ -126,7 +139,7 @@ struct OnboardingFlow: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
+        .accessibilityLabel("Step \(currentStepNumber) of \(visibleSteps.count)")
     }
 
     /// A single dot in the step indicator with a ring highlight for the current step.
@@ -276,7 +289,8 @@ struct OnboardingFlow: View {
         case .microphonePermission:
             return permissionManager.microphoneStatus == .authorized
         case .accessibilityPermission:
-            return permissionManager.accessibilityStatus == .authorized
+            // Meeting mode doesn't need accessibility (no text insertion at cursor)
+            return settingsStore.isMeetingMode || permissionManager.accessibilityStatus == .authorized
         case .modelSelection:
             // Req 13.8: Continue disabled until download completes successfully
             return downloadComplete
@@ -291,13 +305,23 @@ struct OnboardingFlow: View {
     // MARK: - Navigation
 
     private func goForward() {
-        guard let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1) else { return }
+        var nextRaw = currentStep.rawValue + 1
+        // Skip accessibility step in meeting mode
+        if settingsStore.isMeetingMode, nextRaw == OnboardingStep.accessibilityPermission.rawValue {
+            nextRaw += 1
+        }
+        guard let nextStep = OnboardingStep(rawValue: nextRaw) else { return }
         transitionDirection = .forward
         currentStep = nextStep
     }
 
     private func goBack() {
-        guard let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) else { return }
+        var prevRaw = currentStep.rawValue - 1
+        // Skip accessibility step in meeting mode
+        if settingsStore.isMeetingMode, prevRaw == OnboardingStep.accessibilityPermission.rawValue {
+            prevRaw -= 1
+        }
+        guard let previousStep = OnboardingStep(rawValue: prevRaw) else { return }
         transitionDirection = .backward
         currentStep = previousStep
     }
@@ -367,7 +391,8 @@ struct OnboardingFlow: View {
         case .microphonePermission:
             return permissionManager.microphoneStatus == .authorized
         case .accessibilityPermission:
-            return permissionManager.accessibilityStatus == .authorized
+            // Meeting mode doesn't need accessibility permission
+            return settingsStore.isMeetingMode || permissionManager.accessibilityStatus == .authorized
         case .modelSelection:
             // Only skip if the active model is Parakeet V3 (the auto-download target).
             // A leftover Whisper model name shouldn't skip this step.

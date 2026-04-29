@@ -2,6 +2,7 @@ import Foundation
 import AVFAudio
 import ApplicationServices
 import AppKit
+import ScreenCaptureKit
 
 /// Manages microphone and accessibility permissions for the Wispr application.
 /// This class checks permission status, requests permissions, and monitors changes.
@@ -86,7 +87,24 @@ final class PermissionManager {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") else { return }
         NSWorkspace.shared.open(url)
     }
-    
+
+    /// Opens System Settings to the Screen Recording privacy pane.
+    /// Required for meeting mode system audio capture via ScreenCaptureKit.
+    func openScreenRecordingSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// Checks if Screen Recording permission is available by attempting to enumerate shareable content.
+    func checkScreenRecordingPermission() async -> Bool {
+        do {
+            _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Permission Monitoring
     
     /// Polls for permission changes every 2 seconds.
