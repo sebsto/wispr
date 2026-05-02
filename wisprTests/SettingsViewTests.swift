@@ -10,12 +10,8 @@
 import Testing
 import Foundation
 import Carbon
-#if SWIFT_PACKAGE
 @testable import WisprApp
 import WisprCore
-#else
-@testable import wispr
-#endif
 
 // MARK: - Language Mode Transition Tests
 

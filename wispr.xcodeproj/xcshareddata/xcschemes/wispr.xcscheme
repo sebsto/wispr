@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00A1C0B52F50AD06001D1A22"
-               BuildableName = "wispr.app"
-               BlueprintName = "wispr"
+               BuildableName = "WisprApp.app"
+               BlueprintName = "WisprApp"
                ReferencedContainer = "container:wispr.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -36,8 +36,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00A1C0C22F50AD09001D1A22"
-               BuildableName = "wisprTests.xctest"
-               BlueprintName = "wisprTests"
+               BuildableName = "WisprTests.xctest"
+               BlueprintName = "WisprTests"
                ReferencedContainer = "container:wispr.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -69,8 +69,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "00A1C0B52F50AD06001D1A22"
-            BuildableName = "wispr.app"
-            BlueprintName = "wispr"
+            BuildableName = "WisprApp.app"
+            BlueprintName = "WisprApp"
             ReferencedContainer = "container:wispr.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -86,8 +86,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "00A1C0B52F50AD06001D1A22"
-            BuildableName = "wispr.app"
-            BlueprintName = "wispr"
+            BuildableName = "WisprApp.app"
+            BlueprintName = "WisprApp"
             ReferencedContainer = "container:wispr.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

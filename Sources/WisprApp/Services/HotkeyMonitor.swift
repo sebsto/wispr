@@ -7,9 +7,7 @@
 //  modifier+key combos. The Fn (Globe) key requires a CGEventTap on flagsChanged.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Carbon
 import AppKit
 import CoreGraphics

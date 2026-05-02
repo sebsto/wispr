@@ -6,9 +6,7 @@
 //  Recognition, After Transcription, Feedback, and General.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 import os
 

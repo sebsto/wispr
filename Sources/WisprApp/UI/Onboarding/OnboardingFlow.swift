@@ -6,9 +6,7 @@
 //  Requirements: 13.1, 13.2, 13.13, 14.3, 14.8, 14.12
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 
 /// Multi-step onboarding wizard that guides the user through initial setup.

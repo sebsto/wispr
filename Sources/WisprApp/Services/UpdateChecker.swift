@@ -5,9 +5,7 @@
 //  Checks GitHub Releases for a newer app version at startup.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Foundation
 import os
 

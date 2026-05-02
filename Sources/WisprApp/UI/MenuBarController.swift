@@ -7,9 +7,7 @@
 //  Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 14.2, 14.9, 16.7, 16.8
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import AppKit
 import SwiftUI
 import Observation

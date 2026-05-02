@@ -6,9 +6,7 @@
 //  Wraps SystemLanguageModel to correct grammar and improve spoken-to-written fluency.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Foundation
 import FoundationModels
 import Observation

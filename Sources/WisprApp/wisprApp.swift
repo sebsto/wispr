@@ -8,9 +8,7 @@
 //  Requirements: 5.6, 13.1, 13.12, 13.16
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 import os
 

@@ -7,12 +7,8 @@
 
 import Testing
 import Foundation
-#if SWIFT_PACKAGE
 @testable import WisprApp
 import WisprCore
-#else
-@testable import wispr
-#endif
 
 // MARK: - Mock Engine
 
@@ -60,7 +56,7 @@ actor MockTranscriptionEngine: TranscriptionEngine {
     }
 
     func downloadModel(_ model: ModelInfo) async -> AsyncThrowingStream<DownloadProgress, Error> {
-        let modelId = await model.id
+        let modelId = model.id
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: DownloadProgress.self)
 
         switch downloadBehavior {

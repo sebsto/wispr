@@ -5,9 +5,7 @@
 //  Settings persistence using UserDefaults
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Foundation
 import Observation
 import ServiceManagement

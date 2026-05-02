@@ -10,12 +10,8 @@
 import Testing
 import Foundation
 import AppKit
-#if SWIFT_PACKAGE
 @testable import WisprApp
 import WisprCore
-#else
-@testable import wispr
-#endif
 
 // MARK: - Mock
 

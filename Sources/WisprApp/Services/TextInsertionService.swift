@@ -1,6 +1,4 @@
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Foundation
 import AppKit
 import ApplicationServices

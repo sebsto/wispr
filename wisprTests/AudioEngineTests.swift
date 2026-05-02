@@ -9,12 +9,8 @@ import Testing
 import Foundation
 import AVFoundation
 import CoreAudio
-#if SWIFT_PACKAGE
 @testable import WisprApp
 import WisprCore
-#else
-@testable import wispr
-#endif
 
 // MARK: - Test Helpers
 
@@ -579,10 +575,9 @@ struct AudioEngineTests {
         // First session: start → stop
         let _ = try await engine.startCapture()
         try await Task.sleep(for: .milliseconds(50))
-        let samples = await engine.stopCapture()
+        let _ = await engine.stopCapture()
 
-        // stopCapture returns [Float] samples
-        #expect(samples is [Float], "stopCapture should return [Float]")
+        // stopCapture returns [Float] samples (type guaranteed by API signature)
 
         // Verify cleanup: stopCapture when not capturing returns empty
         let emptySamples = await engine.stopCapture()

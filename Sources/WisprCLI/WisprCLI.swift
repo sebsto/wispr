@@ -8,9 +8,7 @@
 
 import ArgumentParser
 import Foundation
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 
 // MARK: - CLI Error Types
 

@@ -8,9 +8,7 @@
 //  error state with retry, and completion confirmation.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 
 /// Manages the full download lifecycle: initiation, progress, error/retry, and completion display.

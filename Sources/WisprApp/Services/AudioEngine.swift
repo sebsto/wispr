@@ -5,9 +5,7 @@
 //  Created by Kiro
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Foundation
 import AVFoundation
 import CoreAudio
@@ -442,7 +440,10 @@ nonisolated private struct CoreAudioDevice: Sendable {
         var size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return false }
         var dict: CFDictionary?
-        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &dict) == noErr,
+        let status = withUnsafeMutablePointer(to: &dict) { ptr in
+            AudioObjectGetPropertyData(id, &address, 0, nil, &size, ptr)
+        }
+        guard status == noErr,
               let composition = dict as? [String: Any] else { return false }
         // kAudioAggregateDeviceIsPrivateKey == "priv"
         if let isPrivate = composition["priv"] as? Int, isPrivate == 1 {

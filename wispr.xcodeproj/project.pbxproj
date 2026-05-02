@@ -7,12 +7,132 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		000C012F2F50C874003B4CDA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 000C012E2F50C874003B4CDA /* WhisperKit */; };
-		00C1100A2F60A00100000004 /* wispr-cli in CopyFiles */ = {isa = PBXBuildFile; fileRef = 00C110012F60A00100000005 /* wispr-cli */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		00C1100D2F60A00100000001 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110102F60A00100000001 /* WhisperKit */; };
-		00C1100E2F60A00100000002 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110112F60A00100000002 /* FluidAudio */; };
+		00C1100A2F60A00100000004 /* WisprCLI in CopyFiles */ = {isa = PBXBuildFile; fileRef = 00C110012F60A00100000005 /* WisprCLI */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110122F60A00100000003 /* ArgumentParser */; };
-		00FA01002F58A00000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00FA01012F58A00000000001 /* FluidAudio */; };
+		1C74D1A02FA6031B00208826 /* libWisprCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C74D0D02FA6027300208826 /* libWisprCore.a */; };
+		1C74D1A12FA6032700208826 /* libWisprCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C74D0D02FA6027300208826 /* libWisprCore.a */; };
+		1C74D2952FA6047B00208826 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 1C74D2942FA6047B00208826 /* FluidAudio */; };
+		1C74D2972FA6048400208826 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1C74D2962FA6048400208826 /* WhisperKit */; };
+		1C74D2A92FA6328D00208826 /* TranscriptionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29C2FA6328D00208826 /* TranscriptionResult.swift */; };
+		1C74D2AA2FA6328D00208826 /* TranscriptionLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */; };
+		1C74D2AB2FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */; };
+		1C74D2AC2FA6328D00208826 /* ModelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2992FA6328D00208826 /* ModelInfo.swift */; };
+		1C74D2AD2FA6328D00208826 /* ParakeetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A12FA6328D00208826 /* ParakeetService.swift */; };
+		1C74D2AE2FA6328D00208826 /* DownloadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2982FA6328D00208826 /* DownloadProgress.swift */; };
+		1C74D2AF2FA6328D00208826 /* AudioFileDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */; };
+		1C74D2B02FA6328D00208826 /* WisprError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29D2FA6328D00208826 /* WisprError.swift */; };
+		1C74D2B12FA6328D00208826 /* ModelStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29A2FA6328D00208826 /* ModelStatus.swift */; };
+		1C74D2B22FA6328D00208826 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A52FA6328D00208826 /* Logger.swift */; };
+		1C74D2B32FA6328D00208826 /* ModelPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A62FA6328D00208826 /* ModelPaths.swift */; };
+		1C74D2B42FA6328D00208826 /* WhisperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A32FA6328D00208826 /* WhisperService.swift */; };
+		1C74D2B52FA6328D00208826 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */; };
+		1C74D2B62FA6328D00208826 /* TranscriptionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29C2FA6328D00208826 /* TranscriptionResult.swift */; };
+		1C74D2B72FA6328D00208826 /* TranscriptionLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */; };
+		1C74D2B82FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */; };
+		1C74D2B92FA6328D00208826 /* ModelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2992FA6328D00208826 /* ModelInfo.swift */; };
+		1C74D2BA2FA6328D00208826 /* ParakeetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A12FA6328D00208826 /* ParakeetService.swift */; };
+		1C74D2BB2FA6328D00208826 /* DownloadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2982FA6328D00208826 /* DownloadProgress.swift */; };
+		1C74D2BC2FA6328D00208826 /* AudioFileDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */; };
+		1C74D2BD2FA6328D00208826 /* WisprError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29D2FA6328D00208826 /* WisprError.swift */; };
+		1C74D2BE2FA6328D00208826 /* ModelStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29A2FA6328D00208826 /* ModelStatus.swift */; };
+		1C74D2BF2FA6328D00208826 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A52FA6328D00208826 /* Logger.swift */; };
+		1C74D2C02FA6328D00208826 /* ModelPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A62FA6328D00208826 /* ModelPaths.swift */; };
+		1C74D2C12FA6328D00208826 /* WhisperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A32FA6328D00208826 /* WhisperService.swift */; };
+		1C74D2C22FA6328D00208826 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */; };
+		1C74D2C52FA632A600208826 /* WisprCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C32FA632A600208826 /* WisprCLI.swift */; };
+		1C74D2C62FA632A600208826 /* WisprCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C32FA632A600208826 /* WisprCLI.swift */; };
+		1C74D2FF2FA632B700208826 /* RecordingStopped.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2D02FA632B700208826 /* RecordingStopped.aiff */; };
+		1C74D3002FA632B700208826 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2FB2FA632B700208826 /* Assets.xcassets */; };
+		1C74D3012FA632B700208826 /* RecordingStarted.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */; };
+		1C74D3022FA632B700208826 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */; };
+		1C74D3032FA632B700208826 /* TextInsertionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DA2FA632B700208826 /* TextInsertionService.swift */; };
+		1C74D3042FA632B700208826 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D62FA632B700208826 /* SettingsStore.swift */; };
+		1C74D3052FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E52FA632B700208826 /* OnboardingModelSelectionStep.swift */; };
+		1C74D3062FA632B700208826 /* SupportedLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2ED2FA632B700208826 /* SupportedLanguage.swift */; };
+		1C74D3072FA632B700208826 /* SFSymbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F82FA632B700208826 /* SFSymbols.swift */; };
+		1C74D3082FA632B700208826 /* StateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D82FA632B700208826 /* StateManager.swift */; };
+		1C74D3092FA632B700208826 /* FillerWordCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */; };
+		1C74D30A2FA632B700208826 /* RecordingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */; };
+		1C74D30B2FA632B700208826 /* CLIInstallDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EF2FA632B700208826 /* CLIInstallDialog.swift */; };
+		1C74D30C2FA632B700208826 /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */; };
+		1C74D30D2FA632B700208826 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F02FA632B700208826 /* MenuBarController.swift */; };
+		1C74D30E2FA632B700208826 /* ModelDownloadProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F12FA632B700208826 /* ModelDownloadProgressView.swift */; };
+		1C74D30F2FA632B700208826 /* KeyCodeMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EB2FA632B700208826 /* KeyCodeMapping.swift */; };
+		1C74D3102FA632B700208826 /* OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CB2FA632B700208826 /* OnboardingStep.swift */; };
+		1C74D3112FA632B700208826 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E22FA632B700208826 /* OnboardingComponents.swift */; };
+		1C74D3122FA632B700208826 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D52FA632B700208826 /* PermissionManager.swift */; };
+		1C74D3132FA632B700208826 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2FC2FA632B700208826 /* ContentView.swift */; };
+		1C74D3142FA632B700208826 /* OnboardingMicPermissionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E42FA632B700208826 /* OnboardingMicPermissionStep.swift */; };
+		1C74D3152FA632B700208826 /* TextCorrectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D92FA632B700208826 /* TextCorrectionService.swift */; };
+		1C74D3162FA632B700208826 /* UIThemeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F92FA632B700208826 /* UIThemeEngine.swift */; };
+		1C74D3172FA632B700208826 /* PreviewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F72FA632B700208826 /* PreviewHelpers.swift */; };
+		1C74D3182FA632B700208826 /* CorrectionStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CA2FA632B700208826 /* CorrectionStyle.swift */; };
+		1C74D3192FA632B700208826 /* OnboardingPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E62FA632B700208826 /* OnboardingPreview.swift */; };
+		1C74D31A2FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E02FA632B700208826 /* OnboardingAccessibilityStep.swift */; };
+		1C74D31B2FA632B700208826 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D32FA632B700208826 /* AudioEngine.swift */; };
+		1C74D31C2FA632B700208826 /* OnboardingWelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E82FA632B700208826 /* OnboardingWelcomeStep.swift */; };
+		1C74D31D2FA632B700208826 /* PermissionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CC2FA632B700208826 /* PermissionStatus.swift */; };
+		1C74D31E2FA632B700208826 /* ModelManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F22FA632B700208826 /* ModelManagementView.swift */; };
+		1C74D31F2FA632B700208826 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DB2FA632B700208826 /* UpdateChecker.swift */; };
+		1C74D3202FA632B700208826 /* ModelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DD2FA632B700208826 /* ModelRowView.swift */; };
+		1C74D3212FA632B700208826 /* AudioInputDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C92FA632B700208826 /* AudioInputDevice.swift */; };
+		1C74D3222FA632B700208826 /* OnboardingCompletionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E12FA632B700208826 /* OnboardingCompletionStep.swift */; };
+		1C74D3232FA632B700208826 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E32FA632B700208826 /* OnboardingFlow.swift */; };
+		1C74D3242FA632B700208826 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CD2FA632B700208826 /* SemanticVersion.swift */; };
+		1C74D3252FA632B700208826 /* SuffixEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */; };
+		1C74D3262FA632B700208826 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F42FA632B700208826 /* RecordingOverlayView.swift */; };
+		1C74D3272FA632B700208826 /* AppUpdateInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C82FA632B700208826 /* AppUpdateInfo.swift */; };
+		1C74D3282FA632B700208826 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EC2FA632B700208826 /* SettingsView.swift */; };
+		1C74D3292FA632B700208826 /* OnboardingTestDictationStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E72FA632B700208826 /* OnboardingTestDictationStep.swift */; };
+		1C74D32A2FA632B700208826 /* wisprApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2FD2FA632B700208826 /* wisprApp.swift */; };
+		1C74D32B2FA632B700208826 /* AppStateType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C72FA632B700208826 /* AppStateType.swift */; };
+		1C74D32C2FA632B700208826 /* SoundFeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D72FA632B700208826 /* SoundFeedbackService.swift */; };
+		1C74D32D2FA632B700208826 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */; };
+		1C74D32E2FA632B700208826 /* TextInsertionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DA2FA632B700208826 /* TextInsertionService.swift */; };
+		1C74D32F2FA632B700208826 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D62FA632B700208826 /* SettingsStore.swift */; };
+		1C74D3302FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E52FA632B700208826 /* OnboardingModelSelectionStep.swift */; };
+		1C74D3312FA632B700208826 /* SupportedLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2ED2FA632B700208826 /* SupportedLanguage.swift */; };
+		1C74D3322FA632B700208826 /* SFSymbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F82FA632B700208826 /* SFSymbols.swift */; };
+		1C74D3332FA632B700208826 /* StateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D82FA632B700208826 /* StateManager.swift */; };
+		1C74D3342FA632B700208826 /* FillerWordCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */; };
+		1C74D3352FA632B700208826 /* RecordingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */; };
+		1C74D3362FA632B700208826 /* CLIInstallDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EF2FA632B700208826 /* CLIInstallDialog.swift */; };
+		1C74D3372FA632B700208826 /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */; };
+		1C74D3382FA632B700208826 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F02FA632B700208826 /* MenuBarController.swift */; };
+		1C74D3392FA632B700208826 /* ModelDownloadProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F12FA632B700208826 /* ModelDownloadProgressView.swift */; };
+		1C74D33A2FA632B700208826 /* KeyCodeMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EB2FA632B700208826 /* KeyCodeMapping.swift */; };
+		1C74D33B2FA632B700208826 /* OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CB2FA632B700208826 /* OnboardingStep.swift */; };
+		1C74D33C2FA632B700208826 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E22FA632B700208826 /* OnboardingComponents.swift */; };
+		1C74D33D2FA632B700208826 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D52FA632B700208826 /* PermissionManager.swift */; };
+		1C74D33E2FA632B700208826 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2FC2FA632B700208826 /* ContentView.swift */; };
+		1C74D33F2FA632B700208826 /* OnboardingMicPermissionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E42FA632B700208826 /* OnboardingMicPermissionStep.swift */; };
+		1C74D3402FA632B700208826 /* TextCorrectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D92FA632B700208826 /* TextCorrectionService.swift */; };
+		1C74D3412FA632B700208826 /* UIThemeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F92FA632B700208826 /* UIThemeEngine.swift */; };
+		1C74D3422FA632B700208826 /* PreviewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F72FA632B700208826 /* PreviewHelpers.swift */; };
+		1C74D3432FA632B700208826 /* CorrectionStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CA2FA632B700208826 /* CorrectionStyle.swift */; };
+		1C74D3442FA632B700208826 /* OnboardingPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E62FA632B700208826 /* OnboardingPreview.swift */; };
+		1C74D3452FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E02FA632B700208826 /* OnboardingAccessibilityStep.swift */; };
+		1C74D3462FA632B700208826 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D32FA632B700208826 /* AudioEngine.swift */; };
+		1C74D3472FA632B700208826 /* OnboardingWelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E82FA632B700208826 /* OnboardingWelcomeStep.swift */; };
+		1C74D3482FA632B700208826 /* PermissionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CC2FA632B700208826 /* PermissionStatus.swift */; };
+		1C74D3492FA632B700208826 /* ModelManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F22FA632B700208826 /* ModelManagementView.swift */; };
+		1C74D34A2FA632B700208826 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DB2FA632B700208826 /* UpdateChecker.swift */; };
+		1C74D34B2FA632B700208826 /* ModelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DD2FA632B700208826 /* ModelRowView.swift */; };
+		1C74D34C2FA632B700208826 /* AudioInputDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C92FA632B700208826 /* AudioInputDevice.swift */; };
+		1C74D34D2FA632B700208826 /* OnboardingCompletionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E12FA632B700208826 /* OnboardingCompletionStep.swift */; };
+		1C74D34E2FA632B700208826 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E32FA632B700208826 /* OnboardingFlow.swift */; };
+		1C74D34F2FA632B700208826 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CD2FA632B700208826 /* SemanticVersion.swift */; };
+		1C74D3502FA632B700208826 /* SuffixEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */; };
+		1C74D3512FA632B700208826 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F42FA632B700208826 /* RecordingOverlayView.swift */; };
+		1C74D3522FA632B700208826 /* AppUpdateInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C82FA632B700208826 /* AppUpdateInfo.swift */; };
+		1C74D3532FA632B700208826 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EC2FA632B700208826 /* SettingsView.swift */; };
+		1C74D3542FA632B700208826 /* OnboardingTestDictationStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E72FA632B700208826 /* OnboardingTestDictationStep.swift */; };
+		1C74D3552FA632B700208826 /* wisprApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2FD2FA632B700208826 /* wisprApp.swift */; };
+		1C74D3562FA632B700208826 /* AppStateType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C72FA632B700208826 /* AppStateType.swift */; };
+		1C74D3572FA632B700208826 /* SoundFeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D72FA632B700208826 /* SoundFeedbackService.swift */; };
+		1C74D3582FA632B700208826 /* RecordingStopped.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2D02FA632B700208826 /* RecordingStopped.aiff */; };
+		1C74D3592FA632B700208826 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2FB2FA632B700208826 /* Assets.xcassets */; };
+		1C74D35A2FA632B700208826 /* RecordingStarted.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,30 +166,81 @@
 			dstPath = bin;
 			dstSubfolderSpec = 7;
 			files = (
-				00C1100A2F60A00100000004 /* wispr-cli in CopyFiles */,
+				00C1100A2F60A00100000004 /* WisprCLI in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		00A1C0B62F50AD06001D1A22 /* wispr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = wispr.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		00A1C0C32F50AD09001D1A22 /* wisprTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = wisprTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		00A1C0B62F50AD06001D1A22 /* WisprApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = WisprApp.app; path = wispr.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00A1C0C32F50AD09001D1A22 /* WisprTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WisprTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		00A1C0CD2F50AD09001D1A22 /* wisprUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = wisprUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		00C110012F60A00100000005 /* wispr-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wispr-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		00C110012F60A00100000005 /* WisprCLI */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = WisprCLI; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C74D0D02FA6027300208826 /* libWisprCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libWisprCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C74D2982FA6328D00208826 /* DownloadProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadProgress.swift; sourceTree = "<group>"; };
+		1C74D2992FA6328D00208826 /* ModelInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelInfo.swift; sourceTree = "<group>"; };
+		1C74D29A2FA6328D00208826 /* ModelStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStatus.swift; sourceTree = "<group>"; };
+		1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionLanguage.swift; sourceTree = "<group>"; };
+		1C74D29C2FA6328D00208826 /* TranscriptionResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResult.swift; sourceTree = "<group>"; };
+		1C74D29D2FA6328D00208826 /* WisprError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WisprError.swift; sourceTree = "<group>"; };
+		1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFileDecoder.swift; sourceTree = "<group>"; };
+		1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompositeTranscriptionEngine.swift; sourceTree = "<group>"; };
+		1C74D2A12FA6328D00208826 /* ParakeetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetService.swift; sourceTree = "<group>"; };
+		1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionEngine.swift; sourceTree = "<group>"; };
+		1C74D2A32FA6328D00208826 /* WhisperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperService.swift; sourceTree = "<group>"; };
+		1C74D2A52FA6328D00208826 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		1C74D2A62FA6328D00208826 /* ModelPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPaths.swift; sourceTree = "<group>"; };
+		1C74D2C32FA632A600208826 /* WisprCLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WisprCLI.swift; sourceTree = "<group>"; };
+		1C74D2C72FA632B700208826 /* AppStateType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateType.swift; sourceTree = "<group>"; };
+		1C74D2C82FA632B700208826 /* AppUpdateInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateInfo.swift; sourceTree = "<group>"; };
+		1C74D2C92FA632B700208826 /* AudioInputDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioInputDevice.swift; sourceTree = "<group>"; };
+		1C74D2CA2FA632B700208826 /* CorrectionStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionStyle.swift; sourceTree = "<group>"; };
+		1C74D2CB2FA632B700208826 /* OnboardingStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStep.swift; sourceTree = "<group>"; };
+		1C74D2CC2FA632B700208826 /* PermissionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionStatus.swift; sourceTree = "<group>"; };
+		1C74D2CD2FA632B700208826 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
+		1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.aiff; path = RecordingStarted.aiff; sourceTree = "<group>"; };
+		1C74D2D02FA632B700208826 /* RecordingStopped.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.aiff; path = RecordingStopped.aiff; sourceTree = "<group>"; };
+		1C74D2D32FA632B700208826 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+		1C74D2D52FA632B700208826 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
+		1C74D2D62FA632B700208826 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		1C74D2D72FA632B700208826 /* SoundFeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundFeedbackService.swift; sourceTree = "<group>"; };
+		1C74D2D82FA632B700208826 /* StateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateManager.swift; sourceTree = "<group>"; };
+		1C74D2D92FA632B700208826 /* TextCorrectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCorrectionService.swift; sourceTree = "<group>"; };
+		1C74D2DA2FA632B700208826 /* TextInsertionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInsertionService.swift; sourceTree = "<group>"; };
+		1C74D2DB2FA632B700208826 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
+		1C74D2DD2FA632B700208826 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
+		1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuffixEditorView.swift; sourceTree = "<group>"; };
+		1C74D2E02FA632B700208826 /* OnboardingAccessibilityStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAccessibilityStep.swift; sourceTree = "<group>"; };
+		1C74D2E12FA632B700208826 /* OnboardingCompletionStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCompletionStep.swift; sourceTree = "<group>"; };
+		1C74D2E22FA632B700208826 /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
+		1C74D2E32FA632B700208826 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
+		1C74D2E42FA632B700208826 /* OnboardingMicPermissionStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingMicPermissionStep.swift; sourceTree = "<group>"; };
+		1C74D2E52FA632B700208826 /* OnboardingModelSelectionStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingModelSelectionStep.swift; sourceTree = "<group>"; };
+		1C74D2E62FA632B700208826 /* OnboardingPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPreview.swift; sourceTree = "<group>"; };
+		1C74D2E72FA632B700208826 /* OnboardingTestDictationStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTestDictationStep.swift; sourceTree = "<group>"; };
+		1C74D2E82FA632B700208826 /* OnboardingWelcomeStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWelcomeStep.swift; sourceTree = "<group>"; };
+		1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
+		1C74D2EB2FA632B700208826 /* KeyCodeMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyCodeMapping.swift; sourceTree = "<group>"; };
+		1C74D2EC2FA632B700208826 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		1C74D2ED2FA632B700208826 /* SupportedLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportedLanguage.swift; sourceTree = "<group>"; };
+		1C74D2EF2FA632B700208826 /* CLIInstallDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIInstallDialog.swift; sourceTree = "<group>"; };
+		1C74D2F02FA632B700208826 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		1C74D2F12FA632B700208826 /* ModelDownloadProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadProgressView.swift; sourceTree = "<group>"; };
+		1C74D2F22FA632B700208826 /* ModelManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManagementView.swift; sourceTree = "<group>"; };
+		1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayPanel.swift; sourceTree = "<group>"; };
+		1C74D2F42FA632B700208826 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
+		1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillerWordCleaner.swift; sourceTree = "<group>"; };
+		1C74D2F72FA632B700208826 /* PreviewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewHelpers.swift; sourceTree = "<group>"; };
+		1C74D2F82FA632B700208826 /* SFSymbols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFSymbols.swift; sourceTree = "<group>"; };
+		1C74D2F92FA632B700208826 /* UIThemeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIThemeEngine.swift; sourceTree = "<group>"; };
+		1C74D2FB2FA632B700208826 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1C74D2FC2FA632B700208826 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1C74D2FD2FA632B700208826 /* wisprApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wisprApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		00A1C0B82F50AD06001D1A22 /* WisprApp */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Sources/WisprApp;
-			sourceTree = "<group>";
-		};
-		00B0CORE2F70000000000001 /* WisprCore */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Sources/WisprCore;
-			sourceTree = "<group>";
-		};
 		00A1C0C62F50AD09001D1A22 /* wisprTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = wisprTests;
@@ -80,11 +251,6 @@
 			path = wisprUITests;
 			sourceTree = "<group>";
 		};
-		00C110022F60A0010000000A /* WisprCLI */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Sources/WisprCLI;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,8 +258,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000C012F2F50C874003B4CDA /* WhisperKit in Frameworks */,
-				00FA01002F58A00000000001 /* FluidAudio in Frameworks */,
+				1C74D1A12FA6032700208826 /* libWisprCore.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -115,9 +280,17 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				00C1100D2F60A00100000001 /* WhisperKit in Frameworks */,
-				00C1100E2F60A00100000002 /* FluidAudio in Frameworks */,
+				1C74D1A02FA6031B00208826 /* libWisprCore.a in Frameworks */,
 				00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C74D0CE2FA6027300208826 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C74D2972FA6048400208826 /* WhisperKit in Frameworks */,
+				1C74D2952FA6047B00208826 /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,11 +300,12 @@
 		00A1C0AD2F50AD06001D1A22 = {
 			isa = PBXGroup;
 			children = (
-				00B0CORE2F70000000000001 /* WisprCore */,
-				00A1C0B82F50AD06001D1A22 /* WisprApp */,
-				00C110022F60A0010000000A /* WisprCLI */,
+				1C74D2FE2FA632B700208826 /* WisprApp */,
+				1C74D2C42FA632A600208826 /* WisprCLI */,
+				1C74D2A82FA6328D00208826 /* WisprCore */,
 				00A1C0C62F50AD09001D1A22 /* wisprTests */,
 				00A1C0D02F50AD09001D1A22 /* wisprUITests */,
+				1C74D19F2FA6031B00208826 /* Frameworks */,
 				00A1C0B72F50AD06001D1A22 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -139,20 +313,218 @@
 		00A1C0B72F50AD06001D1A22 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				00A1C0B62F50AD06001D1A22 /* wispr.app */,
-				00C110012F60A00100000005 /* wispr-cli */,
-				00A1C0C32F50AD09001D1A22 /* wisprTests.xctest */,
+				00A1C0B62F50AD06001D1A22 /* WisprApp.app */,
+				00C110012F60A00100000005 /* WisprCLI */,
+				00A1C0C32F50AD09001D1A22 /* WisprTests.xctest */,
 				00A1C0CD2F50AD09001D1A22 /* wisprUITests.xctest */,
+				1C74D0D02FA6027300208826 /* libWisprCore.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
+		1C74D19F2FA6031B00208826 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		1C74D29E2FA6328D00208826 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2982FA6328D00208826 /* DownloadProgress.swift */,
+				1C74D2992FA6328D00208826 /* ModelInfo.swift */,
+				1C74D29A2FA6328D00208826 /* ModelStatus.swift */,
+				1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */,
+				1C74D29C2FA6328D00208826 /* TranscriptionResult.swift */,
+				1C74D29D2FA6328D00208826 /* WisprError.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		1C74D2A42FA6328D00208826 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */,
+				1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */,
+				1C74D2A12FA6328D00208826 /* ParakeetService.swift */,
+				1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */,
+				1C74D2A32FA6328D00208826 /* WhisperService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		1C74D2A72FA6328D00208826 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2A52FA6328D00208826 /* Logger.swift */,
+				1C74D2A62FA6328D00208826 /* ModelPaths.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		1C74D2A82FA6328D00208826 /* WisprCore */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D29E2FA6328D00208826 /* Models */,
+				1C74D2A42FA6328D00208826 /* Services */,
+				1C74D2A72FA6328D00208826 /* Utilities */,
+			);
+			name = WisprCore;
+			path = Sources/WisprCore;
+			sourceTree = "<group>";
+		};
+		1C74D2C42FA632A600208826 /* WisprCLI */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2C32FA632A600208826 /* WisprCLI.swift */,
+			);
+			name = WisprCLI;
+			path = Sources/WisprCLI;
+			sourceTree = "<group>";
+		};
+		1C74D2CE2FA632B700208826 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2C72FA632B700208826 /* AppStateType.swift */,
+				1C74D2C82FA632B700208826 /* AppUpdateInfo.swift */,
+				1C74D2C92FA632B700208826 /* AudioInputDevice.swift */,
+				1C74D2CA2FA632B700208826 /* CorrectionStyle.swift */,
+				1C74D2CB2FA632B700208826 /* OnboardingStep.swift */,
+				1C74D2CC2FA632B700208826 /* PermissionStatus.swift */,
+				1C74D2CD2FA632B700208826 /* SemanticVersion.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		1C74D2D12FA632B700208826 /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */,
+				1C74D2D02FA632B700208826 /* RecordingStopped.aiff */,
+			);
+			path = Sounds;
+			sourceTree = "<group>";
+		};
+		1C74D2D22FA632B700208826 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2D12FA632B700208826 /* Sounds */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		1C74D2DC2FA632B700208826 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2D32FA632B700208826 /* AudioEngine.swift */,
+				1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */,
+				1C74D2D52FA632B700208826 /* PermissionManager.swift */,
+				1C74D2D62FA632B700208826 /* SettingsStore.swift */,
+				1C74D2D72FA632B700208826 /* SoundFeedbackService.swift */,
+				1C74D2D82FA632B700208826 /* StateManager.swift */,
+				1C74D2D92FA632B700208826 /* TextCorrectionService.swift */,
+				1C74D2DA2FA632B700208826 /* TextInsertionService.swift */,
+				1C74D2DB2FA632B700208826 /* UpdateChecker.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		1C74D2DF2FA632B700208826 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2DD2FA632B700208826 /* ModelRowView.swift */,
+				1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		1C74D2E92FA632B700208826 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2E02FA632B700208826 /* OnboardingAccessibilityStep.swift */,
+				1C74D2E12FA632B700208826 /* OnboardingCompletionStep.swift */,
+				1C74D2E22FA632B700208826 /* OnboardingComponents.swift */,
+				1C74D2E32FA632B700208826 /* OnboardingFlow.swift */,
+				1C74D2E42FA632B700208826 /* OnboardingMicPermissionStep.swift */,
+				1C74D2E52FA632B700208826 /* OnboardingModelSelectionStep.swift */,
+				1C74D2E62FA632B700208826 /* OnboardingPreview.swift */,
+				1C74D2E72FA632B700208826 /* OnboardingTestDictationStep.swift */,
+				1C74D2E82FA632B700208826 /* OnboardingWelcomeStep.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		1C74D2EE2FA632B700208826 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */,
+				1C74D2EB2FA632B700208826 /* KeyCodeMapping.swift */,
+				1C74D2EC2FA632B700208826 /* SettingsView.swift */,
+				1C74D2ED2FA632B700208826 /* SupportedLanguage.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		1C74D2F52FA632B700208826 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2DF2FA632B700208826 /* Components */,
+				1C74D2E92FA632B700208826 /* Onboarding */,
+				1C74D2EE2FA632B700208826 /* Settings */,
+				1C74D2EF2FA632B700208826 /* CLIInstallDialog.swift */,
+				1C74D2F02FA632B700208826 /* MenuBarController.swift */,
+				1C74D2F12FA632B700208826 /* ModelDownloadProgressView.swift */,
+				1C74D2F22FA632B700208826 /* ModelManagementView.swift */,
+				1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */,
+				1C74D2F42FA632B700208826 /* RecordingOverlayView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		1C74D2FA2FA632B700208826 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */,
+				1C74D2F72FA632B700208826 /* PreviewHelpers.swift */,
+				1C74D2F82FA632B700208826 /* SFSymbols.swift */,
+				1C74D2F92FA632B700208826 /* UIThemeEngine.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		1C74D2FE2FA632B700208826 /* WisprApp */ = {
+			isa = PBXGroup;
+			children = (
+				1C74D2CE2FA632B700208826 /* Models */,
+				1C74D2D22FA632B700208826 /* Resources */,
+				1C74D2DC2FA632B700208826 /* Services */,
+				1C74D2F52FA632B700208826 /* UI */,
+				1C74D2FA2FA632B700208826 /* Utilities */,
+				1C74D2FB2FA632B700208826 /* Assets.xcassets */,
+				1C74D2FC2FA632B700208826 /* ContentView.swift */,
+				1C74D2FD2FA632B700208826 /* wisprApp.swift */,
+			);
+			name = WisprApp;
+			path = Sources/WisprApp;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
+/* Begin PBXHeadersBuildPhase section */
+		1C74D0CC2FA6027300208826 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
 /* Begin PBXNativeTarget section */
-		00A1C0B52F50AD06001D1A22 /* wispr */ = {
+		00A1C0B52F50AD06001D1A22 /* WisprApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 00A1C0D72F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "wispr" */;
+			buildConfigurationList = 00A1C0D72F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "WisprApp" */;
 			buildPhases = (
 				00A1C0B22F50AD06001D1A22 /* Sources */,
 				00A1C0B32F50AD06001D1A22 /* Frameworks */,
@@ -164,22 +536,18 @@
 			dependencies = (
 				00C1100B2F60A0010000000C /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				00B0CORE2F70000000000001 /* WisprCore */,
-				00A1C0B82F50AD06001D1A22 /* WisprApp */,
-			);
-			name = wispr;
+			name = WisprApp;
 			packageProductDependencies = (
 				000C012E2F50C874003B4CDA /* WhisperKit */,
 				00FA01012F58A00000000001 /* FluidAudio */,
 			);
 			productName = wispr;
-			productReference = 00A1C0B62F50AD06001D1A22 /* wispr.app */;
+			productReference = 00A1C0B62F50AD06001D1A22 /* WisprApp.app */;
 			productType = "com.apple.product-type.application";
 		};
-		00A1C0C22F50AD09001D1A22 /* wisprTests */ = {
+		00A1C0C22F50AD09001D1A22 /* WisprTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 00A1C0DA2F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "wisprTests" */;
+			buildConfigurationList = 00A1C0DA2F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "WisprTests" */;
 			buildPhases = (
 				00A1C0BF2F50AD09001D1A22 /* Sources */,
 				00A1C0C02F50AD09001D1A22 /* Frameworks */,
@@ -193,11 +561,11 @@
 			fileSystemSynchronizedGroups = (
 				00A1C0C62F50AD09001D1A22 /* wisprTests */,
 			);
-			name = wisprTests;
+			name = WisprTests;
 			packageProductDependencies = (
 			);
 			productName = wisprTests;
-			productReference = 00A1C0C32F50AD09001D1A22 /* wisprTests.xctest */;
+			productReference = 00A1C0C32F50AD09001D1A22 /* WisprTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		00A1C0CC2F50AD09001D1A22 /* wisprUITests */ = {
@@ -223,9 +591,9 @@
 			productReference = 00A1C0CD2F50AD09001D1A22 /* wisprUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		00C110052F60A00100000007 /* wispr-cli */ = {
+		00C110052F60A00100000007 /* WisprCLI */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 00C110082F60A0010000000D /* Build configuration list for PBXNativeTarget "wispr-cli" */;
+			buildConfigurationList = 00C110082F60A0010000000D /* Build configuration list for PBXNativeTarget "WisprCLI" */;
 			buildPhases = (
 				00C110032F60A0010000000E /* Sources */,
 				00C110042F60A0010000000B /* Frameworks */,
@@ -234,19 +602,36 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				00B0CORE2F70000000000001 /* WisprCore */,
-				00C110022F60A0010000000A /* WisprCLI */,
-			);
-			name = "wispr-cli";
+			name = WisprCLI;
 			packageProductDependencies = (
 				00C110102F60A00100000001 /* WhisperKit */,
 				00C110112F60A00100000002 /* FluidAudio */,
 				00C110122F60A00100000003 /* ArgumentParser */,
 			);
 			productName = "wispr-cli";
-			productReference = 00C110012F60A00100000005 /* wispr-cli */;
+			productReference = 00C110012F60A00100000005 /* WisprCLI */;
 			productType = "com.apple.product-type.tool";
+		};
+		1C74D0CF2FA6027300208826 /* WisprCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C74D0D12FA6027300208826 /* Build configuration list for PBXNativeTarget "WisprCore" */;
+			buildPhases = (
+				1C74D0CC2FA6027300208826 /* Headers */,
+				1C74D0CD2FA6027300208826 /* Sources */,
+				1C74D0CE2FA6027300208826 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WisprCore;
+			packageProductDependencies = (
+				1C74D2942FA6047B00208826 /* FluidAudio */,
+				1C74D2962FA6048400208826 /* WhisperKit */,
+			);
+			productName = WisprCore;
+			productReference = 1C74D0D02FA6027300208826 /* libWisprCore.a */;
+			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
 
@@ -272,6 +657,9 @@
 					00C110052F60A00100000007 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					1C74D0CF2FA6027300208826 = {
+						CreatedOnToolsVersion = 26.4;
+					};
 				};
 			};
 			buildConfigurationList = 00A1C0B12F50AD06001D1A22 /* Build configuration list for PBXProject "wispr" */;
@@ -293,9 +681,10 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				00A1C0B52F50AD06001D1A22 /* wispr */,
-				00C110052F60A00100000007 /* wispr-cli */,
-				00A1C0C22F50AD09001D1A22 /* wisprTests */,
+				1C74D0CF2FA6027300208826 /* WisprCore */,
+				00A1C0B52F50AD06001D1A22 /* WisprApp */,
+				00C110052F60A00100000007 /* WisprCLI */,
+				00A1C0C22F50AD09001D1A22 /* WisprTests */,
 				00A1C0CC2F50AD09001D1A22 /* wisprUITests */,
 			);
 		};
@@ -306,6 +695,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D3582FA632B700208826 /* RecordingStopped.aiff in Resources */,
+				1C74D3592FA632B700208826 /* Assets.xcassets in Resources */,
+				1C74D35A2FA632B700208826 /* RecordingStarted.aiff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -313,6 +705,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D2FF2FA632B700208826 /* RecordingStopped.aiff in Resources */,
+				1C74D3002FA632B700208826 /* Assets.xcassets in Resources */,
+				1C74D3012FA632B700208826 /* RecordingStarted.aiff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -330,6 +725,49 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D32D2FA632B700208826 /* HotkeyRecorderView.swift in Sources */,
+				1C74D32E2FA632B700208826 /* TextInsertionService.swift in Sources */,
+				1C74D32F2FA632B700208826 /* SettingsStore.swift in Sources */,
+				1C74D3302FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */,
+				1C74D3312FA632B700208826 /* SupportedLanguage.swift in Sources */,
+				1C74D3322FA632B700208826 /* SFSymbols.swift in Sources */,
+				1C74D3332FA632B700208826 /* StateManager.swift in Sources */,
+				1C74D3342FA632B700208826 /* FillerWordCleaner.swift in Sources */,
+				1C74D3352FA632B700208826 /* RecordingOverlayPanel.swift in Sources */,
+				1C74D3362FA632B700208826 /* CLIInstallDialog.swift in Sources */,
+				1C74D3372FA632B700208826 /* HotkeyMonitor.swift in Sources */,
+				1C74D3382FA632B700208826 /* MenuBarController.swift in Sources */,
+				1C74D3392FA632B700208826 /* ModelDownloadProgressView.swift in Sources */,
+				1C74D33A2FA632B700208826 /* KeyCodeMapping.swift in Sources */,
+				1C74D33B2FA632B700208826 /* OnboardingStep.swift in Sources */,
+				1C74D33C2FA632B700208826 /* OnboardingComponents.swift in Sources */,
+				1C74D33D2FA632B700208826 /* PermissionManager.swift in Sources */,
+				1C74D33E2FA632B700208826 /* ContentView.swift in Sources */,
+				1C74D33F2FA632B700208826 /* OnboardingMicPermissionStep.swift in Sources */,
+				1C74D3402FA632B700208826 /* TextCorrectionService.swift in Sources */,
+				1C74D3412FA632B700208826 /* UIThemeEngine.swift in Sources */,
+				1C74D3422FA632B700208826 /* PreviewHelpers.swift in Sources */,
+				1C74D3432FA632B700208826 /* CorrectionStyle.swift in Sources */,
+				1C74D3442FA632B700208826 /* OnboardingPreview.swift in Sources */,
+				1C74D3452FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */,
+				1C74D3462FA632B700208826 /* AudioEngine.swift in Sources */,
+				1C74D3472FA632B700208826 /* OnboardingWelcomeStep.swift in Sources */,
+				1C74D3482FA632B700208826 /* PermissionStatus.swift in Sources */,
+				1C74D3492FA632B700208826 /* ModelManagementView.swift in Sources */,
+				1C74D34A2FA632B700208826 /* UpdateChecker.swift in Sources */,
+				1C74D34B2FA632B700208826 /* ModelRowView.swift in Sources */,
+				1C74D34C2FA632B700208826 /* AudioInputDevice.swift in Sources */,
+				1C74D34D2FA632B700208826 /* OnboardingCompletionStep.swift in Sources */,
+				1C74D34E2FA632B700208826 /* OnboardingFlow.swift in Sources */,
+				1C74D34F2FA632B700208826 /* SemanticVersion.swift in Sources */,
+				1C74D3502FA632B700208826 /* SuffixEditorView.swift in Sources */,
+				1C74D3512FA632B700208826 /* RecordingOverlayView.swift in Sources */,
+				1C74D3522FA632B700208826 /* AppUpdateInfo.swift in Sources */,
+				1C74D3532FA632B700208826 /* SettingsView.swift in Sources */,
+				1C74D3542FA632B700208826 /* OnboardingTestDictationStep.swift in Sources */,
+				1C74D3552FA632B700208826 /* wisprApp.swift in Sources */,
+				1C74D3562FA632B700208826 /* AppStateType.swift in Sources */,
+				1C74D3572FA632B700208826 /* SoundFeedbackService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -337,6 +775,63 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D3022FA632B700208826 /* HotkeyRecorderView.swift in Sources */,
+				1C74D3032FA632B700208826 /* TextInsertionService.swift in Sources */,
+				1C74D3042FA632B700208826 /* SettingsStore.swift in Sources */,
+				1C74D3052FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */,
+				1C74D3062FA632B700208826 /* SupportedLanguage.swift in Sources */,
+				1C74D3072FA632B700208826 /* SFSymbols.swift in Sources */,
+				1C74D3082FA632B700208826 /* StateManager.swift in Sources */,
+				1C74D3092FA632B700208826 /* FillerWordCleaner.swift in Sources */,
+				1C74D30A2FA632B700208826 /* RecordingOverlayPanel.swift in Sources */,
+				1C74D30B2FA632B700208826 /* CLIInstallDialog.swift in Sources */,
+				1C74D30C2FA632B700208826 /* HotkeyMonitor.swift in Sources */,
+				1C74D30D2FA632B700208826 /* MenuBarController.swift in Sources */,
+				1C74D30E2FA632B700208826 /* ModelDownloadProgressView.swift in Sources */,
+				1C74D30F2FA632B700208826 /* KeyCodeMapping.swift in Sources */,
+				1C74D3102FA632B700208826 /* OnboardingStep.swift in Sources */,
+				1C74D3112FA632B700208826 /* OnboardingComponents.swift in Sources */,
+				1C74D3122FA632B700208826 /* PermissionManager.swift in Sources */,
+				1C74D3132FA632B700208826 /* ContentView.swift in Sources */,
+				1C74D3142FA632B700208826 /* OnboardingMicPermissionStep.swift in Sources */,
+				1C74D3152FA632B700208826 /* TextCorrectionService.swift in Sources */,
+				1C74D3162FA632B700208826 /* UIThemeEngine.swift in Sources */,
+				1C74D3172FA632B700208826 /* PreviewHelpers.swift in Sources */,
+				1C74D3182FA632B700208826 /* CorrectionStyle.swift in Sources */,
+				1C74D3192FA632B700208826 /* OnboardingPreview.swift in Sources */,
+				1C74D31A2FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */,
+				1C74D31B2FA632B700208826 /* AudioEngine.swift in Sources */,
+				1C74D31C2FA632B700208826 /* OnboardingWelcomeStep.swift in Sources */,
+				1C74D31D2FA632B700208826 /* PermissionStatus.swift in Sources */,
+				1C74D31E2FA632B700208826 /* ModelManagementView.swift in Sources */,
+				1C74D31F2FA632B700208826 /* UpdateChecker.swift in Sources */,
+				1C74D3202FA632B700208826 /* ModelRowView.swift in Sources */,
+				1C74D3212FA632B700208826 /* AudioInputDevice.swift in Sources */,
+				1C74D3222FA632B700208826 /* OnboardingCompletionStep.swift in Sources */,
+				1C74D3232FA632B700208826 /* OnboardingFlow.swift in Sources */,
+				1C74D3242FA632B700208826 /* SemanticVersion.swift in Sources */,
+				1C74D3252FA632B700208826 /* SuffixEditorView.swift in Sources */,
+				1C74D3262FA632B700208826 /* RecordingOverlayView.swift in Sources */,
+				1C74D3272FA632B700208826 /* AppUpdateInfo.swift in Sources */,
+				1C74D3282FA632B700208826 /* SettingsView.swift in Sources */,
+				1C74D3292FA632B700208826 /* OnboardingTestDictationStep.swift in Sources */,
+				1C74D32A2FA632B700208826 /* wisprApp.swift in Sources */,
+				1C74D32B2FA632B700208826 /* AppStateType.swift in Sources */,
+				1C74D32C2FA632B700208826 /* SoundFeedbackService.swift in Sources */,
+				1C74D2C52FA632A600208826 /* WisprCLI.swift in Sources */,
+				1C74D2A92FA6328D00208826 /* TranscriptionResult.swift in Sources */,
+				1C74D2AA2FA6328D00208826 /* TranscriptionLanguage.swift in Sources */,
+				1C74D2AB2FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */,
+				1C74D2AC2FA6328D00208826 /* ModelInfo.swift in Sources */,
+				1C74D2AD2FA6328D00208826 /* ParakeetService.swift in Sources */,
+				1C74D2AE2FA6328D00208826 /* DownloadProgress.swift in Sources */,
+				1C74D2AF2FA6328D00208826 /* AudioFileDecoder.swift in Sources */,
+				1C74D2B02FA6328D00208826 /* WisprError.swift in Sources */,
+				1C74D2B12FA6328D00208826 /* ModelStatus.swift in Sources */,
+				1C74D2B22FA6328D00208826 /* Logger.swift in Sources */,
+				1C74D2B32FA6328D00208826 /* ModelPaths.swift in Sources */,
+				1C74D2B42FA6328D00208826 /* WhisperService.swift in Sources */,
+				1C74D2B52FA6328D00208826 /* TranscriptionEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,6 +846,27 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D2C62FA632A600208826 /* WisprCLI.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C74D0CD2FA6027300208826 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C74D2B62FA6328D00208826 /* TranscriptionResult.swift in Sources */,
+				1C74D2B72FA6328D00208826 /* TranscriptionLanguage.swift in Sources */,
+				1C74D2B82FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */,
+				1C74D2B92FA6328D00208826 /* ModelInfo.swift in Sources */,
+				1C74D2BA2FA6328D00208826 /* ParakeetService.swift in Sources */,
+				1C74D2BB2FA6328D00208826 /* DownloadProgress.swift in Sources */,
+				1C74D2BC2FA6328D00208826 /* AudioFileDecoder.swift in Sources */,
+				1C74D2BD2FA6328D00208826 /* WisprError.swift in Sources */,
+				1C74D2BE2FA6328D00208826 /* ModelStatus.swift in Sources */,
+				1C74D2BF2FA6328D00208826 /* Logger.swift in Sources */,
+				1C74D2C02FA6328D00208826 /* ModelPaths.swift in Sources */,
+				1C74D2C12FA6328D00208826 /* WhisperService.swift in Sources */,
+				1C74D2C22FA6328D00208826 /* TranscriptionEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -359,17 +875,17 @@
 /* Begin PBXTargetDependency section */
 		00A1C0C52F50AD09001D1A22 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 00A1C0B52F50AD06001D1A22 /* wispr */;
+			target = 00A1C0B52F50AD06001D1A22 /* WisprApp */;
 			targetProxy = 00A1C0C42F50AD09001D1A22 /* PBXContainerItemProxy */;
 		};
 		00A1C0CF2F50AD09001D1A22 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 00A1C0B52F50AD06001D1A22 /* wispr */;
+			target = 00A1C0B52F50AD06001D1A22 /* WisprApp */;
 			targetProxy = 00A1C0CE2F50AD09001D1A22 /* PBXContainerItemProxy */;
 		};
 		00C1100B2F60A0010000000C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 00C110052F60A00100000007 /* wispr-cli */;
+			target = 00C110052F60A00100000007 /* WisprCLI */;
 			targetProxy = 00C1100C2F60A00100000006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -534,7 +1050,8 @@
 				);
 				MARKETING_VERSION = 1.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stormacq.mac.wispr;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = WisprApp;
+				PRODUCT_NAME = wispr;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -580,6 +1097,7 @@
 				);
 				MARKETING_VERSION = 1.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stormacq.mac.wispr;
+				PRODUCT_MODULE_NAME = WisprApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -745,6 +1263,32 @@
 			};
 			name = Release;
 		};
+		1C74D0D22FA6027300208826 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 56U756R2L2;
+				EXECUTABLE_PREFIX = lib;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		1C74D0D32FA6027300208826 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 56U756R2L2;
+				EXECUTABLE_PREFIX = lib;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -757,7 +1301,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		00A1C0D72F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "wispr" */ = {
+		00A1C0D72F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "WisprApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				00A1C0D82F50AD09001D1A22 /* Debug */,
@@ -766,7 +1310,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		00A1C0DA2F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "wisprTests" */ = {
+		00A1C0DA2F50AD09001D1A22 /* Build configuration list for PBXNativeTarget "WisprTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				00A1C0DB2F50AD09001D1A22 /* Debug */,
@@ -784,11 +1328,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		00C110082F60A0010000000D /* Build configuration list for PBXNativeTarget "wispr-cli" */ = {
+		00C110082F60A0010000000D /* Build configuration list for PBXNativeTarget "WisprCLI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				00C110062F60A00100000010 /* Debug */,
 				00C110072F60A00100000011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C74D0D12FA6027300208826 /* Build configuration list for PBXNativeTarget "WisprCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C74D0D22FA6027300208826 /* Debug */,
+				1C74D0D32FA6027300208826 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -847,6 +1400,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		1C74D2942FA6047B00208826 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
+		};
+		1C74D2962FA6048400208826 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000C012D2F50C874003B4CDA /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

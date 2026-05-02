@@ -10,12 +10,8 @@
 
 import Testing
 import Foundation
-#if SWIFT_PACKAGE
 @testable import WisprApp
 import WisprCore
-#else
-@testable import wispr
-#endif
 
 @MainActor
 @Suite("HotkeyMonitor Tests")

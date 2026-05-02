@@ -7,9 +7,7 @@
 //  AVAudioEngine, etc.) so previews render without crashing.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 
 #if DEBUG

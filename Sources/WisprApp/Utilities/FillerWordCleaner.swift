@@ -6,9 +6,7 @@
 //  Supports English and French fillers.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import Foundation
 
 enum FillerWordCleaner {

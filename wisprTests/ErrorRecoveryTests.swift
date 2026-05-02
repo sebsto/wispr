@@ -8,12 +8,8 @@
 
 import Testing
 import Foundation
-#if SWIFT_PACKAGE
 @testable import WisprApp
 import WisprCore
-#else
-@testable import wispr
-#endif
 
 // MARK: - WhisperService Model Reload Retry Tests (Requirement 12.2)
 
@@ -350,11 +346,11 @@ struct StateManagerConcurrentRecordingTests {
         #expect(sm.appState == .processing, "State should remain .processing")
     }
 
-    /// Test that beginRecording does nothing when state is .error.
+    /// Test that beginRecording dismisses error and attempts recording (issue #52).
     ///
-    /// Requirement 12.5: Prevent concurrent recording sessions.
-    @Test("beginRecording is ignored when state is .error")
-    func testBeginRecordingIgnoredWhenError() async {
+    /// Issue #52: Error state should not block new recording attempts.
+    @Test("beginRecording dismisses error state and starts recording (issue #52)")
+    func testBeginRecordingDismissesError() async {
         let sm = createStateManager()
 
         // Force into error state
@@ -362,10 +358,9 @@ struct StateManagerConcurrentRecordingTests {
 
         await sm.beginRecording()
 
+        // State should no longer be .error — it transitions to idle then attempts recording
         if case .error = sm.appState {
-            // Expected — state unchanged
-        } else {
-            Issue.record("State should remain .error, got \(sm.appState)")
+            Issue.record("State should not remain .error after beginRecording (issue #52), got \(sm.appState)")
         }
     }
 

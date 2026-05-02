@@ -6,9 +6,7 @@
 //  Uses bundled sound files so playback is independent of system sounds.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import AVFoundation
 import os
 

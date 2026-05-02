@@ -6,9 +6,7 @@
 //  Reuses ModelDownloadProgressView for download lifecycle.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 
 /// Model download step that automatically fetches and activates Parakeet V3.

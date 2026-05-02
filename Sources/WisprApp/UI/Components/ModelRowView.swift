@@ -6,9 +6,7 @@
 //  Used by both ModelManagementView and OnboardingModelSelectionStep.
 //
 
-#if SWIFT_PACKAGE
 import WisprCore
-#endif
 import SwiftUI
 
 // MARK: - StatusPillView
