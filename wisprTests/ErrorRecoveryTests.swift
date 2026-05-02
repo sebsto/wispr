@@ -8,7 +8,12 @@
 
 import Testing
 import Foundation
+#if SWIFT_PACKAGE
+@testable import WisprApp
+import WisprCore
+#else
 @testable import wispr
+#endif
 
 // MARK: - WhisperService Model Reload Retry Tests (Requirement 12.2)
 

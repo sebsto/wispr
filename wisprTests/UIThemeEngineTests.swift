@@ -7,7 +7,12 @@
 
 import Testing
 import SwiftUI
+#if SWIFT_PACKAGE
+@testable import WisprApp
+import WisprCore
+#else
 @testable import wispr
+#endif
 
 @MainActor
 @Suite("UIThemeEngine Tests")

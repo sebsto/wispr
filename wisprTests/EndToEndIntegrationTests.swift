@@ -10,7 +10,12 @@
 
 import Testing
 import Foundation
+#if SWIFT_PACKAGE
+@testable import WisprApp
+import WisprCore
+#else
 @testable import wispr
+#endif
 
 // MARK: - End-to-End Integration Tests
 

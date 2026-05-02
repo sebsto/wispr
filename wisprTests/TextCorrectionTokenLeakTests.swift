@@ -13,7 +13,12 @@
 
 import Testing
 import Foundation
+#if SWIFT_PACKAGE
+@testable import WisprApp
+import WisprCore
+#else
 @testable import wispr
+#endif
 
 @MainActor
 @Suite("Issue #53 — TEXT_START/TEXT_END token leak")

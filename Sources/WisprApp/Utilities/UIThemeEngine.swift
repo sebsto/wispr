@@ -59,9 +59,11 @@ final class UIThemeEngine {
         guard appearanceTask == nil else { return }
 
         // Observe dark/light mode changes via KVO on NSApp.effectiveAppearance
+        // Guard against NSApp being nil (e.g. in swift test without a running NSApplication).
+        guard let app = NSApp else { return }
         appearanceTask = Task { [weak self] in
             let stream = AsyncStream<Void> { continuation in
-                let observation = NSApp.observe(\.effectiveAppearance) { _, _ in
+                let observation = app.observe(\.effectiveAppearance) { _, _ in
                     continuation.yield()
                 }
                 continuation.onTermination = { _ in
@@ -98,7 +100,8 @@ final class UIThemeEngine {
 
     /// Reads the current system appearance (light/dark mode).
     func refreshAppearance() {
-        let appearance = NSApp.effectiveAppearance
+        guard let app = NSApp else { return }
+        let appearance = app.effectiveAppearance
         isDarkMode = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 

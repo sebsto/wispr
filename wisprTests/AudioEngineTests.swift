@@ -9,7 +9,12 @@ import Testing
 import Foundation
 import AVFoundation
 import CoreAudio
+#if SWIFT_PACKAGE
+@testable import WisprApp
+import WisprCore
+#else
 @testable import wispr
+#endif
 
 // MARK: - Test Helpers
 
