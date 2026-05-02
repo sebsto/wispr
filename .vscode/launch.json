@@ -1,0 +1,84 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Debug wispr-cli",
+            "target": "wispr-cli",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug wispr-cli"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Release wispr-cli",
+            "target": "wispr-cli",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release wispr-cli"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Debug wispr",
+            "target": "wispr",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug wispr"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Release wispr",
+            "target": "wispr",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release wispr"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Debug WisprCLI",
+            "target": "WisprCLI",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug WisprCLI"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Release WisprCLI",
+            "target": "WisprCLI",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release WisprCLI"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Debug WisprApp",
+            "target": "WisprApp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug WisprApp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:wispr}",
+            "name": "Release WisprApp",
+            "target": "WisprApp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release WisprApp"
+        }
+    ]
+}

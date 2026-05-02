@@ -13,17 +13,16 @@ Wispr is a macOS menu bar app for local speech-to-text transcription powered by 
 
 ## Key Architecture
 
-- **Models** (`wispr/Models/`) - Data types for model info, permissions, app state, errors
-- **Services** (`wispr/Services/`) - Core logic including:
-  - `AudioEngine.swift` - Audio capture
-  - `WhisperService.swift` - Whisper model integration
-  - `ParakeetService.swift` - Alternative transcription engine
-  - `CompositeTranscriptionEngine.swift` - Combines multiple engines
-  - `HotkeyMonitor.swift` - Keyboard shortcut handling
-  - `StateManager.swift` - App state coordination
-  - `SettingsStore.swift` - User preferences
-- **UI** (`wispr/UI/`) - SwiftUI views for menu bar, recording overlay, settings, onboarding
-- **Utilities** (`wispr/Utilities/`) - Logging, theming, helpers
+- **WisprCore** (`Sources/WisprCore/`) - Shared library used by both app and CLI:
+  - `Models/` - Data types for model info, download progress, transcription results, errors
+  - `Services/` - Transcription engines (WhisperService, ParakeetService, CompositeTranscriptionEngine, AudioFileDecoder)
+  - `Utilities/` - Logger, ModelPaths
+- **WisprApp** (`Sources/WisprApp/`) - macOS menu-bar app:
+  - `Models/` - App-specific types (app state, permissions, onboarding)
+  - `Services/` - App logic (AudioEngine, StateManager, HotkeyMonitor, SettingsStore, etc.)
+  - `UI/` - SwiftUI views for menu bar, recording overlay, settings, onboarding
+  - `Utilities/` - FillerWordCleaner, theming, preview helpers
+- **WisprCLI** (`Sources/WisprCLI/`) - Command-line transcription tool
 
 ## Tech Stack
 

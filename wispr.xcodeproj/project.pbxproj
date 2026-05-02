@@ -59,35 +59,15 @@
 		00C110012F60A00100000005 /* wispr-cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wispr-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		00C110142F60A00100000009 /* Exceptions for "wispr" folder in "wispr-cli" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Models/DownloadProgress.swift,
-				Models/ModelInfo.swift,
-				Models/ModelStatus.swift,
-				Models/TranscriptionLanguage.swift,
-				Models/TranscriptionResult.swift,
-				Models/WisprError.swift,
-				Services/AudioFileDecoder.swift,
-				Services/CompositeTranscriptionEngine.swift,
-				Services/ParakeetService.swift,
-				Services/TranscriptionEngine.swift,
-				Services/WhisperService.swift,
-				Utilities/Logger.swift,
-				Utilities/ModelPaths.swift,
-			);
-			target = 00C110052F60A00100000007 /* wispr-cli */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		00A1C0B82F50AD06001D1A22 /* wispr */ = {
+		00A1C0B82F50AD06001D1A22 /* WisprApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				00C110142F60A00100000009 /* Exceptions for "wispr" folder in "wispr-cli" target */,
-			);
-			path = wispr;
+			path = Sources/WisprApp;
+			sourceTree = "<group>";
+		};
+		00B0CORE2F70000000000001 /* WisprCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Sources/WisprCore;
 			sourceTree = "<group>";
 		};
 		00A1C0C62F50AD09001D1A22 /* wisprTests */ = {
@@ -100,9 +80,9 @@
 			path = wisprUITests;
 			sourceTree = "<group>";
 		};
-		00C110022F60A0010000000A /* wispr-cli */ = {
+		00C110022F60A0010000000A /* WisprCLI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "wispr-cli";
+			path = Sources/WisprCLI;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -147,8 +127,9 @@
 		00A1C0AD2F50AD06001D1A22 = {
 			isa = PBXGroup;
 			children = (
-				00A1C0B82F50AD06001D1A22 /* wispr */,
-				00C110022F60A0010000000A /* wispr-cli */,
+				00B0CORE2F70000000000001 /* WisprCore */,
+				00A1C0B82F50AD06001D1A22 /* WisprApp */,
+				00C110022F60A0010000000A /* WisprCLI */,
 				00A1C0C62F50AD09001D1A22 /* wisprTests */,
 				00A1C0D02F50AD09001D1A22 /* wisprUITests */,
 				00A1C0B72F50AD06001D1A22 /* Products */,
@@ -184,7 +165,8 @@
 				00C1100B2F60A0010000000C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				00A1C0B82F50AD06001D1A22 /* wispr */,
+				00B0CORE2F70000000000001 /* WisprCore */,
+				00A1C0B82F50AD06001D1A22 /* WisprApp */,
 			);
 			name = wispr;
 			packageProductDependencies = (
@@ -253,7 +235,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				00C110022F60A0010000000A /* wispr-cli */,
+				00B0CORE2F70000000000001 /* WisprCore */,
+				00C110022F60A0010000000A /* WisprCLI */,
 			);
 			name = "wispr-cli";
 			packageProductDependencies = (
