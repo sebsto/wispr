@@ -5,46 +5,6 @@
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder:wispr}",
-            "name": "Debug wispr-cli",
-            "target": "wispr-cli",
-            "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug wispr-cli"
-        },
-        {
-            "type": "swift",
-            "request": "launch",
-            "args": [],
-            "cwd": "${workspaceFolder:wispr}",
-            "name": "Release wispr-cli",
-            "target": "wispr-cli",
-            "configuration": "release",
-            "preLaunchTask": "swift: Build Release wispr-cli"
-        },
-        {
-            "type": "swift",
-            "request": "launch",
-            "args": [],
-            "cwd": "${workspaceFolder:wispr}",
-            "name": "Debug wispr",
-            "target": "wispr",
-            "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug wispr"
-        },
-        {
-            "type": "swift",
-            "request": "launch",
-            "args": [],
-            "cwd": "${workspaceFolder:wispr}",
-            "name": "Release wispr",
-            "target": "wispr",
-            "configuration": "release",
-            "preLaunchTask": "swift: Build Release wispr"
-        },
-        {
-            "type": "swift",
-            "request": "launch",
-            "args": [],
-            "cwd": "${workspaceFolder:wispr}",
             "name": "Debug WisprCLI",
             "target": "WisprCLI",
             "configuration": "debug",
