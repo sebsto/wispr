@@ -13,19 +13,6 @@
 		1C74D1A12FA6032700208826 /* libWisprCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C74D0D02FA6027300208826 /* libWisprCore.a */; };
 		1C74D2952FA6047B00208826 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 1C74D2942FA6047B00208826 /* FluidAudio */; };
 		1C74D2972FA6048400208826 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1C74D2962FA6048400208826 /* WhisperKit */; };
-		1C74D2A92FA6328D00208826 /* TranscriptionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29C2FA6328D00208826 /* TranscriptionResult.swift */; };
-		1C74D2AA2FA6328D00208826 /* TranscriptionLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */; };
-		1C74D2AB2FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */; };
-		1C74D2AC2FA6328D00208826 /* ModelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2992FA6328D00208826 /* ModelInfo.swift */; };
-		1C74D2AD2FA6328D00208826 /* ParakeetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A12FA6328D00208826 /* ParakeetService.swift */; };
-		1C74D2AE2FA6328D00208826 /* DownloadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2982FA6328D00208826 /* DownloadProgress.swift */; };
-		1C74D2AF2FA6328D00208826 /* AudioFileDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */; };
-		1C74D2B02FA6328D00208826 /* WisprError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29D2FA6328D00208826 /* WisprError.swift */; };
-		1C74D2B12FA6328D00208826 /* ModelStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29A2FA6328D00208826 /* ModelStatus.swift */; };
-		1C74D2B22FA6328D00208826 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A52FA6328D00208826 /* Logger.swift */; };
-		1C74D2B32FA6328D00208826 /* ModelPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A62FA6328D00208826 /* ModelPaths.swift */; };
-		1C74D2B42FA6328D00208826 /* WhisperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A32FA6328D00208826 /* WhisperService.swift */; };
-		1C74D2B52FA6328D00208826 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */; };
 		1C74D2B62FA6328D00208826 /* TranscriptionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29C2FA6328D00208826 /* TranscriptionResult.swift */; };
 		1C74D2B72FA6328D00208826 /* TranscriptionLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */; };
 		1C74D2B82FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */; };
@@ -39,54 +26,10 @@
 		1C74D2C02FA6328D00208826 /* ModelPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A62FA6328D00208826 /* ModelPaths.swift */; };
 		1C74D2C12FA6328D00208826 /* WhisperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A32FA6328D00208826 /* WhisperService.swift */; };
 		1C74D2C22FA6328D00208826 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */; };
-		1C74D2C52FA632A600208826 /* WisprCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C32FA632A600208826 /* WisprCLI.swift */; };
 		1C74D2C62FA632A600208826 /* WisprCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C32FA632A600208826 /* WisprCLI.swift */; };
 		1C74D2FF2FA632B700208826 /* RecordingStopped.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2D02FA632B700208826 /* RecordingStopped.aiff */; };
 		1C74D3002FA632B700208826 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2FB2FA632B700208826 /* Assets.xcassets */; };
 		1C74D3012FA632B700208826 /* RecordingStarted.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */; };
-		1C74D3022FA632B700208826 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */; };
-		1C74D3032FA632B700208826 /* TextInsertionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DA2FA632B700208826 /* TextInsertionService.swift */; };
-		1C74D3042FA632B700208826 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D62FA632B700208826 /* SettingsStore.swift */; };
-		1C74D3052FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E52FA632B700208826 /* OnboardingModelSelectionStep.swift */; };
-		1C74D3062FA632B700208826 /* SupportedLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2ED2FA632B700208826 /* SupportedLanguage.swift */; };
-		1C74D3072FA632B700208826 /* SFSymbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F82FA632B700208826 /* SFSymbols.swift */; };
-		1C74D3082FA632B700208826 /* StateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D82FA632B700208826 /* StateManager.swift */; };
-		1C74D3092FA632B700208826 /* FillerWordCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */; };
-		1C74D30A2FA632B700208826 /* RecordingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */; };
-		1C74D30B2FA632B700208826 /* CLIInstallDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EF2FA632B700208826 /* CLIInstallDialog.swift */; };
-		1C74D30C2FA632B700208826 /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */; };
-		1C74D30D2FA632B700208826 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F02FA632B700208826 /* MenuBarController.swift */; };
-		1C74D30E2FA632B700208826 /* ModelDownloadProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F12FA632B700208826 /* ModelDownloadProgressView.swift */; };
-		1C74D30F2FA632B700208826 /* KeyCodeMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EB2FA632B700208826 /* KeyCodeMapping.swift */; };
-		1C74D3102FA632B700208826 /* OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CB2FA632B700208826 /* OnboardingStep.swift */; };
-		1C74D3112FA632B700208826 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E22FA632B700208826 /* OnboardingComponents.swift */; };
-		1C74D3122FA632B700208826 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D52FA632B700208826 /* PermissionManager.swift */; };
-		1C74D3132FA632B700208826 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2FC2FA632B700208826 /* ContentView.swift */; };
-		1C74D3142FA632B700208826 /* OnboardingMicPermissionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E42FA632B700208826 /* OnboardingMicPermissionStep.swift */; };
-		1C74D3152FA632B700208826 /* TextCorrectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D92FA632B700208826 /* TextCorrectionService.swift */; };
-		1C74D3162FA632B700208826 /* UIThemeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F92FA632B700208826 /* UIThemeEngine.swift */; };
-		1C74D3172FA632B700208826 /* PreviewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F72FA632B700208826 /* PreviewHelpers.swift */; };
-		1C74D3182FA632B700208826 /* CorrectionStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CA2FA632B700208826 /* CorrectionStyle.swift */; };
-		1C74D3192FA632B700208826 /* OnboardingPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E62FA632B700208826 /* OnboardingPreview.swift */; };
-		1C74D31A2FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E02FA632B700208826 /* OnboardingAccessibilityStep.swift */; };
-		1C74D31B2FA632B700208826 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D32FA632B700208826 /* AudioEngine.swift */; };
-		1C74D31C2FA632B700208826 /* OnboardingWelcomeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E82FA632B700208826 /* OnboardingWelcomeStep.swift */; };
-		1C74D31D2FA632B700208826 /* PermissionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CC2FA632B700208826 /* PermissionStatus.swift */; };
-		1C74D31E2FA632B700208826 /* ModelManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F22FA632B700208826 /* ModelManagementView.swift */; };
-		1C74D31F2FA632B700208826 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DB2FA632B700208826 /* UpdateChecker.swift */; };
-		1C74D3202FA632B700208826 /* ModelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DD2FA632B700208826 /* ModelRowView.swift */; };
-		1C74D3212FA632B700208826 /* AudioInputDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C92FA632B700208826 /* AudioInputDevice.swift */; };
-		1C74D3222FA632B700208826 /* OnboardingCompletionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E12FA632B700208826 /* OnboardingCompletionStep.swift */; };
-		1C74D3232FA632B700208826 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E32FA632B700208826 /* OnboardingFlow.swift */; };
-		1C74D3242FA632B700208826 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2CD2FA632B700208826 /* SemanticVersion.swift */; };
-		1C74D3252FA632B700208826 /* SuffixEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */; };
-		1C74D3262FA632B700208826 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F42FA632B700208826 /* RecordingOverlayView.swift */; };
-		1C74D3272FA632B700208826 /* AppUpdateInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C82FA632B700208826 /* AppUpdateInfo.swift */; };
-		1C74D3282FA632B700208826 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EC2FA632B700208826 /* SettingsView.swift */; };
-		1C74D3292FA632B700208826 /* OnboardingTestDictationStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E72FA632B700208826 /* OnboardingTestDictationStep.swift */; };
-		1C74D32A2FA632B700208826 /* wisprApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2FD2FA632B700208826 /* wisprApp.swift */; };
-		1C74D32B2FA632B700208826 /* AppStateType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2C72FA632B700208826 /* AppStateType.swift */; };
-		1C74D32C2FA632B700208826 /* SoundFeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D72FA632B700208826 /* SoundFeedbackService.swift */; };
 		1C74D32D2FA632B700208826 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */; };
 		1C74D32E2FA632B700208826 /* TextInsertionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DA2FA632B700208826 /* TextInsertionService.swift */; };
 		1C74D32F2FA632B700208826 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D62FA632B700208826 /* SettingsStore.swift */; };
@@ -133,16 +76,13 @@
 		1C74D3582FA632B700208826 /* RecordingStopped.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2D02FA632B700208826 /* RecordingStopped.aiff */; };
 		1C74D3592FA632B700208826 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2FB2FA632B700208826 /* Assets.xcassets */; };
 		1C74D35A2FA632B700208826 /* RecordingStarted.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */; };
+		1C74D4202FA6394300208826 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 000C012E2F50C874003B4CDA /* WhisperKit */; };
+		1C74D4212FA6394300208826 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00FA01012F58A00000000001 /* FluidAudio */; };
+		1C74D4222FA6394300208826 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110102F60A00100000001 /* WhisperKit */; };
+		1C74D4232FA6394300208826 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110112F60A00100000002 /* FluidAudio */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		00A1C0C42F50AD09001D1A22 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 00A1C0AE2F50AD06001D1A22 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 00A1C0B52F50AD06001D1A22;
-			remoteInfo = wispr;
-		};
 		00A1C0CE2F50AD09001D1A22 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 00A1C0AE2F50AD06001D1A22 /* Project object */;
@@ -156,6 +96,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = 00C110052F60A00100000007;
 			remoteInfo = "wispr-cli";
+		};
+		1C74D4582FA69C8400208826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00A1C0AE2F50AD06001D1A22 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 00A1C0B52F50AD06001D1A22;
+			remoteInfo = WisprApp;
+		};
+		1C74D45A2FA69C8800208826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00A1C0AE2F50AD06001D1A22 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 00C110052F60A00100000007;
+			remoteInfo = WisprCLI;
+		};
+		1C74D45C2FA69C8C00208826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00A1C0AE2F50AD06001D1A22 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C74D0CF2FA6027300208826;
+			remoteInfo = WisprCore;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -258,6 +219,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D4212FA6394300208826 /* FluidAudio in Frameworks */,
+				1C74D4202FA6394300208826 /* WhisperKit in Frameworks */,
 				1C74D1A12FA6032700208826 /* libWisprCore.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -280,6 +243,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C74D4232FA6394300208826 /* FluidAudio in Frameworks */,
+				1C74D4222FA6394300208826 /* WhisperKit in Frameworks */,
 				1C74D1A02FA6031B00208826 /* libWisprCore.a in Frameworks */,
 				00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */,
 			);
@@ -556,7 +521,9 @@
 			buildRules = (
 			);
 			dependencies = (
-				00A1C0C52F50AD09001D1A22 /* PBXTargetDependency */,
+				1C74D45D2FA69C8C00208826 /* PBXTargetDependency */,
+				1C74D45B2FA69C8800208826 /* PBXTargetDependency */,
+				1C74D4592FA69C8400208826 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				00A1C0C62F50AD09001D1A22 /* wisprTests */,
@@ -775,63 +742,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1C74D3022FA632B700208826 /* HotkeyRecorderView.swift in Sources */,
-				1C74D3032FA632B700208826 /* TextInsertionService.swift in Sources */,
-				1C74D3042FA632B700208826 /* SettingsStore.swift in Sources */,
-				1C74D3052FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */,
-				1C74D3062FA632B700208826 /* SupportedLanguage.swift in Sources */,
-				1C74D3072FA632B700208826 /* SFSymbols.swift in Sources */,
-				1C74D3082FA632B700208826 /* StateManager.swift in Sources */,
-				1C74D3092FA632B700208826 /* FillerWordCleaner.swift in Sources */,
-				1C74D30A2FA632B700208826 /* RecordingOverlayPanel.swift in Sources */,
-				1C74D30B2FA632B700208826 /* CLIInstallDialog.swift in Sources */,
-				1C74D30C2FA632B700208826 /* HotkeyMonitor.swift in Sources */,
-				1C74D30D2FA632B700208826 /* MenuBarController.swift in Sources */,
-				1C74D30E2FA632B700208826 /* ModelDownloadProgressView.swift in Sources */,
-				1C74D30F2FA632B700208826 /* KeyCodeMapping.swift in Sources */,
-				1C74D3102FA632B700208826 /* OnboardingStep.swift in Sources */,
-				1C74D3112FA632B700208826 /* OnboardingComponents.swift in Sources */,
-				1C74D3122FA632B700208826 /* PermissionManager.swift in Sources */,
-				1C74D3132FA632B700208826 /* ContentView.swift in Sources */,
-				1C74D3142FA632B700208826 /* OnboardingMicPermissionStep.swift in Sources */,
-				1C74D3152FA632B700208826 /* TextCorrectionService.swift in Sources */,
-				1C74D3162FA632B700208826 /* UIThemeEngine.swift in Sources */,
-				1C74D3172FA632B700208826 /* PreviewHelpers.swift in Sources */,
-				1C74D3182FA632B700208826 /* CorrectionStyle.swift in Sources */,
-				1C74D3192FA632B700208826 /* OnboardingPreview.swift in Sources */,
-				1C74D31A2FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */,
-				1C74D31B2FA632B700208826 /* AudioEngine.swift in Sources */,
-				1C74D31C2FA632B700208826 /* OnboardingWelcomeStep.swift in Sources */,
-				1C74D31D2FA632B700208826 /* PermissionStatus.swift in Sources */,
-				1C74D31E2FA632B700208826 /* ModelManagementView.swift in Sources */,
-				1C74D31F2FA632B700208826 /* UpdateChecker.swift in Sources */,
-				1C74D3202FA632B700208826 /* ModelRowView.swift in Sources */,
-				1C74D3212FA632B700208826 /* AudioInputDevice.swift in Sources */,
-				1C74D3222FA632B700208826 /* OnboardingCompletionStep.swift in Sources */,
-				1C74D3232FA632B700208826 /* OnboardingFlow.swift in Sources */,
-				1C74D3242FA632B700208826 /* SemanticVersion.swift in Sources */,
-				1C74D3252FA632B700208826 /* SuffixEditorView.swift in Sources */,
-				1C74D3262FA632B700208826 /* RecordingOverlayView.swift in Sources */,
-				1C74D3272FA632B700208826 /* AppUpdateInfo.swift in Sources */,
-				1C74D3282FA632B700208826 /* SettingsView.swift in Sources */,
-				1C74D3292FA632B700208826 /* OnboardingTestDictationStep.swift in Sources */,
-				1C74D32A2FA632B700208826 /* wisprApp.swift in Sources */,
-				1C74D32B2FA632B700208826 /* AppStateType.swift in Sources */,
-				1C74D32C2FA632B700208826 /* SoundFeedbackService.swift in Sources */,
-				1C74D2C52FA632A600208826 /* WisprCLI.swift in Sources */,
-				1C74D2A92FA6328D00208826 /* TranscriptionResult.swift in Sources */,
-				1C74D2AA2FA6328D00208826 /* TranscriptionLanguage.swift in Sources */,
-				1C74D2AB2FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */,
-				1C74D2AC2FA6328D00208826 /* ModelInfo.swift in Sources */,
-				1C74D2AD2FA6328D00208826 /* ParakeetService.swift in Sources */,
-				1C74D2AE2FA6328D00208826 /* DownloadProgress.swift in Sources */,
-				1C74D2AF2FA6328D00208826 /* AudioFileDecoder.swift in Sources */,
-				1C74D2B02FA6328D00208826 /* WisprError.swift in Sources */,
-				1C74D2B12FA6328D00208826 /* ModelStatus.swift in Sources */,
-				1C74D2B22FA6328D00208826 /* Logger.swift in Sources */,
-				1C74D2B32FA6328D00208826 /* ModelPaths.swift in Sources */,
-				1C74D2B42FA6328D00208826 /* WhisperService.swift in Sources */,
-				1C74D2B52FA6328D00208826 /* TranscriptionEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -873,11 +783,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		00A1C0C52F50AD09001D1A22 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 00A1C0B52F50AD06001D1A22 /* WisprApp */;
-			targetProxy = 00A1C0C42F50AD09001D1A22 /* PBXContainerItemProxy */;
-		};
 		00A1C0CF2F50AD09001D1A22 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 00A1C0B52F50AD06001D1A22 /* WisprApp */;
@@ -887,6 +792,21 @@
 			isa = PBXTargetDependency;
 			target = 00C110052F60A00100000007 /* WisprCLI */;
 			targetProxy = 00C1100C2F60A00100000006 /* PBXContainerItemProxy */;
+		};
+		1C74D4592FA69C8400208826 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 00A1C0B52F50AD06001D1A22 /* WisprApp */;
+			targetProxy = 1C74D4582FA69C8400208826 /* PBXContainerItemProxy */;
+		};
+		1C74D45B2FA69C8800208826 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 00C110052F60A00100000007 /* WisprCLI */;
+			targetProxy = 1C74D45A2FA69C8800208826 /* PBXContainerItemProxy */;
+		};
+		1C74D45D2FA69C8C00208826 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C74D0CF2FA6027300208826 /* WisprCore */;
+			targetProxy = 1C74D45C2FA69C8C00208826 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

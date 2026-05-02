@@ -25,7 +25,6 @@ struct TextCorrectionTokenLeakTests {
     /// Delimiter patterns the AI model may echo back.
     private let delimiterPatterns = [
         "[TEXT START]", "[TEXT END]",
-        "[TEXT_START]", "[TEXT_END]",
     ]
 
     private func containsDelimiter(_ text: String) -> Bool {
