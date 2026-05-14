@@ -7,7 +7,24 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  build-spm:
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache SPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-build-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-build-
+
+      - name: Build with SPM
+        run: swift build
+
+  build-xcode:
     runs-on: macos-26
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -27,7 +44,7 @@ jobs:
           key: spm-${{ hashFiles('wispr.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-
 
-      - name: Build
+      - name: Build with Xcode
         run: |
           set -o pipefail
           xcodebuild build \
