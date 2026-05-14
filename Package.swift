@@ -43,7 +43,10 @@ let package = Package(
                 "FluidAudio",
             ],
             path: "Sources/WisprApp",
-            exclude: ["Resources/Sounds", "Assets.xcassets"],
+            exclude: ["Assets.xcassets"],
+            resources: [
+                .process("Resources/Sounds"),
+            ],
             swiftSettings: swiftSettings
         ),
 
