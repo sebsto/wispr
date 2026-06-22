@@ -32,6 +32,7 @@
 		1C74D3012FA632B700208826 /* RecordingStarted.aiff in Resources */ = {isa = PBXBuildFile; fileRef = 1C74D2CF2FA632B700208826 /* RecordingStarted.aiff */; };
 		1C74D32D2FA632B700208826 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EA2FA632B700208826 /* HotkeyRecorderView.swift */; };
 		1C74D32E2FA632B700208826 /* TextInsertionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2DA2FA632B700208826 /* TextInsertionService.swift */; };
+		1CA1B2C301000000000000A1 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA1B2C301000000000000B1 /* TranscriptStore.swift */; };
 		1C74D32F2FA632B700208826 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D62FA632B700208826 /* SettingsStore.swift */; };
 		1C74D3302FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2E52FA632B700208826 /* OnboardingModelSelectionStep.swift */; };
 		1C74D3312FA632B700208826 /* SupportedLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2ED2FA632B700208826 /* SupportedLanguage.swift */; };
@@ -176,6 +177,7 @@
 		1C74D2D82FA632B700208826 /* StateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateManager.swift; sourceTree = "<group>"; };
 		1C74D2D92FA632B700208826 /* TextCorrectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextCorrectionService.swift; sourceTree = "<group>"; };
 		1C74D2DA2FA632B700208826 /* TextInsertionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInsertionService.swift; sourceTree = "<group>"; };
+		1CA1B2C301000000000000B1 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
 		1C74D2DB2FA632B700208826 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		1C74D2DD2FA632B700208826 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
 		1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuffixEditorView.swift; sourceTree = "<group>"; };
@@ -406,6 +408,7 @@
 				1C74D2D82FA632B700208826 /* StateManager.swift */,
 				1C74D2D92FA632B700208826 /* TextCorrectionService.swift */,
 				1C74D2DA2FA632B700208826 /* TextInsertionService.swift */,
+				1CA1B2C301000000000000B1 /* TranscriptStore.swift */,
 				1C74D2DB2FA632B700208826 /* UpdateChecker.swift */,
 			);
 			path = Services;
@@ -720,6 +723,7 @@
 			files = (
 				1C74D32D2FA632B700208826 /* HotkeyRecorderView.swift in Sources */,
 				1C74D32E2FA632B700208826 /* TextInsertionService.swift in Sources */,
+				1CA1B2C301000000000000A1 /* TranscriptStore.swift in Sources */,
 				1C74D32F2FA632B700208826 /* SettingsStore.swift in Sources */,
 				1C74D3302FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */,
 				1C74D3312FA632B700208826 /* SupportedLanguage.swift in Sources */,
