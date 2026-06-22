@@ -8,13 +8,13 @@
 import Foundation
 
 /// Identifies the audio source / speaker in a meeting transcript.
-enum MeetingSpeaker: String, Sendable, Equatable, Hashable {
+enum MeetingSpeaker: String, Sendable, Equatable, Hashable, Codable {
     case you = "You"
     case others = "Others"
 }
 
 /// A single timestamped entry in a meeting transcript.
-struct MeetingTranscriptEntry: Identifiable, Sendable, Equatable {
+struct MeetingTranscriptEntry: Identifiable, Sendable, Equatable, Codable {
     let id: UUID
     let speaker: MeetingSpeaker
     let text: String
@@ -29,7 +29,7 @@ struct MeetingTranscriptEntry: Identifiable, Sendable, Equatable {
 }
 
 /// The full transcript of a meeting session.
-struct MeetingTranscript: Sendable, Equatable {
+struct MeetingTranscript: Sendable, Equatable, Codable {
     var entries: [MeetingTranscriptEntry] = []
     let startTime: Date
 

@@ -127,6 +127,10 @@ final class MeetingStateManager {
 
         await meetingAudioEngine.stopCapture()
 
+        // Persist the completed session to disk before it can be overwritten
+        // by a subsequent startMeeting() (which resets `transcript`).
+        TranscriptStore.save(transcript)
+
         meetingState = .idle
         micLevel = 0
         systemLevel = 0

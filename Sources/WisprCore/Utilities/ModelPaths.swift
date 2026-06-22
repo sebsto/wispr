@@ -73,6 +73,12 @@ public nonisolated enum ModelPaths {
         base.appendingPathComponent("models", isDirectory: true)
     }
 
+    /// Directory where saved meeting transcripts are persisted:
+    /// `<base>/transcripts/`
+    public static var transcripts: URL {
+        base.appendingPathComponent("transcripts", isDirectory: true)
+    }
+
     /// WhisperKit model repository: `<base>/models/argmaxinc/whisperkit-coreml/`
     public static var whisperModels: URL {
         models
