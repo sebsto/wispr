@@ -95,11 +95,17 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Meeting audio engine for dual capture (mic + system audio).
     let meetingAudioEngine = MeetingAudioEngine()
 
+    /// Posts actionable notifications when a meeting is detected.
+    let meetingNotificationService = MeetingNotificationService()
+
     /// Central state coordinator — depends on all services above.
     private(set) var stateManager: StateManager?
 
     /// Meeting state manager for meeting transcription mode.
     private(set) var meetingStateManager: MeetingStateManager?
+
+    /// Detects meeting start via CoreAudio and drives the notification.
+    private(set) var meetingDetectionService: MeetingDetectionService?
 
     /// Menu bar status item controller.
     private var menuBarController: MenuBarController?
@@ -174,6 +180,30 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             settingsStore: settingsStore
         )
         meetingStateManager = msm
+
+        // Wire meeting detection: post a notification when another app starts
+        // using the microphone, and start transcription when the user acts on it.
+        meetingNotificationService.onStartMeetingRequested = { [weak self] in
+            guard let self, let meetingManager = self.meetingStateManager else { return }
+            Task { await meetingManager.startMeeting() }
+        }
+
+        let detection = MeetingDetectionService(
+            settingsStore: settingsStore,
+            notifier: meetingNotificationService
+        )
+        // Ignore microphone activity caused by Wispr itself (dictation or an
+        // active meeting recording) to avoid self-triggered notifications.
+        detection.isSelfUsingMicrophone = { [weak self] in
+            guard let self else { return false }
+            let dictating =
+                self.stateManager?.appState == .recording
+                || self.stateManager?.appState == .processing
+            let inMeeting = self.meetingStateManager?.meetingState == .recording
+            return dictating || inMeeting
+        }
+        detection.start()
+        meetingDetectionService = detection
 
         // Create menu bar controller (Req 5.1)
         menuBarController = MenuBarController(
@@ -298,6 +328,9 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
 
         // Stop any active meeting session (synchronous — cascades via task group)
         meetingStateManager?.cancelRecording()
+
+        // Stop meeting detection monitoring.
+        meetingDetectionService?.stop()
 
         // Force UserDefaults to flush to disk before the process exits.
         settingsStore.flush()

@@ -76,6 +76,14 @@ final class SettingsStore {
         didSet { guard !isLoading else { return }; defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled) }
     }
 
+    // MARK: - Meeting Detection
+
+    /// When true, Wispr watches for another app using the microphone and posts a
+    /// notification inviting the user to start meeting transcription.
+    var meetingDetectionEnabled: Bool {
+        didSet { guard !isLoading else { return }; defaults.set(meetingDetectionEnabled, forKey: Keys.meetingDetectionEnabled) }
+    }
+
     // MARK: - Auto-Suffix Settings
 
     /// When true, appends `autoSuffixText` to transcribed text before insertion.
@@ -132,6 +140,7 @@ final class SettingsStore {
         static let onboardingLastStep = "onboardingLastStep"
         static let handsFreeMode = "handsFreeMode"
         static let soundFeedbackEnabled = "soundFeedbackEnabled"
+        static let meetingDetectionEnabled = "meetingDetectionEnabled"
         static let autoSuffixEnabled = "autoSuffixEnabled"
         static let autoSuffixText = "autoSuffixText"
         static let removeFillerWords = "removeFillerWords"
@@ -156,6 +165,7 @@ final class SettingsStore {
         static let onboardingLastStep: Int = 0
         static let handsFreeMode: Bool = false
         static let soundFeedbackEnabled: Bool = false
+        static let meetingDetectionEnabled: Bool = true
         static let autoSuffixEnabled: Bool = false
         static let autoSuffixText: String = " "
         static let removeFillerWords: Bool = false
@@ -184,6 +194,7 @@ final class SettingsStore {
         self.onboardingLastStep = Defaults.onboardingLastStep
         self.handsFreeMode = Defaults.handsFreeMode
         self.soundFeedbackEnabled = Defaults.soundFeedbackEnabled
+        self.meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         self.autoSuffixEnabled = Defaults.autoSuffixEnabled
         self.autoSuffixText = Defaults.autoSuffixText
         self.removeFillerWords = Defaults.removeFillerWords
@@ -210,6 +221,7 @@ final class SettingsStore {
         launchAtLogin = Defaults.launchAtLogin
         handsFreeMode = Defaults.handsFreeMode
         soundFeedbackEnabled = Defaults.soundFeedbackEnabled
+        meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         autoSuffixEnabled = Defaults.autoSuffixEnabled
         autoSuffixText = Defaults.autoSuffixText
         removeFillerWords = Defaults.removeFillerWords
@@ -235,6 +247,7 @@ final class SettingsStore {
         defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
         defaults.set(handsFreeMode, forKey: Keys.handsFreeMode)
         defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled)
+        defaults.set(meetingDetectionEnabled, forKey: Keys.meetingDetectionEnabled)
         defaults.set(autoSuffixEnabled, forKey: Keys.autoSuffixEnabled)
         defaults.set(autoSuffixText, forKey: Keys.autoSuffixText)
         defaults.set(removeFillerWords, forKey: Keys.removeFillerWords)
@@ -302,6 +315,10 @@ final class SettingsStore {
 
         if defaults.object(forKey: Keys.soundFeedbackEnabled) != nil {
             self.soundFeedbackEnabled = defaults.bool(forKey: Keys.soundFeedbackEnabled)
+        }
+
+        if defaults.object(forKey: Keys.meetingDetectionEnabled) != nil {
+            self.meetingDetectionEnabled = defaults.bool(forKey: Keys.meetingDetectionEnabled)
         }
 
         // Load auto-suffix settings

@@ -62,6 +62,7 @@ struct SettingsView: View {
         // Feedback section
         static let soundFeedback = "When enabled, plays audio cues when recording starts and stops"
         static let showRecordingOverlay = "When enabled, a floating overlay appears while recording"
+        static let meetingDetection = "When enabled, Wispr notifies you when another app starts using your microphone so you can start meeting transcription in one click"
 
         // General section
         static let launchAtLogin = "When enabled, Wispr starts automatically when you log in"
@@ -350,6 +351,9 @@ struct SettingsView: View {
 
             Toggle("Show Recording Overlay", isOn: $store.showRecordingOverlay)
                 .accessibilityHint(AccessibilityHints.showRecordingOverlay)
+
+            Toggle("Detect Meetings", isOn: $store.meetingDetectionEnabled)
+                .accessibilityHint(AccessibilityHints.meetingDetection)
         } header: {
             SectionHeader(
                 title: "Feedback",
