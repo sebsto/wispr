@@ -341,6 +341,13 @@ extension ParakeetService: TranscriptionEngine {
     }
 
     public func loadModel(_ modelName: String) async throws {
+        // Skip redundant reloads. Re-initializing the ASR manager re-runs CoreML
+        // compilation and writes to disk. If the requested model is already
+        // loaded, there is nothing to do.
+        if activeModelName == modelName, isModelLoaded(modelName) {
+            Log.whisperService.debug("ParakeetService — '\(modelName)' already loaded, skipping")
+            return
+        }
         Log.whisperService.debug("ParakeetService — loadModel starting for \(modelName)")
         do {
             if modelName == ModelInfo.KnownID.parakeetEou {
@@ -356,12 +363,25 @@ extension ParakeetService: TranscriptionEngine {
     }
 
     public func switchModel(to modelName: String) async throws {
+        // Already active with a live manager — nothing to do.
+        if activeModelName == modelName, isModelLoaded(modelName) {
+            Log.whisperService.debug("ParakeetService — '\(modelName)' already active, skipping")
+            return
+        }
         if modelName == ModelInfo.KnownID.parakeetEou {
             await unload()
         } else {
             unloadEou()
         }
         try await loadModel(modelName)
+    }
+
+    /// Whether the in-memory manager for `modelName` is currently loaded.
+    private func isModelLoaded(_ modelName: String) -> Bool {
+        if modelName == ModelInfo.KnownID.parakeetEou {
+            return eouManager != nil
+        }
+        return asrManager != nil
     }
 
     public func unloadCurrentModel() async {

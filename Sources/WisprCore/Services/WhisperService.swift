@@ -290,6 +290,14 @@ public actor WhisperService {
     /// - Parameter modelName: The name of the model to load
     /// - Throws: WisprError.modelLoadFailed if loading fails
     public func loadModel(_ modelName: String) async throws {
+        // Skip redundant reloads. Recreating the WhisperKit instance re-runs
+        // CoreML/ANE compilation and the prewarm pass, which is expensive and
+        // writes hundreds of MB to disk. If the requested model is already
+        // loaded, there is nothing to do.
+        if whisperKit != nil, activeModelName == modelName {
+            Log.whisperService.debug("loadModel — '\(modelName)' already loaded, skipping reload")
+            return
+        }
         Log.whisperService.debug("loadModel — loading '\(modelName)'")
         do {
             let config = WhisperKitConfig(
@@ -309,6 +317,12 @@ public actor WhisperService {
     ///
     /// Requirement 7.6: Allow switching between downloaded models.
     public func switchModel(to modelName: String) async throws {
+        // Already active with a live instance — avoid a pointless unload/reload
+        // that would re-trigger CoreML compilation.
+        if whisperKit != nil, activeModelName == modelName {
+            Log.whisperService.debug("switchModel — '\(modelName)' already active, skipping")
+            return
+        }
         whisperKit = nil
         activeModelName = nil
         try await loadModel(modelName)
