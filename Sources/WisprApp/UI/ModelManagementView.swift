@@ -101,7 +101,7 @@ struct ModelManagementView: View {
             groups[model.provider, default: []].append(model)
         }
         var items: [ModelListItem] = []
-        for provider in seen {
+        for provider in seen.sorted(by: { $0.rawValue < $1.rawValue }) {
             items.append(.header(provider))
             for model in groups[provider, default: []] {
                 items.append(.model(model))

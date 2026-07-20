@@ -64,7 +64,7 @@ public actor ParakeetService {
 
     // MARK: - V3 Helpers
 
-    private func downloadAndLoad(progressHandler: DownloadUtils.ProgressHandler? = nil) async throws {
+    private func downloadAndLoad(progressHandler: ProgressHandler? = nil) async throws {
         let sdkLeaf = AsrModels.defaultCacheDirectory(for: .v3).lastPathComponent
         let models = try await AsrModels.downloadAndLoad(
             to: ModelPaths.parakeetV3(sdkLeafName: sdkLeaf),
@@ -72,7 +72,7 @@ public actor ParakeetService {
             progressHandler: progressHandler
         )
         let manager = AsrManager(config: .default)
-        try await manager.initialize(models: models)
+        try await manager.loadModels(models)
         self.asrManager = manager
         self.isDownloaded = true
         Log.whisperService.debug("ParakeetService — V3 downloadAndLoad completed")
@@ -88,13 +88,13 @@ public actor ParakeetService {
     // MARK: - EOU Helpers
 
 
-    private func downloadAndLoadEou(progressHandler: DownloadUtils.ProgressHandler? = nil) async throws {
+    private func downloadAndLoadEou(progressHandler: ProgressHandler? = nil) async throws {
         let cacheDir = ModelPaths.parakeetEou
         let cachedFileCount = countFiles(in: cacheDir)
 
         // Only download if the cache is incomplete
         if cachedFileCount < Self.eouExpectedFileCount {
-            try await DownloadUtils.downloadRepo(
+            try await ModelHub.download(
                 .parakeetEou160,
                 to: ModelPaths.parakeetEouParent,
                 progressHandler: progressHandler
@@ -107,7 +107,7 @@ public actor ParakeetService {
             chunkSize: .ms160,
             eouDebounceMs: 800 // ms of silence before generating an end of utterance
         )
-        try await manager.loadModels(modelDir: cacheDir)
+        try await manager.loadModels(from: cacheDir)
         self.eouManager = manager
         self.isEouDownloaded = true
         Log.whisperService.debug("ParakeetService — EOU downloadAndLoad completed")
@@ -253,27 +253,31 @@ extension ParakeetService: TranscriptionEngine {
                     totalBytes: estimatedSize
                 ))
 
-                // Forward FluidAudio's real byte-level progress. It reports
-                // 0.0–0.5 while downloading files and 0.5–1.0 while compiling
-                // the CoreML models, so a single large file no longer freezes
-                // the bar at a fixed percentage.
-                let progressHandler: DownloadUtils.ProgressHandler = { faProgress in
-                    let phase: DownloadProgress.Phase
+                // Forward FluidAudio's byte-level progress. It reports 0.0–0.5
+                // while downloading files and 0.5–1.0 while compiling the CoreML
+                // models. The download half is rescaled to a full 0–1 bar; the
+                // compile half is surfaced as an indeterminate preparation phase.
+                let progressHandler: ProgressHandler = { faProgress in
                     switch faProgress.phase {
                     case .compiling:
-                        phase = .loadingModel
+                        continuation.yield(DownloadProgress(
+                            phase: .loadingModel,
+                            fractionCompleted: 1.0,
+                            bytesDownloaded: estimatedSize,
+                            totalBytes: estimatedSize
+                        ))
                     case .listing, .downloading:
-                        phase = .downloading
+                        // FluidAudio caps download at 0.5; rescale to a full bar.
+                        let downloadFraction = min(faProgress.fractionCompleted * 2.0, 1.0)
+                        continuation.yield(DownloadProgress(
+                            phase: .downloading,
+                            fractionCompleted: downloadFraction,
+                            bytesDownloaded: Int64(Double(estimatedSize) * downloadFraction),
+                            totalBytes: estimatedSize
+                        ))
                     @unknown default:
-                        phase = .downloading
+                        break
                     }
-                    let fraction = faProgress.fractionCompleted
-                    continuation.yield(DownloadProgress(
-                        phase: phase,
-                        fractionCompleted: fraction,
-                        bytesDownloaded: Int64(Double(estimatedSize) * fraction),
-                        totalBytes: estimatedSize
-                    ))
                 }
 
                 if isEou {
@@ -478,7 +482,8 @@ extension ParakeetService: TranscriptionEngine {
         }
 
         let startTime = Date()
-        let result = try await asrManager.transcribe(audioSamples, source: .microphone)
+        var decoderState = try TdtDecoderState()
+        let result = try await asrManager.transcribe(audioSamples, decoderState: &decoderState)
 
         let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
