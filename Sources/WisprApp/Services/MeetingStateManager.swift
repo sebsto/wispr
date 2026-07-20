@@ -325,6 +325,20 @@ final class MeetingStateManager {
         }
     }
 
+    /// Corrects mis-transcribed proper nouns against the user's custom vocabulary
+    /// when the setting is enabled. Mirrors `StateManager.applyVocabularyCorrection`:
+    /// uses the configured language, falling back to the detected one in auto-detect.
+    private func applyVocabularyCorrection(to text: String, detectedLanguage: String?) -> String {
+        guard settingsStore.customVocabularyEnabled,
+              !settingsStore.customVocabulary.isEmpty,
+              !text.isEmpty else { return text }
+        return VocabularyCorrector.correct(
+            text,
+            vocabulary: settingsStore.customVocabulary,
+            languageCode: settingsStore.languageMode.languageCode ?? detectedLanguage
+        )
+    }
+
     private func transcribeMicAudio() async {
         let audioStream = await meetingAudioEngine.micAudioStream
         let language = settingsStore.languageMode
@@ -348,8 +362,9 @@ final class MeetingStateManager {
             do {
                 let result = try await transcriptionEngine.transcribe(
                     chunk.samples, language: language)
-                let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                var text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { continue }
+                text = applyVocabularyCorrection(to: text, detectedLanguage: result.detectedLanguage)
 
                 // Resolve the dominant speaker over the chunk's time window.
                 // nil (cold-start or diarization off) renders as plain "Others".
@@ -395,8 +410,9 @@ final class MeetingStateManager {
             do {
                 let result = try await transcriptionEngine.transcribe(
                     audioChunk.samples, language: language)
-                let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                var text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { continue }
+                text = applyVocabularyCorrection(to: text, detectedLanguage: result.detectedLanguage)
 
                 // Resolve the dominant speaker over the chunk's time window.
                 // nil (cold-start or diarization disabled) renders as "Others".

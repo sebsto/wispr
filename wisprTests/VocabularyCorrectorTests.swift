@@ -28,7 +28,7 @@ struct VocabularyCorrectorTests {
         var testDescription: String { "\"\(input)\" → \"\(expected)\"" }
     }
 
-    static let novariaVocabulary = ["Novaria"]
+    static nonisolated let novariaVocabulary = ["Novaria"]
 
     // MARK: - Case Normalization (word already recognized, wrong spelling/case)
 
@@ -172,5 +172,20 @@ struct VocabularyCorrectorTests {
     @Test("Corrects a word at the end of the text")
     func matchAtEnd() {
         #expect(VocabularyCorrector.correct("we love novaria", vocabulary: Self.novariaVocabulary) == "we love Novaria")
+    }
+
+    // MARK: - Short Words (fuzzy matching disabled below the key-length floor)
+
+    /// Very short vocabulary words ("Go") produce 1–2 character phonetic keys on
+    /// which the similarity threshold cannot discriminate. Fuzzy matching is
+    /// disabled for them: only an exact case-insensitive spelling still corrects.
+    @Test("Short word: fixes casing on exact spelling but never fuzzy-matches")
+    func shortWordExactOnly() {
+        let vocab = ["Go"]
+        // Exact spelling, wrong case → corrected.
+        #expect(VocabularyCorrector.correct("I write go daily", vocabulary: vocab) == "I write Go daily")
+        // Sound-alike words must NOT be swallowed by a 1-character key.
+        #expect(VocabularyCorrector.correct("le gars est là", vocabulary: vocab) == "le gars est là")
+        #expect(VocabularyCorrector.correct("gay pride", vocabulary: vocab) == "gay pride")
     }
 }

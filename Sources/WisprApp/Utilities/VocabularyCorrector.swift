@@ -38,6 +38,13 @@ enum VocabularyCorrector {
     /// tokens ("data ecou"), so we must look at multi-word windows.
     private static let maxWindow = 3
 
+    /// Minimum phonetic-key length for fuzzy matching. On 1–2 character keys the
+    /// normalized edit distance is effectively binary, so the similarity threshold
+    /// cannot discriminate ("Go" → key "g" would match any word folding to "g").
+    /// Shorter keys only match when both keys are identical AND the original
+    /// words are equal case-insensitively.
+    private static let minKeyLengthForFuzzyMatch = 3
+
     /// A vocabulary entry paired with its phonetic key per candidate language.
     private struct Entry {
         let canonical: String
@@ -185,6 +192,14 @@ enum VocabularyCorrector {
             var entryScore = 0.0
             for language in languages {
                 guard let wk = windowKeys[language], let ek = entry.keysByLanguage[language] else { continue }
+                // Keys too short for the threshold to discriminate: only accept a
+                // case-insensitive spelling match (still fixes casing, e.g. "go" → "Go").
+                if ek.count < minKeyLengthForFuzzyMatch || wk.count < minKeyLengthForFuzzyMatch {
+                    if joined.caseInsensitiveCompare(entry.canonical) == .orderedSame {
+                        entryScore = 1
+                    }
+                    continue
+                }
                 entryScore = max(entryScore, similarity(wk, ek))
             }
             if entryScore >= similarityThreshold, entryScore > (best?.score ?? 0) {
@@ -346,7 +361,8 @@ enum VocabularyCorrector {
     // MARK: - Tokenization
 
     /// Splits text into non-whitespace tokens and the whitespace runs between
-    /// them, so `reassemble` can restore the exact original spacing.
+    /// them, so the rebuild in `correct(_:vocabulary:languageCode:)` can restore
+    /// the exact original spacing.
     private static func tokenize(_ text: String) -> (tokens: [String], separators: [String]) {
         var tokens: [String] = []
         var separators: [String] = []
