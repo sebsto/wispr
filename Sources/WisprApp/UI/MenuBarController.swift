@@ -309,11 +309,12 @@ final class MenuBarController {
 
     // MARK: - CLI Install Menu Item
 
-    /// Hides the CLI install menu item once the symlink is in place.
+    /// Shows the CLI install menu item only when this build bundles the CLI
+    /// (App Store builds omit it) and the symlink is not already in place.
     func refreshCLIInstallMenuItem() {
-        let installed = isCLIInstalled()
-        cliInstallMenuItem?.isHidden = installed
-        cliInstallSeparator.isHidden = installed
+        let shouldShow = isCLIEmbedded() && !isCLIInstalled()
+        cliInstallMenuItem?.isHidden = !shouldShow
+        cliInstallSeparator.isHidden = !shouldShow
     }
 
     // MARK: - Update Menu Item
@@ -613,16 +614,28 @@ final class MenuBarController {
         stateManager.currentLanguage = mode
     }
 
-    /// Checks whether /usr/local/bin/wispr exists and points to the
-    /// wispr-cli binary inside the current app bundle.
+    /// Absolute path to the CLI binary embedded in the current app bundle.
+    /// App Store builds do not embed it (it is unsandboxed), so this file is
+    /// absent there; Homebrew/Developer ID builds do embed it.
+    private var embeddedCLIPath: String {
+        Bundle.main.bundlePath + "/Contents/Resources/bin/"
+            + CLIInstallDialogView.cliExecutableName
+    }
+
+    /// Whether this build bundles the CLI binary at all.
+    private func isCLIEmbedded() -> Bool {
+        FileManager.default.fileExists(atPath: embeddedCLIPath)
+    }
+
+    /// Checks whether the CLI symlink exists and points to the embedded binary
+    /// inside the current app bundle.
     private func isCLIInstalled() -> Bool {
         let fm = FileManager.default
         guard let dest = try? fm.destinationOfSymbolicLink(atPath: cliSymlinkPath) else {
             return false
         }
-        let expectedDest = Bundle.main.bundlePath + "/Contents/Resources/bin/wispr-cli"
         return URL(fileURLWithPath: dest).resolvingSymlinksInPath().path
-            == URL(fileURLWithPath: expectedDest).resolvingSymlinksInPath().path
+            == URL(fileURLWithPath: embeddedCLIPath).resolvingSymlinksInPath().path
     }
 
     /// Presents the CLI install dialog as a floating window.
