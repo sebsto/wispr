@@ -42,7 +42,7 @@ struct MeetingAudioEngineTests {
         let engine = MeetingAudioEngine()
 
         let stream = await engine.systemAudioStream
-        var chunks: [[Float]] = []
+        var chunks: [SystemAudioChunk] = []
         for await chunk in stream {
             chunks.append(chunk)
         }

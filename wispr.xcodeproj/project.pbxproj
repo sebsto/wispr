@@ -81,6 +81,7 @@
 		1C74D4222FA6394300208826 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110102F60A00100000001 /* WhisperKit */; };
 		1C74D4232FA6394300208826 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110112F60A00100000002 /* FluidAudio */; };
 		E4782D9F9369B23177982DC0 /* MeetingAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85566A381EF49B2D8D58E9FE /* MeetingAudioEngine.swift */; };
+		D1AD12340000000000000001 /* MeetingDiarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1AD12340000000000000002 /* MeetingDiarizer.swift */; };
 		0AF8E6B5B2AC76E3983230BF /* MeetingStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA7524D483751DC8BD496D3 /* MeetingStateManager.swift */; };
 		EAABFC5DC0A565D10326809B /* MeetingTranscript.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CE95739BEEBDC90BA22323 /* MeetingTranscript.swift */; };
 		5871C9411CAF50B12419F9DA /* MeetingTranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66665AA7D70423B4954925F /* MeetingTranscriptView.swift */; };
@@ -206,6 +207,7 @@
 		1C74D2FC2FA632B700208826 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1C74D2FD2FA632B700208826 /* wisprApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wisprApp.swift; sourceTree = "<group>"; };
 		85566A381EF49B2D8D58E9FE /* MeetingAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingAudioEngine.swift; sourceTree = "<group>"; };
+		D1AD12340000000000000002 /* MeetingDiarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDiarizer.swift; sourceTree = "<group>"; };
 		DAA7524D483751DC8BD496D3 /* MeetingStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingStateManager.swift; sourceTree = "<group>"; };
 		F6CE95739BEEBDC90BA22323 /* MeetingTranscript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingTranscript.swift; sourceTree = "<group>"; };
 		F66665AA7D70423B4954925F /* MeetingTranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingTranscriptView.swift; sourceTree = "<group>"; };
@@ -398,6 +400,7 @@
 			children = (
 				1C74D2D32FA632B700208826 /* AudioEngine.swift */,
 				85566A381EF49B2D8D58E9FE /* MeetingAudioEngine.swift */,
+				D1AD12340000000000000002 /* MeetingDiarizer.swift */,
 				DAA7524D483751DC8BD496D3 /* MeetingStateManager.swift */,
 				1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */,
 				1C74D2D52FA632B700208826 /* PermissionManager.swift */,
@@ -745,6 +748,7 @@
 				1C74D3452FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */,
 				1C74D3462FA632B700208826 /* AudioEngine.swift in Sources */,
 				E4782D9F9369B23177982DC0 /* MeetingAudioEngine.swift in Sources */,
+				D1AD12340000000000000001 /* MeetingDiarizer.swift in Sources */,
 				0AF8E6B5B2AC76E3983230BF /* MeetingStateManager.swift in Sources */,
 				EAABFC5DC0A565D10326809B /* MeetingTranscript.swift in Sources */,
 				AEAC6284FE7B470A7CB12A52 /* TranscriptDocument.swift in Sources */,

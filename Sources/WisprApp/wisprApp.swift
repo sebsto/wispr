@@ -8,8 +8,8 @@
 //  Requirements: 5.6, 13.1, 13.12, 13.16
 //
 
-import WisprCore
 import SwiftUI
+import WisprCore
 import os
 
 /// Main application entry point for Wispr.
@@ -95,6 +95,9 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Meeting audio engine for dual capture (mic + system audio).
     let meetingAudioEngine = MeetingAudioEngine()
 
+    /// Speaker diarization engine for the meeting "Others" track.
+    let meetingDiarizer = MeetingDiarizer()
+
     /// Central state coordinator — depends on all services above.
     private(set) var stateManager: StateManager?
 
@@ -171,7 +174,8 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         let msm = MeetingStateManager(
             meetingAudioEngine: meetingAudioEngine,
             transcriptionEngine: whisperService,
-            settingsStore: settingsStore
+            settingsStore: settingsStore,
+            meetingDiarizer: meetingDiarizer
         )
         meetingStateManager = msm
 

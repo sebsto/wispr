@@ -66,7 +66,8 @@ struct MeetingTranscriptTests {
             MeetingTranscriptEntry(speaker: .you, text: "Hello world", timestamp: timestamp1)
         )
         transcript.entries.append(
-            MeetingTranscriptEntry(speaker: .others, text: "Hi there", timestamp: timestamp2)
+            MeetingTranscriptEntry(
+                speaker: .others(speakerIndex: nil), text: "Hi there", timestamp: timestamp2)
         )
 
         let plainText = transcript.asPlainText()
@@ -99,10 +100,131 @@ struct MeetingTranscriptTests {
         #expect(entry1.id != entry2.id)
     }
 
-    @Test("MeetingSpeaker raw values are correct")
-    func testMeetingSpeakerRawValues() {
-        #expect(MeetingSpeaker.you.rawValue == "You")
-        #expect(MeetingSpeaker.others.rawValue == "Others")
+    @Test("MeetingSpeaker display names are correct")
+    func testMeetingSpeakerDisplayNames() {
+        #expect(MeetingSpeaker.you.displayName == "You")
+        #expect(MeetingSpeaker.others(speakerIndex: nil).displayName == "Others")
+        #expect(MeetingSpeaker.others(speakerIndex: 0).displayName == "Speaker 1")
+        #expect(MeetingSpeaker.others(speakerIndex: 1).displayName == "Speaker 2")
+        #expect(MeetingSpeaker.others(speakerIndex: 3).displayName == "Speaker 4")
+    }
+}
+
+// MARK: - Echo Suppression Tests
+
+/// Tests for the microphone-echo de-duplication that fixes issue #65: remote
+/// participants' speech leaking from the speakers into the mic and being
+/// transcribed twice (once as "Others", once as "You").
+@Suite("Meeting Echo Suppression Tests")
+struct MeetingEchoSuppressionTests {
+
+    /// Builds an entry at a fixed offset (seconds) from a shared base time so
+    /// tests can control the echo time window precisely.
+    private func entry(
+        _ speaker: MeetingSpeaker, _ text: String, at offset: TimeInterval, base: Date
+    ) -> MeetingTranscriptEntry {
+        MeetingTranscriptEntry(
+            speaker: speaker, text: text, timestamp: base.addingTimeInterval(offset))
+    }
+
+    @Test("Mic entry echoing a recent remote entry is suppressed")
+    func testMicEchoOfRemoteIsSuppressed() {
+        let base = Date()
+        var transcript = MeetingTranscript()
+
+        let added1 = transcript.appendSuppressingEcho(
+            entry(.others(speakerIndex: 0), "Let's review the quarterly numbers", at: 0, base: base)
+        )
+        let added2 = transcript.appendSuppressingEcho(
+            entry(.you, "Let's review the quarterly numbers.", at: 1, base: base))
+
+        #expect(added1 == true)
+        #expect(added2 == false)
+        #expect(transcript.entries.count == 1)
+        #expect(transcript.entries[0].speaker.isRemote)
+    }
+
+    @Test("Remote entry removes a prior mic echo (system arrives second)")
+    func testRemoteRemovesPriorMicEcho() {
+        let base = Date()
+        var transcript = MeetingTranscript()
+
+        transcript.appendSuppressingEcho(
+            entry(.you, "Can everyone hear me clearly", at: 0, base: base))
+        transcript.appendSuppressingEcho(
+            entry(.others(speakerIndex: 1), "Can everyone hear me clearly?", at: 1, base: base))
+
+        #expect(transcript.entries.count == 1)
+        #expect(transcript.entries[0].speaker == .others(speakerIndex: 1))
+    }
+
+    @Test("Distinct utterances on both tracks are both kept")
+    func testDistinctUtterancesKept() {
+        let base = Date()
+        var transcript = MeetingTranscript()
+
+        transcript.appendSuppressingEcho(
+            entry(.others(speakerIndex: 0), "What did you think of the proposal", at: 0, base: base)
+        )
+        transcript.appendSuppressingEcho(
+            entry(.you, "I thought it was a strong start overall", at: 1, base: base))
+
+        #expect(transcript.entries.count == 2)
+    }
+
+    @Test("Matches outside the time window are not suppressed")
+    func testOutsideWindowNotSuppressed() {
+        let base = Date()
+        var transcript = MeetingTranscript()
+        let beyond = MeetingTranscript.echoSuppressionWindow + 2
+
+        transcript.appendSuppressingEcho(
+            entry(.others(speakerIndex: 0), "Please send the report by Friday", at: 0, base: base))
+        let added = transcript.appendSuppressingEcho(
+            entry(.you, "Please send the report by Friday", at: beyond, base: base))
+
+        #expect(added == true)
+        #expect(transcript.entries.count == 2)
+    }
+
+    @Test("Short utterances are not echo-suppressed")
+    func testShortUtterancesNotSuppressed() {
+        let base = Date()
+        var transcript = MeetingTranscript()
+
+        transcript.appendSuppressingEcho(
+            entry(.others(speakerIndex: 0), "Sounds good", at: 0, base: base))
+        let added = transcript.appendSuppressingEcho(entry(.you, "Sounds good", at: 1, base: base))
+
+        #expect(added == true)
+        #expect(transcript.entries.count == 2)
+    }
+
+    @Test("Cosmetic differences still count as the same utterance")
+    func testCosmeticDifferencesMatch() {
+        let base = Date()
+        var transcript = MeetingTranscript()
+
+        transcript.appendSuppressingEcho(
+            entry(.others(speakerIndex: 0), "So, what's our next step here?", at: 0, base: base))
+        let added = transcript.appendSuppressingEcho(
+            entry(.you, "so what is our next step here", at: 1, base: base))
+
+        // Minor wording ("what's" vs "what is") keeps similarity high enough.
+        #expect(added == false)
+        #expect(transcript.entries.count == 1)
+    }
+
+    @Test("normalizedForComparison strips case, punctuation, and extra whitespace")
+    func testNormalization() {
+        #expect(
+            MeetingTranscript.normalizedForComparison("  Hello,   WORLD!! ") == "hello world")
+    }
+
+    @Test("similarity is 1 for identical strings and lower for different ones")
+    func testSimilarity() {
+        #expect(MeetingTranscript.similarity("hello world", "hello world") == 1.0)
+        #expect(MeetingTranscript.similarity("hello world", "goodbye planet") < 0.5)
     }
 }
 

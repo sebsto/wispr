@@ -6,8 +6,8 @@
 //  Recognition, After Transcription, Feedback, and General.
 //
 
-import WisprCore
 import SwiftUI
+import WisprCore
 import os
 
 // MARK: - Reusable Components
@@ -42,26 +42,37 @@ struct SettingsView: View {
     enum AccessibilityHints {
         // Shortcut section
         static let hotkeyShortcut = "Activate to record a new hotkey combination"
-        static let handsFreeMode = "When enabled, press the hotkey once to start recording and again to stop. When disabled, hold the hotkey to record."
+        static let handsFreeMode =
+            "When enabled, press the hotkey once to start recording and again to stop. When disabled, hold the hotkey to record."
 
         // Audio Device section
         static let inputDevice = "Select the microphone to use for recording"
 
         // Recognition section
         static let activeModel = "Select the speech recognition model to use"
-        static let autoDetectLanguage = "When enabled, Wispr automatically detects the spoken language"
+        static let autoDetectLanguage =
+            "When enabled, Wispr automatically detects the spoken language"
         static let languagePicker = "Select the language for speech transcription"
-        static let alwaysUseLanguage = "When enabled, always transcribes in the selected language instead of detecting per-recording"
+        static let alwaysUseLanguage =
+            "When enabled, always transcribes in the selected language instead of detecting per-recording"
 
         // After Transcription section
-        static let removeFillerWords = "When enabled, removes filler words like um, uh, and ah from transcriptions"
-        static let aiTextCorrection = "When enabled, uses on-device AI to correct grammar and improve transcription fluency. All processing stays on your Mac."
+        static let removeFillerWords =
+            "When enabled, removes filler words like um, uh, and ah from transcriptions"
+        static let aiTextCorrection =
+            "When enabled, uses on-device AI to correct grammar and improve transcription fluency. All processing stays on your Mac."
         static let autoInsertSuffix = "When enabled, appends a suffix to transcribed text"
         static let autoSendEnter = "When enabled, simulates pressing Enter after text insertion"
 
         // Feedback section
         static let soundFeedback = "When enabled, plays audio cues when recording starts and stops"
         static let showRecordingOverlay = "When enabled, a floating overlay appears while recording"
+
+        // Meeting section
+        static let meetingDiarization =
+            "When enabled, the meeting transcript labels remote participants as Speaker 1, Speaker 2, and so on using on-device diarization"
+        static let meetingEchoSuppression =
+            "When enabled, speech from remote participants that leaks into your microphone is not transcribed a second time as your own speech"
 
         // General section
         static let launchAtLogin = "When enabled, Wispr starts automatically when you log in"
@@ -72,7 +83,8 @@ struct SettingsView: View {
     @Environment(UpdateChecker.self) private var updateChecker: UpdateChecker
     @Environment(StateManager.self) private var stateManager: StateManager
     @Environment(HotkeyMonitor.self) private var hotkeyMonitor: HotkeyMonitor
-    @Environment(TextCorrectionService.self) private var textCorrectionService: TextCorrectionService
+    @Environment(TextCorrectionService.self) private var textCorrectionService:
+        TextCorrectionService
 
     @State private var audioDevices: [AudioInputDevice] = []
     @State private var whisperModels: [ModelInfo] = []
@@ -101,6 +113,7 @@ struct SettingsView: View {
             recognitionSection
             afterTranscriptionSection
             feedbackSection
+            meetingSection
             generalSection
         }
         .formStyle(.grouped)
@@ -130,7 +143,8 @@ struct SettingsView: View {
                     hotkeyError = nil
                 } catch {
                     hotkeyError = error.localizedDescription
-                    Log.hotkey.error("Settings — failed to re-register hotkey: \(error.localizedDescription)")
+                    Log.hotkey.error(
+                        "Settings — failed to re-register hotkey: \(error.localizedDescription)")
                 }
             }
         }
@@ -160,9 +174,12 @@ struct SettingsView: View {
             }
 
             if settingsStore.hotkeyKeyCode == HotkeyMonitor.fnKeyCode
-                && settingsStore.hotkeyModifiers == 0 {
+                && settingsStore.hotkeyModifiers == 0
+            {
                 Label {
-                    Text("The Globe key may conflict with macOS features like the emoji picker or input source switching. If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\".")
+                    Text(
+                        "The Globe key may conflict with macOS features like the emoji picker or input source switching. If dictation doesn't start, go to System Settings → Keyboard → \"Press 🌐 key to\" and select \"Do Nothing\"."
+                    )
                 } icon: {
                     Image(systemName: SFSymbols.info)
                         .foregroundStyle(.blue)
@@ -245,7 +262,8 @@ struct SettingsView: View {
                 .accessibilityHint(AccessibilityHints.activeModel)
                 .onChange(of: selectedModelId) { _, newModelId in
                     guard newModelId != settingsStore.activeModelName,
-                          !newModelId.isEmpty else { return }
+                        !newModelId.isEmpty
+                    else { return }
                     activatingModelId = newModelId
                 }
                 .task(id: activatingModelId) {
@@ -359,6 +377,37 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Meeting Section
+
+    private var meetingSection: some View {
+        Section {
+            @Bindable var store = settingsStore
+            Toggle("Identify Individual Speakers", isOn: $store.meetingDiarizationEnabled)
+                .accessibilityHint(AccessibilityHints.meetingDiarization)
+
+            Text(
+                "Splits the \"Others\" track into Speaker 1, Speaker 2, … using on-device diarization. Downloads a small model on first use. Experimental."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.secondaryTextColor)
+
+            Toggle("Suppress Microphone Echo", isOn: $store.meetingEchoSuppressionEnabled)
+                .accessibilityHint(AccessibilityHints.meetingEchoSuppression)
+
+            Text(
+                "Avoids transcribing remote participants twice when their voice leaks from your speakers into the microphone. Turn off if you use headphones and want every microphone word kept."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.secondaryTextColor)
+        } header: {
+            SectionHeader(
+                title: "Meeting",
+                systemImage: SFSymbols.meeting,
+                tint: .indigo
+            )
+        }
+    }
+
     // MARK: - General Section
 
     private var generalSection: some View {
@@ -403,13 +452,16 @@ struct SettingsView: View {
             )
         }
     }
-    
+
     // MARK: - Version Info
-    
+
     /// Returns the app version string in the format "1.0.0 (123)" where 123 is the build number.
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+        let version =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? "Unknown"
+        let build =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
         return "\(version) (\(build))"
     }
 
@@ -491,72 +543,73 @@ struct SettingsView: View {
 // MARK: - Preview
 
 #if DEBUG
-private struct SettingsPreview: View {
-    @State private var settingsStore: SettingsStore
-    @State private var theme = PreviewMocks.makeTheme()
-    @State private var updateChecker = PreviewMocks.makeUpdateChecker()
-    @State private var stateManager: StateManager
-    @State private var textCorrectionService = TextCorrectionService()
+    private struct SettingsPreview: View {
+        @State private var settingsStore: SettingsStore
+        @State private var theme = PreviewMocks.makeTheme()
+        @State private var updateChecker = PreviewMocks.makeUpdateChecker()
+        @State private var stateManager: StateManager
+        @State private var textCorrectionService = TextCorrectionService()
 
-    private let whisperService: any TranscriptionEngine
+        private let whisperService: any TranscriptionEngine
 
-    init(
-        autoSuffixEnabled: Bool = false,
-        autoSendEnterEnabled: Bool = false,
-        languageSpecific: Bool = false,
-        languagePinned: Bool = false
-    ) {
-        let store = PreviewMocks.makeSettingsStore()
-        store.autoSuffixEnabled = autoSuffixEnabled
-        store.autoSendEnterEnabled = autoSendEnterEnabled
-        if languagePinned {
-            store.languageMode = .pinned(code: "en")
-        } else if languageSpecific {
-            store.languageMode = .specific(code: "en")
+        init(
+            autoSuffixEnabled: Bool = false,
+            autoSendEnterEnabled: Bool = false,
+            languageSpecific: Bool = false,
+            languagePinned: Bool = false
+        ) {
+            let store = PreviewMocks.makeSettingsStore()
+            store.autoSuffixEnabled = autoSuffixEnabled
+            store.autoSendEnterEnabled = autoSendEnterEnabled
+            if languagePinned {
+                store.languageMode = .pinned(code: "en")
+            } else if languageSpecific {
+                store.languageMode = .specific(code: "en")
+            }
+            self._settingsStore = State(initialValue: store)
+
+            let service = PreviewMocks.makeWhisperService()
+            self.whisperService = service
+            self._stateManager = State(
+                initialValue: PreviewMocks.makeStateManager(
+                    settingsStore: store,
+                    whisperService: service
+                ))
         }
-        self._settingsStore = State(initialValue: store)
 
-        let service = PreviewMocks.makeWhisperService()
-        self.whisperService = service
-        self._stateManager = State(initialValue: PreviewMocks.makeStateManager(
-            settingsStore: store,
-            whisperService: service
-        ))
+        var body: some View {
+            SettingsView(
+                audioEngine: PreviewMocks.makeAudioEngine(),
+                whisperService: whisperService
+            )
+            .environment(settingsStore)
+            .environment(theme)
+            .environment(updateChecker)
+            .environment(stateManager)
+            .environment(HotkeyMonitor())
+            .environment(textCorrectionService)
+        }
     }
 
-    var body: some View {
-        SettingsView(
-            audioEngine: PreviewMocks.makeAudioEngine(),
-            whisperService: whisperService
+    #Preview("Settings") {
+        SettingsPreview()
+    }
+
+    #Preview("Settings - Dark") {
+        SettingsPreview()
+            .preferredColorScheme(.dark)
+    }
+
+    #Preview("Settings - Suffix & Language Expanded") {
+        SettingsPreview(autoSuffixEnabled: true, languageSpecific: true)
+    }
+
+    #Preview("Settings - All Toggles On") {
+        SettingsPreview(
+            autoSuffixEnabled: true,
+            autoSendEnterEnabled: true,
+            languageSpecific: true,
+            languagePinned: true
         )
-        .environment(settingsStore)
-        .environment(theme)
-        .environment(updateChecker)
-        .environment(stateManager)
-        .environment(HotkeyMonitor())
-        .environment(textCorrectionService)
     }
-}
-
-#Preview("Settings") {
-    SettingsPreview()
-}
-
-#Preview("Settings - Dark") {
-    SettingsPreview()
-        .preferredColorScheme(.dark)
-}
-
-#Preview("Settings - Suffix & Language Expanded") {
-    SettingsPreview(autoSuffixEnabled: true, languageSpecific: true)
-}
-
-#Preview("Settings - All Toggles On") {
-    SettingsPreview(
-        autoSuffixEnabled: true,
-        autoSendEnterEnabled: true,
-        languageSpecific: true,
-        languagePinned: true
-    )
-}
 #endif

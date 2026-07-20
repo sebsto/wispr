@@ -306,6 +306,34 @@ struct SettingsStoreTests {
         #expect(store.removeFillerWords == false)
     }
 
+    // MARK: - Meeting Echo Suppression Tests
+
+    @Test("SettingsStore meetingEchoSuppressionEnabled defaults to true")
+    func testMeetingEchoSuppressionDefault() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        #expect(store.meetingEchoSuppressionEnabled == true)
+    }
+
+    @Test("SettingsStore persists meetingEchoSuppressionEnabled")
+    func testMeetingEchoSuppressionPersistence() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.meetingEchoSuppressionEnabled = false
+
+        let newStore = SettingsStore(defaults: defaults)
+        #expect(newStore.meetingEchoSuppressionEnabled == false, "meetingEchoSuppressionEnabled should persist")
+    }
+
+    @Test("SettingsStore restoreDefaults resets meetingEchoSuppressionEnabled to true")
+    func testRestoreDefaultsResetsMeetingEchoSuppression() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.meetingEchoSuppressionEnabled = false
+        store.restoreDefaults()
+        #expect(store.meetingEchoSuppressionEnabled == true)
+    }
+
     // MARK: - Property-Based Tests
 
     // Feature: auto-suffix-insertion, Property 1: Settings persistence round-trip
