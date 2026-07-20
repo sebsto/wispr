@@ -93,7 +93,7 @@ struct TextInsertionClipboardTests {
         )
 
         // Wispr places transcription on the clipboard and "pastes" it.
-        try await service.insertViaClipboard("transcribed text")
+        try await service.insertText("transcribed text")
 
         // Before the restore fires, the user manually copies something new.
         pb.setString("user copied this", forType: .string)
@@ -116,7 +116,7 @@ struct TextInsertionClipboardTests {
             performPaste: { true }
         )
 
-        try await service.insertViaClipboard("transcribed text")
+        try await service.insertText("transcribed text")
         await service.awaitPendingPasteboardRestore()
 
         #expect(pb.string != "transcribed text", "transcribed text should not linger on the clipboard")
@@ -134,7 +134,7 @@ struct TextInsertionClipboardTests {
             performPaste: { true }
         )
 
-        try await service.insertViaClipboard("transcribed text")
+        try await service.insertText("transcribed text")
         await service.awaitPendingPasteboardRestore()
 
         #expect(pb.string == "original")

@@ -112,7 +112,7 @@ final class TextInsertionService: TextInserting {
     ///
     /// - Parameter text: The text to insert
     /// - Throws: `WisprError.textInsertionFailed` if clipboard insertion fails
-    func insertViaClipboard(_ text: String) async throws {
+    private func insertViaClipboard(_ text: String) async throws {
         // Save the user's original pasteboard only if we don't already have a
         // pending override. This prevents capturing our own transcription text
         // when insertViaClipboard is called again before the restore fires.
@@ -199,7 +199,7 @@ final class TextInsertionService: TextInserting {
     ///     we placed our transcription. If the pasteboard has changed since (the
     ///     user copied something new), we leave it alone rather than clobbering
     ///     their copy.
-    func restorePasteboard(
+    private func restorePasteboard(
         _ contents: [NSPasteboard.PasteboardType: Data],
         after delay: Duration,
         ifChangeCountIs expectedChangeCount: Int
