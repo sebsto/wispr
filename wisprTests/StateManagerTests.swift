@@ -621,6 +621,96 @@ struct StateManagerTests {
         #expect(result == "")
     }
 
+    // MARK: - Custom Vocabulary Correction
+
+    @Test("applyVocabularyCorrection corrects when enabled")
+    func testVocabularyCorrectionEnabled() {
+        let defaults = UserDefaults(suiteName: "test.wispr.vocab.on.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.customVocabularyEnabled = true
+        settingsStore.customVocabulary = ["Novaria"]
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        let result = sm.applyVocabularyCorrection(to: "I use novarya daily")
+        #expect(result == "I use Novaria daily")
+    }
+
+    @Test("applyVocabularyCorrection passes text through when disabled")
+    func testVocabularyCorrectionDisabled() {
+        let defaults = UserDefaults(suiteName: "test.wispr.vocab.off.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.customVocabularyEnabled = false
+        settingsStore.customVocabulary = ["Novaria"]
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        let result = sm.applyVocabularyCorrection(to: "I use novarya daily")
+        #expect(result == "I use novarya daily")
+    }
+
+    @Test("applyVocabularyCorrection passes text through when the vocabulary is empty")
+    func testVocabularyCorrectionEmptyVocabulary() {
+        let defaults = UserDefaults(suiteName: "test.wispr.vocab.empty.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.customVocabularyEnabled = true
+        settingsStore.customVocabulary = []
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        let result = sm.applyVocabularyCorrection(to: "I use novarya daily")
+        #expect(result == "I use novarya daily")
+    }
+
+    @Test("applyVocabularyCorrection uses the detected language in auto-detect mode")
+    func testVocabularyCorrectionDetectedLanguageFallback() {
+        let defaults = UserDefaults(suiteName: "test.wispr.vocab.lang.\(UUID().uuidString)")!
+        let settingsStore = SettingsStore(defaults: defaults)
+        settingsStore.customVocabularyEnabled = true
+        settingsStore.customVocabulary = ["PyTorch"]
+        settingsStore.languageMode = .autoDetect  // languageCode == nil
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        // French pronunciation transcribed by the model; the FR fold ("ill" → /j/)
+        // only applies when the detected language reaches the corrector.
+        let result = sm.applyVocabularyCorrection(
+            to: "on utilise pitorche ici", detectedLanguage: "fr")
+        #expect(result == "on utilise PyTorch ici")
+    }
+
     // MARK: - switchActiveModel
 
     @Test("switchActiveModel no-ops when switching to the current model")
