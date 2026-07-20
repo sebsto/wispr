@@ -25,4 +25,5 @@ public nonisolated enum Log {
     public static let hotkey = Logger(subsystem: subsystem, category: "HotkeyMonitor")
     public static let textCorrection = Logger(subsystem: subsystem, category: "TextCorrection")
     public static let diarizer = Logger(subsystem: subsystem, category: "Diarizer")
+    public static let textInsertion = Logger(subsystem: subsystem, category: "TextInsertion")
 }
