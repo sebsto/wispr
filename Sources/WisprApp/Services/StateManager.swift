@@ -249,6 +249,21 @@ final class StateManager {
         return FillerWordCleaner.clean(text)
     }
 
+    // MARK: - Custom Vocabulary Correction
+
+    /// Corrects mis-transcribed proper nouns against the user's custom vocabulary
+    /// when the setting is enabled and the list is non-empty.
+    func applyVocabularyCorrection(to text: String) -> String {
+        guard settingsStore.customVocabularyEnabled,
+              !settingsStore.customVocabulary.isEmpty,
+              !text.isEmpty else { return text }
+        return VocabularyCorrector.correct(
+            text,
+            vocabulary: settingsStore.customVocabulary,
+            languageCode: settingsStore.languageMode.languageCode
+        )
+    }
+
     // MARK: - AI Text Correction
 
     /// Applies AI text correction if enabled and available.
@@ -318,7 +333,11 @@ final class StateManager {
         // AI text correction step (after filler removal, before suffix)
         let corrected = await applyAITextCorrection(to: cleaned)
 
-        let finalText = applyAutoSuffix(to: corrected)
+        // Custom vocabulary correction — runs after AI correction so it has the
+        // final say on the spelling of known proper nouns.
+        let vocabCorrected = applyVocabularyCorrection(to: corrected)
+
+        let finalText = applyAutoSuffix(to: vocabCorrected)
 
         do {
             try await textInsertionService.insertText(finalText)

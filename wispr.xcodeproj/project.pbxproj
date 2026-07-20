@@ -39,6 +39,8 @@
 		1C74D3322FA632B700208826 /* SFSymbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F82FA632B700208826 /* SFSymbols.swift */; };
 		1C74D3332FA632B700208826 /* StateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D82FA632B700208826 /* StateManager.swift */; };
 		1C74D3342FA632B700208826 /* FillerWordCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */; };
+		AB00000000000000000000B1 /* VocabularyCorrector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000C1 /* VocabularyCorrector.swift */; };
+		AB00000000000000000000B2 /* VocabularyEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000C2 /* VocabularyEditorView.swift */; };
 		1C74D3352FA632B700208826 /* RecordingOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */; };
 		1C74D3362FA632B700208826 /* CLIInstallDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2EF2FA632B700208826 /* CLIInstallDialog.swift */; };
 		1C74D3372FA632B700208826 /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2D42FA632B700208826 /* HotkeyMonitor.swift */; };
@@ -191,6 +193,7 @@
 		1C74D2DB2FA632B700208826 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		1C74D2DD2FA632B700208826 /* ModelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRowView.swift; sourceTree = "<group>"; };
 		1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuffixEditorView.swift; sourceTree = "<group>"; };
+		AB00000000000000000000C2 /* VocabularyEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyEditorView.swift; sourceTree = "<group>"; };
 		1C74D2E02FA632B700208826 /* OnboardingAccessibilityStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAccessibilityStep.swift; sourceTree = "<group>"; };
 		1C74D2E12FA632B700208826 /* OnboardingCompletionStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCompletionStep.swift; sourceTree = "<group>"; };
 		1C74D2E22FA632B700208826 /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
@@ -211,6 +214,7 @@
 		1C74D2F32FA632B700208826 /* RecordingOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayPanel.swift; sourceTree = "<group>"; };
 		1C74D2F42FA632B700208826 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
 		1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillerWordCleaner.swift; sourceTree = "<group>"; };
+		AB00000000000000000000C1 /* VocabularyCorrector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyCorrector.swift; sourceTree = "<group>"; };
 		1C74D2F72FA632B700208826 /* PreviewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewHelpers.swift; sourceTree = "<group>"; };
 		1C74D2F82FA632B700208826 /* SFSymbols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFSymbols.swift; sourceTree = "<group>"; };
 		1C74D2F92FA632B700208826 /* UIThemeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIThemeEngine.swift; sourceTree = "<group>"; };
@@ -450,6 +454,7 @@
 			children = (
 				1C74D2DD2FA632B700208826 /* ModelRowView.swift */,
 				1C74D2DE2FA632B700208826 /* SuffixEditorView.swift */,
+				AB00000000000000000000C2 /* VocabularyEditorView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -502,6 +507,7 @@
 			isa = PBXGroup;
 			children = (
 				1C74D2F62FA632B700208826 /* FillerWordCleaner.swift */,
+				AB00000000000000000000C1 /* VocabularyCorrector.swift */,
 				1C74D2F72FA632B700208826 /* PreviewHelpers.swift */,
 				1C74D2F82FA632B700208826 /* SFSymbols.swift */,
 				1C74D2F92FA632B700208826 /* UIThemeEngine.swift */,
@@ -765,6 +771,8 @@
 				1C74D3322FA632B700208826 /* SFSymbols.swift in Sources */,
 				1C74D3332FA632B700208826 /* StateManager.swift in Sources */,
 				1C74D3342FA632B700208826 /* FillerWordCleaner.swift in Sources */,
+				AB00000000000000000000B1 /* VocabularyCorrector.swift in Sources */,
+				AB00000000000000000000B2 /* VocabularyEditorView.swift in Sources */,
 				1C74D3352FA632B700208826 /* RecordingOverlayPanel.swift in Sources */,
 				1C74D3362FA632B700208826 /* CLIInstallDialog.swift in Sources */,
 				1C74D3372FA632B700208826 /* HotkeyMonitor.swift in Sources */,

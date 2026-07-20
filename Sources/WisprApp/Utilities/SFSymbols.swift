@@ -148,6 +148,12 @@ enum SFSymbols {
     /// Plain checkmark for active/completion states.
     static let checkmarkPlain = "checkmark"
 
+    /// Add / insert icon.
+    static let addCircle = "plus.circle.fill"
+
+    /// Remove item icon.
+    static let removeCircle = "minus.circle.fill"
+
     /// Arrow down for downloaded model indicator.
     static let arrowDown = "arrow.down"
 

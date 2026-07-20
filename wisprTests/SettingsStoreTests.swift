@@ -326,6 +326,39 @@ struct SettingsStoreTests {
         #expect(store.removeFillerWords == false)
     }
 
+    // MARK: - Custom Vocabulary Tests
+
+    @Test("SettingsStore customVocabulary settings default to disabled and empty")
+    func testCustomVocabularyDefaults() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        #expect(store.customVocabularyEnabled == false)
+        #expect(store.customVocabulary.isEmpty)
+    }
+
+    @Test("SettingsStore persists customVocabularyEnabled and customVocabulary")
+    func testCustomVocabularyPersistence() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.customVocabularyEnabled = true
+        store.customVocabulary = ["kubectl", "PyTorch"]
+
+        let newStore = SettingsStore(defaults: defaults)
+        #expect(newStore.customVocabularyEnabled == true, "customVocabularyEnabled should persist")
+        #expect(newStore.customVocabulary == ["kubectl", "PyTorch"], "customVocabulary should persist")
+    }
+
+    @Test("SettingsStore restoreDefaults resets custom vocabulary settings")
+    func testRestoreDefaultsResetsCustomVocabulary() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.customVocabularyEnabled = true
+        store.customVocabulary = ["kubectl"]
+        store.restoreDefaults()
+        #expect(store.customVocabularyEnabled == false)
+        #expect(store.customVocabulary.isEmpty)
+    }
+
     // MARK: - Meeting Echo Suppression Tests
 
     @Test("SettingsStore meetingEchoSuppressionEnabled defaults to true")

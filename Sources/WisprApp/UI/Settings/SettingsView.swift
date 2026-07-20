@@ -63,6 +63,8 @@ struct SettingsView: View {
             "When enabled, uses on-device AI to correct grammar and improve transcription fluency. All processing stays on your Mac."
         static let autoInsertSuffix = "When enabled, appends a suffix to transcribed text"
         static let autoSendEnter = "When enabled, simulates pressing Enter after text insertion"
+        static let customVocabulary =
+            "When enabled, corrects mis-transcribed proper nouns like client names to the spelling you provide"
 
         // Feedback section
         static let soundFeedback = "When enabled, plays audio cues when recording starts and stops"
@@ -349,6 +351,13 @@ struct SettingsView: View {
             //     }
             // }
 
+            Toggle("Custom Vocabulary", isOn: $store.customVocabularyEnabled)
+                .accessibilityHint(AccessibilityHints.customVocabulary)
+
+            if settingsStore.customVocabularyEnabled {
+                VocabularyEditorView(vocabulary: $store.customVocabulary)
+            }
+
             Toggle("Auto-Insert Suffix", isOn: $store.autoSuffixEnabled)
                 .accessibilityHint(AccessibilityHints.autoInsertSuffix)
 
@@ -369,6 +378,7 @@ struct SettingsView: View {
         }
         .motionRespectingAnimation(value: settingsStore.autoSuffixEnabled)
         .motionRespectingAnimation(value: settingsStore.aiTextCorrectionEnabled)
+        .motionRespectingAnimation(value: settingsStore.customVocabularyEnabled)
     }
 
     // MARK: - Feedback Section

@@ -217,6 +217,28 @@ final class SettingsStore {
         }
     }
 
+    // MARK: - Custom Vocabulary Settings
+
+    /// When true, transcriptions are corrected against `customVocabulary` so
+    /// mis-transcribed proper nouns (client names, etc.) are fixed to their
+    /// canonical spelling.
+    var customVocabularyEnabled: Bool {
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(customVocabularyEnabled, forKey: Keys.customVocabularyEnabled)
+        }
+    }
+
+    /// Correctly spelled words the transcription is biased toward (e.g. "kubectl").
+    var customVocabulary: [String] {
+        didSet {
+            guard !isLoading else { return }
+            if let encoded = try? JSONEncoder().encode(customVocabulary) {
+                defaults.set(encoded, forKey: Keys.customVocabulary)
+            }
+        }
+    }
+
     // MARK: - UserDefaults Keys
     private enum Keys {
         static let hotkeyKeyCode = "hotkeyKeyCode"
@@ -241,6 +263,8 @@ final class SettingsStore {
         static let autoSendEnterEnabled = "autoSendEnterEnabled"
         static let aiTextCorrectionEnabled = "aiTextCorrectionEnabled"
         static let aiTextCorrectionStyle = "aiTextCorrectionStyle"
+        static let customVocabularyEnabled = "customVocabularyEnabled"
+        static let customVocabulary = "customVocabulary"
     }
 
     // MARK: - Default Values
@@ -270,6 +294,8 @@ final class SettingsStore {
         static let autoSendEnterEnabled: Bool = false
         static let aiTextCorrectionEnabled: Bool = false
         static let aiTextCorrectionStyle: CorrectionStyle = .minimal
+        static let customVocabularyEnabled: Bool = false
+        static let customVocabulary: [String] = []
     }
 
     // MARK: - Dependencies
@@ -303,6 +329,8 @@ final class SettingsStore {
         self.autoSendEnterEnabled = Defaults.autoSendEnterEnabled
         self.aiTextCorrectionEnabled = Defaults.aiTextCorrectionEnabled
         self.aiTextCorrectionStyle = Defaults.aiTextCorrectionStyle
+        self.customVocabularyEnabled = Defaults.customVocabularyEnabled
+        self.customVocabulary = Defaults.customVocabulary
 
         // Load persisted values
         load()
@@ -337,6 +365,8 @@ final class SettingsStore {
         autoSendEnterEnabled = Defaults.autoSendEnterEnabled
         aiTextCorrectionEnabled = Defaults.aiTextCorrectionEnabled
         aiTextCorrectionStyle = Defaults.aiTextCorrectionStyle
+        customVocabularyEnabled = Defaults.customVocabularyEnabled
+        customVocabulary = Defaults.customVocabulary
     }
 
     // MARK: - Persistence
@@ -365,6 +395,7 @@ final class SettingsStore {
         defaults.set(removeFillerWords, forKey: Keys.removeFillerWords)
         defaults.set(autoSendEnterEnabled, forKey: Keys.autoSendEnterEnabled)
         defaults.set(aiTextCorrectionEnabled, forKey: Keys.aiTextCorrectionEnabled)
+        defaults.set(customVocabularyEnabled, forKey: Keys.customVocabularyEnabled)
 
         if let encoded = try? JSONEncoder().encode(languageMode) {
             defaults.set(encoded, forKey: Keys.languageMode)
@@ -372,6 +403,10 @@ final class SettingsStore {
 
         if let encoded = try? JSONEncoder().encode(aiTextCorrectionStyle) {
             defaults.set(encoded, forKey: Keys.aiTextCorrectionStyle)
+        }
+
+        if let encoded = try? JSONEncoder().encode(customVocabulary) {
+            defaults.set(encoded, forKey: Keys.customVocabulary)
         }
     }
 
@@ -477,6 +512,17 @@ final class SettingsStore {
             let decoded = try? JSONDecoder().decode(CorrectionStyle.self, from: data)
         {
             self.aiTextCorrectionStyle = decoded
+        }
+
+        // Load custom vocabulary settings
+        if defaults.object(forKey: Keys.customVocabularyEnabled) != nil {
+            self.customVocabularyEnabled = defaults.bool(forKey: Keys.customVocabularyEnabled)
+        }
+
+        if let data = defaults.data(forKey: Keys.customVocabulary),
+            let decoded = try? JSONDecoder().decode([String].self, from: data)
+        {
+            self.customVocabulary = decoded
         }
     }
 
