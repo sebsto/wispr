@@ -14,7 +14,7 @@ EXPORT_DIR   := $(CURDIR)/build/export
 
 # App Store Connect API key (read from secrets/asc-api-key.json)
 SECRETS_JSON   := $(CURDIR)/secrets/asc-api-key.json
-API_KEYS_DIR   := $(CURDIR)/private_keys
+API_KEYS_DIR   := $(CURDIR)/secrets
 API_KEY_ID     := $(shell jq -r .apple_api_key_id $(CURDIR)/secrets/asc-api-key.json 2>/dev/null)
 API_ISSUER     := $(shell jq -r .apple_api_issuer_id $(CURDIR)/secrets/asc-api-key.json 2>/dev/null)
 API_KEY_PATH   := $(API_KEYS_DIR)/AuthKey_$(API_KEY_ID).p8
