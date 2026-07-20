@@ -64,9 +64,13 @@ public actor ParakeetService {
 
     // MARK: - V3 Helpers
 
-    private func downloadAndLoad() async throws {
+    private func downloadAndLoad(progressHandler: DownloadUtils.ProgressHandler? = nil) async throws {
         let sdkLeaf = AsrModels.defaultCacheDirectory(for: .v3).lastPathComponent
-        let models = try await AsrModels.downloadAndLoad(to: ModelPaths.parakeetV3(sdkLeafName: sdkLeaf), version: .v3)
+        let models = try await AsrModels.downloadAndLoad(
+            to: ModelPaths.parakeetV3(sdkLeafName: sdkLeaf),
+            version: .v3,
+            progressHandler: progressHandler
+        )
         let manager = AsrManager(config: .default)
         try await manager.initialize(models: models)
         self.asrManager = manager
@@ -84,13 +88,17 @@ public actor ParakeetService {
     // MARK: - EOU Helpers
 
 
-    private func downloadAndLoadEou() async throws {
+    private func downloadAndLoadEou(progressHandler: DownloadUtils.ProgressHandler? = nil) async throws {
         let cacheDir = ModelPaths.parakeetEou
         let cachedFileCount = countFiles(in: cacheDir)
 
         // Only download if the cache is incomplete
         if cachedFileCount < Self.eouExpectedFileCount {
-            try await DownloadUtils.downloadRepo(.parakeetEou160, to: ModelPaths.parakeetEouParent)
+            try await DownloadUtils.downloadRepo(
+                .parakeetEou160,
+                to: ModelPaths.parakeetEouParent,
+                progressHandler: progressHandler
+            )
         }
         let config = MLModelConfiguration()
         config.computeUnits = .cpuAndNeuralEngine
@@ -233,14 +241,6 @@ extension ParakeetService: TranscriptionEngine {
 
         let isEou = model.id == ModelInfo.KnownID.parakeetEou
         let estimatedSize = model.estimatedSize
-        let expectedFileCount = isEou ? Self.eouExpectedFileCount : Self.expectedFileCount
-        let cacheDir: URL
-        if isEou {
-            cacheDir = ModelPaths.parakeetEou
-        } else {
-            let sdkLeaf = AsrModels.defaultCacheDirectory(for: .v3).lastPathComponent
-            cacheDir = ModelPaths.parakeetV3(sdkLeafName: sdkLeaf)
-        }
 
         let task = Task {
             defer { self.downloadTasks.removeValue(forKey: model.id) }
@@ -253,36 +253,33 @@ extension ParakeetService: TranscriptionEngine {
                     totalBytes: estimatedSize
                 ))
 
-                // Poll cache directory for file-count progress during download
-                let progressTask = Task {
-                    while !Task.isCancelled {
-                        try await Task.sleep(for: .milliseconds(500))
-                        let count = countFiles(in: cacheDir)
-                        if count >= expectedFileCount {
-                            continuation.yield(DownloadProgress(
-                                phase: .loadingModel,
-                                fractionCompleted: 1.0,
-                                bytesDownloaded: estimatedSize,
-                                totalBytes: estimatedSize
-                            ))
-                            break
-                        }
-                        let fraction = Double(count) / Double(expectedFileCount)
-                        let downloaded = Int64(Double(estimatedSize) * fraction)
-                        continuation.yield(DownloadProgress(
-                            phase: .downloading,
-                            fractionCompleted: fraction,
-                            bytesDownloaded: downloaded,
-                            totalBytes: estimatedSize
-                        ))
+                // Forward FluidAudio's real byte-level progress. It reports
+                // 0.0–0.5 while downloading files and 0.5–1.0 while compiling
+                // the CoreML models, so a single large file no longer freezes
+                // the bar at a fixed percentage.
+                let progressHandler: DownloadUtils.ProgressHandler = { faProgress in
+                    let phase: DownloadProgress.Phase
+                    switch faProgress.phase {
+                    case .compiling:
+                        phase = .loadingModel
+                    case .listing, .downloading:
+                        phase = .downloading
+                    @unknown default:
+                        phase = .downloading
                     }
+                    let fraction = faProgress.fractionCompleted
+                    continuation.yield(DownloadProgress(
+                        phase: phase,
+                        fractionCompleted: fraction,
+                        bytesDownloaded: Int64(Double(estimatedSize) * fraction),
+                        totalBytes: estimatedSize
+                    ))
                 }
-                defer { progressTask.cancel() }
 
                 if isEou {
-                    try await self.downloadAndLoadEou()
+                    try await self.downloadAndLoadEou(progressHandler: progressHandler)
                 } else {
-                    try await self.downloadAndLoad()
+                    try await self.downloadAndLoad(progressHandler: progressHandler)
                 }
                 self.activeModelName = model.id
 

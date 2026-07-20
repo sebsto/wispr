@@ -161,16 +161,24 @@ struct ModelDownloadProgressView: View {
     // MARK: - Loading Model
 
     private var loadingModelView: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 10) {
-                ProgressView()
-                    .controlSize(.small)
+        VStack(spacing: 10) {
+            HStack {
                 Text("Preparing \(model.displayName)…")
                     .font(.headline)
                     .foregroundStyle(theme.primaryTextColor)
+                Spacer()
+                Text("\(Int(progress * 100))%")
+                    .font(.headline)
+                    .monospacedDigit()
+                    .foregroundStyle(theme.accentColor)
             }
 
-            Text("Loading model into memory. This may take a moment for larger models.")
+            GradientProgressBar(progress: progress, accentColor: theme.accentColor)
+                .animation(.easeInOut(duration: 0.3), value: progress)
+                .accessibilityLabel("Preparation progress")
+                .accessibilityValue("\(Int(progress * 100)) percent")
+
+            Text("Compiling model for the Neural Engine. This may take a moment for larger models.")
                 .font(.callout)
                 .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
@@ -178,7 +186,7 @@ struct ModelDownloadProgressView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Preparing \(model.displayName). Loading model into memory.")
+        .accessibilityLabel("Preparing \(model.displayName). Compiling model for the Neural Engine.")
     }
 
     // MARK: - Warming Up
@@ -275,6 +283,12 @@ struct ModelDownloadProgressView: View {
                         downloadedBytes = downloadProgress.bytesDownloaded
                         totalBytes = downloadProgress.totalBytes
                     case .loadingModel:
+                        if downloadProgress.fractionCompleted != progress {
+                            lastProgressUpdate = .now
+                        }
+                        progress = downloadProgress.fractionCompleted
+                        downloadedBytes = downloadProgress.bytesDownloaded
+                        totalBytes = downloadProgress.totalBytes
                         isDownloading = false
                         isLoadingModel = true
                         isWarmingUp = false
