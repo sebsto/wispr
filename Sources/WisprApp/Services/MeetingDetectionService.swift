@@ -77,14 +77,9 @@ final class MeetingDetectionService {
     private func observeSettings() {
         settingsObservationTask = Task { [weak self] in
             guard let self else { return }
-            while !Task.isCancelled {
-                await withCheckedContinuation { continuation in
-                    withObservationTracking {
-                        _ = self.settingsStore.meetingDetectionEnabled
-                    } onChange: {
-                        continuation.resume()
-                    }
-                }
+            let store = self.settingsStore
+            for await _ in store.changes(tracking: { _ = store.meetingDetectionEnabled }) {
+                if Task.isCancelled { break }
                 await self.applyMonitoringState()
             }
         }
@@ -105,12 +100,14 @@ final class MeetingDetectionService {
         isMonitoring = true
         lastRunningState = false
 
-        notifier.requestAuthorization()
+        // Await authorization before arming so a rising edge can't produce a
+        // notification the system silently drops for a not-yet-authorized app.
+        await notifier.requestAuthorization()
 
-        await monitor.start { [weak self] running in
+        await monitor.start { [weak self] running, isBaseline in
             // Listener fires from an arbitrary context — hop to the main actor.
             Task { @MainActor in
-                self?.handleActivityChange(running)
+                await self?.handleActivityChange(running, isBaseline: isBaseline)
             }
         }
         Log.app.debug("MeetingDetectionService — monitoring started")
@@ -128,7 +125,17 @@ final class MeetingDetectionService {
 
     /// Handles a change in input-device activity. Internal (not private) so unit
     /// tests can drive it directly.
-    func handleActivityChange(_ running: Bool) {
+    ///
+    /// `isBaseline` marks a seed emission (monitoring start, or a default-input
+    /// device change): it only updates `lastRunningState` and never notifies,
+    /// so an already-in-use device is not mistaken for a rising edge.
+    func handleActivityChange(_ running: Bool, isBaseline: Bool) async {
+        // Baseline emissions seed state only — never a rising edge.
+        guard !isBaseline else {
+            lastRunningState = running
+            return
+        }
+
         let wasRunning = lastRunningState
         lastRunningState = running
 
@@ -151,7 +158,7 @@ final class MeetingDetectionService {
         }
 
         lastNotificationDate = Date()
-        notifier.postMeetingDetectedNotification()
+        await notifier.postMeetingDetectedNotification()
         Log.app.debug("MeetingDetectionService — meeting detected, notification posted")
     }
 }

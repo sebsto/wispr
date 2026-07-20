@@ -311,18 +311,7 @@ actor AudioEngine {
     
     /// Returns the system default audio input device ID.
     private func getDefaultInputDeviceID() -> AudioDeviceID? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var deviceID: AudioDeviceID = 0
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
-        )
-        guard status == noErr, deviceID != kAudioObjectUnknown else { return nil }
-        return deviceID
+        CoreAudioDevice.defaultInputDeviceID()
     }
 
     
@@ -400,111 +389,5 @@ actor AudioEngine {
         
         // Also yield raw audio chunks for streaming transcription (EOU monitoring)
         audioContinuation?.yield(bufferData)
-    }
-}
-
-// MARK: - CoreAudio Device Helper
-
-/// Lightweight wrapper around an AudioDeviceID that provides idiomatic property access
-nonisolated private struct CoreAudioDevice: Sendable {
-    let id: AudioDeviceID
-    
-    nonisolated var hasInputStreams: Bool {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyStreams,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var size: UInt32 = 0
-        let status = AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size)
-        return status == noErr && size > 0
-    }
-    
-    nonisolated var name: String? {
-        getStringProperty(kAudioObjectPropertyName)
-    }
-    
-    nonisolated var uid: String? {
-        getStringProperty(kAudioDevicePropertyDeviceUID)
-    }
-
-    /// Whether this aggregate device is marked as private (created internally by AVAudioEngine).
-    /// User-created aggregates from Audio MIDI Setup are not private.
-    nonisolated var isPrivateAggregate: Bool {
-        guard transportType == kAudioDeviceTransportTypeAggregate else { return false }
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioAggregateDevicePropertyComposition,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return false }
-        var dict: CFDictionary?
-        let status = withUnsafeMutablePointer(to: &dict) { ptr in
-            AudioObjectGetPropertyData(id, &address, 0, nil, &size, ptr)
-        }
-        guard status == noErr,
-              let composition = dict as? [String: Any] else { return false }
-        // kAudioAggregateDeviceIsPrivateKey == "priv"
-        if let isPrivate = composition["priv"] as? Int, isPrivate == 1 {
-            return true
-        }
-        return false
-    }
-
-    /// The transport type of the device (USB, Bluetooth, Built-In, etc.)
-    nonisolated var transportType: UInt32 {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyTransportType,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var value: UInt32 = 0
-        var size = UInt32(MemoryLayout<UInt32>.size)
-        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value)
-        return status == noErr ? value : 0
-    }
-
-    /// The device's current nominal sample rate as reported by CoreAudio.
-    nonisolated var nominalSampleRate: Double? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyNominalSampleRate,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var rate: Float64 = 0
-        var size = UInt32(MemoryLayout<Float64>.size)
-        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &rate)
-        return status == noErr ? rate : nil
-    }
-
-    /// Number of input channels on this device.
-    nonisolated var inputChannelCount: UInt32 {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyStreamConfiguration,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return 0 }
-        let rawPointer = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
-        defer { rawPointer.deallocate() }
-        let bufferListPointer = rawPointer.bindMemory(to: AudioBufferList.self, capacity: 1)
-        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, bufferListPointer) == noErr else { return 0 }
-        let bufferList = UnsafeMutableAudioBufferListPointer(bufferListPointer)
-        return bufferList.reduce(0) { $0 + $1.mNumberChannels }
-    }
-    
-    nonisolated private func getStringProperty(_ selector: AudioObjectPropertySelector) -> String? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: selector,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var value: Unmanaged<CFString>?
-        var size = UInt32(MemoryLayout<Unmanaged<CFString>>.size)
-        let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value)
-        guard status == noErr else { return nil }
-        return value?.takeUnretainedValue() as String?
     }
 }

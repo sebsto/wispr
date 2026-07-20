@@ -18,9 +18,9 @@ import Testing
 final class FakeInputActivityMonitor: InputActivityMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
-    private var onChange: (@Sendable (Bool) -> Void)?
+    private var onChange: (@Sendable (Bool, Bool) -> Void)?
 
-    func start(onChange: @escaping @Sendable (Bool) -> Void) {
+    func start(onChange: @escaping @Sendable (Bool, Bool) -> Void) {
         startCount += 1
         self.onChange = onChange
     }
@@ -39,11 +39,11 @@ final class FakeMeetingNotifier: MeetingNotifying {
     private(set) var authorizationRequests = 0
     private(set) var postedCount = 0
 
-    func requestAuthorization() {
+    func requestAuthorization() async {
         authorizationRequests += 1
     }
 
-    func postMeetingDetectedNotification() {
+    func postMeetingDetectedNotification() async {
         postedCount += 1
     }
 }
@@ -104,7 +104,7 @@ struct MeetingDetectionServiceTests {
         let (service, _, notifier, _) = makeService(enabled: true)
         await service.start()
 
-        service.handleActivityChange(true)
+        await service.handleActivityChange(true, isBaseline: false)
 
         #expect(notifier.postedCount == 1)
     }
@@ -114,10 +114,45 @@ struct MeetingDetectionServiceTests {
         let (service, _, notifier, _) = makeService(enabled: true)
         await service.start()
 
-        service.handleActivityChange(true)
-        service.handleActivityChange(true)  // still running, no new edge
+        await service.handleActivityChange(true, isBaseline: false)
+        await service.handleActivityChange(true, isBaseline: false)  // still running, no new edge
 
         #expect(notifier.postedCount == 1)
+    }
+
+    @Test("baseline emission (already in use) does not post, and suppresses the next same-state edge")
+    func testBaselineSeedsWithoutNotifying() async {
+        let (service, _, notifier, _) = makeService(enabled: true)
+        await service.start()
+
+        // Monitoring starts mid-call: baseline says "running".
+        await service.handleActivityChange(true, isBaseline: true)
+        // A subsequent real callback with the same state is not a rising edge.
+        await service.handleActivityChange(true, isBaseline: false)
+
+        #expect(notifier.postedCount == 0)
+    }
+
+    @Test("rising edge after an idle baseline still posts")
+    func testRisingEdgeAfterIdleBaseline() async {
+        let (service, _, notifier, _) = makeService(enabled: true)
+        await service.start()
+
+        await service.handleActivityChange(false, isBaseline: true)  // idle baseline
+        await service.handleActivityChange(true, isBaseline: false)  // real rising edge
+
+        #expect(notifier.postedCount == 1)
+    }
+
+    @Test("device-change baseline re-seed does not post")
+    func testDeviceChangeBaselineDoesNotPost() async {
+        let (service, _, notifier, _) = makeService(enabled: true)
+        await service.start()
+
+        await service.handleActivityChange(false, isBaseline: true)  // initial idle baseline
+        await service.handleActivityChange(true, isBaseline: true)  // device switched mid-call
+
+        #expect(notifier.postedCount == 0)
     }
 
     @Test("falling then rising edge posts again after cooldown of zero")
@@ -125,9 +160,9 @@ struct MeetingDetectionServiceTests {
         let (service, _, notifier, _) = makeService(enabled: true, cooldown: 0)
         await service.start()
 
-        service.handleActivityChange(true)
-        service.handleActivityChange(false)
-        service.handleActivityChange(true)
+        await service.handleActivityChange(true, isBaseline: false)
+        await service.handleActivityChange(false, isBaseline: false)
+        await service.handleActivityChange(true, isBaseline: false)
 
         #expect(notifier.postedCount == 2)
     }
@@ -137,9 +172,9 @@ struct MeetingDetectionServiceTests {
         let (service, _, notifier, _) = makeService(enabled: true, cooldown: 5 * 60)
         await service.start()
 
-        service.handleActivityChange(true)
-        service.handleActivityChange(false)
-        service.handleActivityChange(true)  // within cooldown
+        await service.handleActivityChange(true, isBaseline: false)
+        await service.handleActivityChange(false, isBaseline: false)
+        await service.handleActivityChange(true, isBaseline: false)  // within cooldown
 
         #expect(notifier.postedCount == 1)
     }
@@ -150,7 +185,7 @@ struct MeetingDetectionServiceTests {
         await service.start()
         settings.meetingDetectionEnabled = false
 
-        service.handleActivityChange(true)
+        await service.handleActivityChange(true, isBaseline: false)
 
         #expect(notifier.postedCount == 0)
     }
@@ -161,7 +196,7 @@ struct MeetingDetectionServiceTests {
         service.isSelfUsingMicrophone = { true }
         await service.start()
 
-        service.handleActivityChange(true)
+        await service.handleActivityChange(true, isBaseline: false)
 
         #expect(notifier.postedCount == 0)
     }

@@ -468,3 +468,35 @@ final class SettingsStore {
         }
     }
 }
+
+// MARK: - Observation Helpers
+
+extension SettingsStore {
+
+    /// An `AsyncStream` that yields once each time any value read inside
+    /// `track` changes.
+    ///
+    /// Observation is re-armed from *within* the change handler rather than
+    /// after the consumer's async work, so a change that lands while the
+    /// consumer is awaiting is not missed — unlike a bare
+    /// `withObservationTracking` loop that only re-registers once its async body
+    /// returns. Centralizes the observation idiom that would otherwise be
+    /// duplicated across observers.
+    nonisolated func changes(
+        tracking track: @escaping @MainActor @Sendable () -> Void
+    ) -> AsyncStream<Void> {
+        AsyncStream { continuation in
+            @Sendable func arm() {
+                Task { @MainActor in
+                    withObservationTracking {
+                        track()
+                    } onChange: {
+                        continuation.yield(())
+                        arm()
+                    }
+                }
+            }
+            arm()
+        }
+    }
+}

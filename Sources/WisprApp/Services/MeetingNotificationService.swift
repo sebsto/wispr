@@ -15,11 +15,12 @@ import os
 /// coordinating service can be unit-tested without the notification center.
 @MainActor
 protocol MeetingNotifying: AnyObject {
-    /// Requests notification authorization if not already determined.
-    func requestAuthorization()
+    /// Requests notification authorization (awaiting the user's response) and
+    /// performs any one-time setup. Safe to call repeatedly.
+    func requestAuthorization() async
 
     /// Posts the actionable "meeting detected" notification.
-    func postMeetingDetectedNotification()
+    func postMeetingDetectedNotification() async
 }
 
 /// Concrete `MeetingNotifying` backed by `UNUserNotificationCenter`.
@@ -27,6 +28,10 @@ protocol MeetingNotifying: AnyObject {
 /// Registers a single foreground action ("Start transcription"). When the user
 /// activates the action — or taps the notification body — `onStartMeetingRequested`
 /// is invoked on the main actor.
+///
+/// Setup (delegate + notification categories) is deferred until the first
+/// `requestAuthorization()` call, so a disabled feature does no launch-time work
+/// and does not claim the notification center's single delegate slot.
 @MainActor
 final class MeetingNotificationService: NSObject, MeetingNotifying,
     UNUserNotificationCenterDelegate
@@ -42,27 +47,23 @@ final class MeetingNotificationService: NSObject, MeetingNotifying,
 
     private let center = UNUserNotificationCenter.current()
 
-    override init() {
-        super.init()
-        center.delegate = self
-        registerCategory()
-    }
+    /// Whether the delegate and notification categories have been registered.
+    private var isConfigured = false
 
     // MARK: - MeetingNotifying
 
-    func requestAuthorization() {
-        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if let error {
-                Log.app.error(
-                    "MeetingNotificationService — authorization error: \(error.localizedDescription)"
-                )
-            } else {
-                Log.app.debug("MeetingNotificationService — authorization granted: \(granted)")
-            }
+    func requestAuthorization() async {
+        configureIfNeeded()
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound])
+            Log.app.debug("MeetingNotificationService — authorization granted: \(granted)")
+        } catch {
+            Log.app.error(
+                "MeetingNotificationService — authorization error: \(error.localizedDescription)")
         }
     }
 
-    func postMeetingDetectedNotification() {
+    func postMeetingDetectedNotification() async {
         let content = UNMutableNotificationContent()
         content.title = "Meeting detected"
         content.body = "Start transcribing this meeting with Wispr?"
@@ -76,16 +77,25 @@ final class MeetingNotificationService: NSObject, MeetingNotifying,
             content: content,
             trigger: nil)
 
-        center.add(request) { error in
-            if let error {
-                Log.app.error(
-                    "MeetingNotificationService — failed to post notification: \(error.localizedDescription)"
-                )
-            }
+        do {
+            try await center.add(request)
+        } catch {
+            Log.app.error(
+                "MeetingNotificationService — failed to post notification: \(error.localizedDescription)"
+            )
         }
     }
 
-    // MARK: - Category Registration
+    // MARK: - One-time Setup
+
+    /// Registers the delegate and notification category the first time the
+    /// feature is enabled. Idempotent.
+    private func configureIfNeeded() {
+        guard !isConfigured else { return }
+        isConfigured = true
+        center.delegate = self
+        registerCategory()
+    }
 
     private func registerCategory() {
         let startAction = UNNotificationAction(

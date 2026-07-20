@@ -189,6 +189,18 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         // using the microphone, and start transcription when the user acts on it.
         meetingNotificationService.onStartMeetingRequested = { [weak self] in
             guard let self, let meetingManager = self.meetingStateManager else { return }
+            // Don't start a meeting while dictation is active: MeetingAudioEngine
+            // would contend with the dictation engine for the microphone. Guard
+            // here because the notification may have been posted while idle and
+            // acted on later, after dictation started.
+            let dictating =
+                self.stateManager?.appState == .recording
+                || self.stateManager?.appState == .processing
+            guard !dictating else {
+                Log.app.debug(
+                    "Start-meeting action ignored — dictation active, avoiding dual mic capture")
+                return
+            }
             Task { await meetingManager.startMeeting() }
         }
 
