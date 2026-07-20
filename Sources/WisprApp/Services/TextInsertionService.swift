@@ -16,6 +16,20 @@ protocol TextInserting: Sendable {
     func simulateEnterKey()
 }
 
+/// Minimal pasteboard surface used by the clipboard fallback, so the restore
+/// logic can be unit-tested with an in-memory fake instead of `NSPasteboard.general`.
+@MainActor
+protocol TextPasteboard: AnyObject {
+    var changeCount: Int { get }
+    var types: [NSPasteboard.PasteboardType]? { get }
+    func data(forType type: NSPasteboard.PasteboardType) -> Data?
+    @discardableResult func clearContents() -> Int
+    @discardableResult func setString(_ string: String, forType type: NSPasteboard.PasteboardType) -> Bool
+    @discardableResult func setData(_ data: Data?, forType type: NSPasteboard.PasteboardType) -> Bool
+}
+
+extension NSPasteboard: TextPasteboard {}
+
 /// Service responsible for inserting transcribed text at the cursor position.
 ///
 /// Primary method: Accessibility API (AXUIElement)
@@ -55,6 +69,32 @@ final class TextInsertionService: TextInserting {
     /// The pending pasteboard restore task. Cancelled and rescheduled on each insertion
     /// so the 2-second window resets.
     private var pasteboardRestoreTask: Task<Void, Never>?
+
+    // MARK: - Injected Dependencies (production defaults)
+
+    /// Pasteboard used by the clipboard fallback. Injectable for tests.
+    private let pasteboard: any TextPasteboard
+
+    /// Delay before the original pasteboard is restored after a fallback paste.
+    private let restoreDelay: Duration
+
+    /// Performs the ⌘V paste. Injectable so tests don't post real key events.
+    /// Returns `true` on success.
+    private let performPaste: @MainActor () -> Bool
+
+    // MARK: - Init
+
+    init(
+        pasteboard: any TextPasteboard = NSPasteboard.general,
+        restoreDelay: Duration = .seconds(2),
+        performPaste: (@MainActor () -> Bool)? = nil
+    ) {
+        self.pasteboard = pasteboard
+        self.restoreDelay = restoreDelay
+        // Default paste posts a real ⌘V; captured lazily to avoid referencing
+        // `self` before initialization completes.
+        self.performPaste = performPaste ?? { Self.postCommandV() }
+    }
 
     // MARK: - Public Interface
     
@@ -223,9 +263,7 @@ final class TextInsertionService: TextInserting {
     ///
     /// - Parameter text: The text to insert
     /// - Throws: `WisprError.textInsertionFailed` if clipboard insertion fails
-    private func insertViaClipboard(_ text: String) async throws {
-        let pasteboard = NSPasteboard.general
-
+    func insertViaClipboard(_ text: String) async throws {
         // Save the user's original pasteboard only if we don't already have a
         // pending override. This prevents capturing our own transcription text
         // when insertViaClipboard is called again before the restore fires.
@@ -240,11 +278,16 @@ final class TextInsertionService: TextInserting {
         }
 
         // Simulate ⌘V keystroke
-        let success = simulateCommandV()
+        let success = performPaste()
 
         guard success else {
             throw WisprError.textInsertionFailed("Failed to simulate ⌘V keystroke")
         }
+
+        // Snapshot the change count now that OUR transcription is on the pasteboard.
+        // If anything changes it before the restore fires (e.g. the user copies
+        // something new), we must not clobber that. (Bug: manual copy clobbered)
+        let expectedChangeCount = pasteboard.changeCount
 
         // Cancel any pending restore and reschedule, always restoring to the
         // original snapshot captured before the first override. (Requirement 4.5)
@@ -252,17 +295,27 @@ final class TextInsertionService: TextInserting {
         pasteboardRestoreTask?.cancel()
         pasteboardRestoreTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.restorePasteboard(contentsToRestore, after: .seconds(2))
+            await self.restorePasteboard(
+                contentsToRestore,
+                after: self.restoreDelay,
+                ifChangeCountIs: expectedChangeCount
+            )
             self.originalPasteboardContents = nil
             self.pasteboardRestoreTask = nil
         }
+    }
+
+    /// Awaits the currently-scheduled pasteboard restore, if any. Test hook so a
+    /// test can deterministically wait for the restore instead of sleeping.
+    func awaitPendingPasteboardRestore() async {
+        await pasteboardRestoreTask?.value
     }
     
     /// Saves the current pasteboard contents for later restoration.
     ///
     /// - Parameter pasteboard: The pasteboard to save
     /// - Returns: Dictionary mapping types to data
-    private func saveCurrentPasteboardContents(_ pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType: Data] {
+    private func saveCurrentPasteboardContents(_ pasteboard: any TextPasteboard) -> [NSPasteboard.PasteboardType: Data] {
         var contents: [NSPasteboard.PasteboardType: Data] = [:]
         
         for type in pasteboard.types ?? [] {
@@ -279,21 +332,34 @@ final class TextInsertionService: TextInserting {
     /// **Validates**: Requirement 4.5 (restore within 2 seconds)
     ///
     /// - Parameters:
-    ///   - contents: The saved pasteboard contents
-    ///   - delay: Duration to wait before restoring
-    private func restorePasteboard(_ contents: [NSPasteboard.PasteboardType: Data], after delay: Duration) async {
+    ///   - contents: The saved pasteboard contents (may be empty if the user's
+    ///     clipboard was empty before we overrode it).
+    ///   - delay: Duration to wait before restoring.
+    ///   - expectedChangeCount: The pasteboard `changeCount` captured right after
+    ///     we placed our transcription. If the pasteboard has changed since (the
+    ///     user copied something new), we leave it alone rather than clobbering
+    ///     their copy.
+    func restorePasteboard(
+        _ contents: [NSPasteboard.PasteboardType: Data],
+        after delay: Duration,
+        ifChangeCountIs expectedChangeCount: Int
+    ) async {
         // Wait for the delay, but still restore even if cancelled
         do {
             try await Task.sleep(for: delay)
         } catch {
             // Even if cancelled, fall through to restore the pasteboard
         }
-        
-        guard !contents.isEmpty else { return }
-        
-        let pasteboard = NSPasteboard.general
+
+        // If the user copied something after our paste, our transcription is no
+        // longer on the clipboard — don't overwrite their new content.
+        guard pasteboard.changeCount == expectedChangeCount else { return }
+
+        // Clear our transcription unconditionally, then restore the original
+        // contents. When the original was empty this leaves a clean clipboard
+        // rather than letting the transcribed text linger.
         pasteboard.clearContents()
-        
+
         for (type, data) in contents {
             pasteboard.setData(data, forType: type)
         }
@@ -330,7 +396,7 @@ final class TextInsertionService: TextInserting {
     /// Simulates a ⌘V keystroke using CGEvent.
     ///
     /// - Returns: `true` if the keystroke was successfully posted
-    private func simulateCommandV() -> Bool {
+    private static func postCommandV() -> Bool {
         // Create key down event for ⌘V
         guard let keyDownEvent = CGEvent(
             keyboardEventSource: nil,
