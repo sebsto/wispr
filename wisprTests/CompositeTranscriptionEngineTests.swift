@@ -18,6 +18,9 @@ actor MockTranscriptionEngine: TranscriptionEngine {
     private var _activeModel: String?
     private var downloadBehavior: DownloadBehavior = .succeedImmediately
 
+    /// Number of times `loadModel` was invoked (for idempotency assertions).
+    private(set) var loadModelCallCount = 0
+
     enum DownloadBehavior {
         case succeedImmediately
         case failWith(Error)
@@ -86,6 +89,7 @@ actor MockTranscriptionEngine: TranscriptionEngine {
     }
 
     func loadModel(_ modelName: String) async throws {
+        loadModelCallCount += 1
         _activeModel = modelName
     }
 
@@ -143,6 +147,35 @@ private func makeModel(_ id: String) -> ModelInfo {
 
 @Suite("CompositeTranscriptionEngine Tests", .serialized)
 struct CompositeTranscriptionEngineTests {
+
+    // MARK: - Idempotent loading (avoid redundant CoreML recompilation)
+
+    @Test("Reloading the already-active model does not re-invoke the engine")
+    func loadModelIsIdempotentForActiveModel() async throws {
+        let engineA = MockTranscriptionEngine(models: [makeModel("model-a")])
+        let composite = CompositeTranscriptionEngine(engines: [engineA])
+
+        try await composite.loadModel("model-a")
+        try await composite.loadModel("model-a")
+        try await composite.loadModel("model-a")
+
+        let count = await engineA.loadModelCallCount
+        #expect(count == 1, "loadModel should be a no-op when the model is already active")
+        #expect(await composite.activeModel() == "model-a")
+    }
+
+    @Test("Switching to a different model then back reloads as needed")
+    func loadModelReloadsWhenModelChanges() async throws {
+        let engineA = MockTranscriptionEngine(models: [makeModel("model-a"), makeModel("model-a2")])
+        let composite = CompositeTranscriptionEngine(engines: [engineA])
+
+        try await composite.loadModel("model-a")
+        try await composite.loadModel("model-a2")  // different model — must reload
+
+        let count = await engineA.loadModelCallCount
+        #expect(count == 2)
+        #expect(await composite.activeModel() == "model-a2")
+    }
 
     // MARK: - Bug 1: activeEngineIndex deferred until download succeeds
 

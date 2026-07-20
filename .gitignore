@@ -16,3 +16,7 @@ DerivedData/
 # Secrets
 secrets
 private_keys
+
+# Editor/agent local config
+.rules
+.agents/

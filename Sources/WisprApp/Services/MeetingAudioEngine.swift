@@ -19,6 +19,13 @@ import ScreenCaptureKit
 import WisprCore
 import os
 
+/// A timestamped audio chunk from the system-audio capture path.
+/// `startTime` is seconds elapsed since capture began (cumulative sample count / sampleRate).
+struct SystemAudioChunk: Sendable {
+    let samples: [Float]
+    let startTime: TimeInterval
+}
+
 /// Actor responsible for capturing both microphone and system audio simultaneously.
 ///
 /// Uses `AVAudioEngine` for microphone input and `SCStream` (ScreenCaptureKit)
@@ -36,9 +43,11 @@ actor MeetingAudioEngine {
 
     private var micBuffer: [Float] = []
     private var systemBuffer: [Float] = []
+    private var systemSamplesTotal: Int = 0
+    private var systemChunkStartSamples: Int = 0
 
     private var micContinuation: AsyncStream<[Float]>.Continuation?
-    private var systemContinuation: AsyncStream<[Float]>.Continuation?
+    private var systemContinuation: AsyncStream<SystemAudioChunk>.Continuation?
     private var micLevelContinuation: AsyncStream<Float>.Continuation?
     private var systemLevelContinuation: AsyncStream<Float>.Continuation?
 
@@ -54,11 +63,19 @@ actor MeetingAudioEngine {
 
     /// The audio chunk streams created at capture start.
     private var _micAudioStream: AsyncStream<[Float]>?
-    private var _systemAudioStream: AsyncStream<[Float]>?
+    private var _systemAudioStream: AsyncStream<SystemAudioChunk>?
 
     /// The chunk size in samples before yielding to the transcription stream.
     /// ~5 seconds of audio at 16kHz = 80,000 samples.
     private let chunkSize = 80_000
+
+    /// System-audio chunk size. Shorter than the mic chunk (~3s) so each
+    /// transcript entry spans less time, reducing how often a single entry
+    /// flattens a speaker change into one diarization label.
+    private let systemChunkSize = 48_000
+
+    /// Audio sample rate used for both capture and diarization (Hz).
+    static let sampleRate: Int = 16_000
 
     // MARK: - Public Interface
 
@@ -86,7 +103,7 @@ actor MeetingAudioEngine {
         _micAudioStream = micStream
         micContinuation = micCont
 
-        let (sysStream, sysCont) = AsyncStream.makeStream(of: [Float].self)
+        let (sysStream, sysCont) = AsyncStream.makeStream(of: SystemAudioChunk.self)
         _systemAudioStream = sysStream
         systemContinuation = sysCont
 
@@ -131,9 +148,9 @@ actor MeetingAudioEngine {
     }
 
     /// Returns the system audio chunk stream created during `startCapture()`.
-    var systemAudioStream: AsyncStream<[Float]> {
+    var systemAudioStream: AsyncStream<SystemAudioChunk> {
         if let stream = _systemAudioStream { return stream }
-        let (stream, cont) = AsyncStream.makeStream(of: [Float].self)
+        let (stream, cont) = AsyncStream.makeStream(of: SystemAudioChunk.self)
         cont.finish()
         return stream
     }
@@ -145,7 +162,8 @@ actor MeetingAudioEngine {
             micBuffer.removeAll()
         }
         if !systemBuffer.isEmpty {
-            systemContinuation?.yield(systemBuffer)
+            let startTime = Double(systemChunkStartSamples) / Double(Self.sampleRate)
+            systemContinuation?.yield(SystemAudioChunk(samples: systemBuffer, startTime: startTime))
             systemBuffer.removeAll()
         }
         micContinuation?.finish()
@@ -299,7 +317,7 @@ actor MeetingAudioEngine {
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
         config.capturesAudio = true
         config.excludesCurrentProcessAudio = true
-        config.sampleRate = 16000
+        config.sampleRate = Self.sampleRate
         config.channelCount = 1
 
         let (systemBridgeStream, systemBridgeCont) = AsyncStream.makeStream(of: [Float].self)
@@ -335,13 +353,17 @@ actor MeetingAudioEngine {
         let normalizedLevel = min(max(rms * 5.0, 0.0), 1.0)
         systemLevelContinuation?.yield(normalizedLevel)
 
+        systemSamplesTotal += samples.count
         systemBuffer.append(contentsOf: samples)
-        if systemBuffer.count >= chunkSize {
-            let chunk = Array(systemBuffer.prefix(chunkSize))
-            systemBuffer.removeFirst(min(chunkSize, systemBuffer.count))
+        if systemBuffer.count >= systemChunkSize {
+            let chunk = Array(systemBuffer.prefix(systemChunkSize))
+            systemBuffer.removeFirst(min(systemChunkSize, systemBuffer.count))
+            let startTime = Double(systemChunkStartSamples) / Double(Self.sampleRate)
+            systemChunkStartSamples = systemSamplesTotal - systemBuffer.count
             Log.audioEngine.debug(
-                "MeetingAudioEngine — yielding system chunk of \(chunk.count) samples")
-            systemContinuation?.yield(chunk)
+                "MeetingAudioEngine — yielding system chunk of \(chunk.count) samples at t=\(String(format: "%.2f", startTime))s"
+            )
+            systemContinuation?.yield(SystemAudioChunk(samples: chunk, startTime: startTime))
         }
     }
 
@@ -353,6 +375,8 @@ actor MeetingAudioEngine {
         systemStream = nil
         systemStreamOutput = nil
         systemBuffer.removeAll()
+        systemSamplesTotal = 0
+        systemChunkStartSamples = 0
         systemContinuation?.finish()
         systemContinuation = nil
         systemLevelContinuation?.finish()

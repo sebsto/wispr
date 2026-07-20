@@ -37,10 +37,12 @@ public nonisolated enum ModelPaths {
         if isSandboxed {
             // Inside the sandbox (GUI app): FileManager automatically redirects
             // to ~/Library/Containers/<bundle-id>/Data/Library/Application Support/
-            guard let appSupport = FileManager.default.urls(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask
-            ).first else {
+            guard
+                let appSupport = FileManager.default.urls(
+                    for: .applicationSupportDirectory,
+                    in: .userDomainMask
+                ).first
+            else {
                 fatalError("Application Support directory unavailable — cannot store models")
             }
             return appSupport.appendingPathComponent("wispr", isDirectory: true)
@@ -59,10 +61,12 @@ public nonisolated enum ModelPaths {
         // Container doesn't exist yet (GUI never launched). Fall back to the
         // standard Application Support path so the CLI can still start up,
         // though no models will be found until the GUI downloads them.
-        guard let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first else {
+        guard
+            let appSupport = FileManager.default.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first
+        else {
             fatalError("Application Support directory unavailable — cannot store models")
         }
         return appSupport.appendingPathComponent("wispr", isDirectory: true)
@@ -103,6 +107,11 @@ public nonisolated enum ModelPaths {
         models
     }
 
+    /// Sortformer streaming diarizer model cache: `<base>/models/sortformer/`
+    public static var sortformer: URL {
+        models.appendingPathComponent("sortformer", isDirectory: true)
+    }
+
     /// URL of the GUI app's UserDefaults plist.
     /// Inside the sandbox this is the standard location; outside (CLI) it
     /// points into the GUI's container so the CLI reads current values
@@ -110,10 +119,12 @@ public nonisolated enum ModelPaths {
     public static var guiDefaultsPlist: URL {
         let isSandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
         if isSandboxed {
-            guard let prefs = FileManager.default.urls(
-                for: .libraryDirectory,
-                in: .userDomainMask
-            ).first?.appendingPathComponent("Preferences/com.stormacq.mac.wispr.plist") else {
+            guard
+                let prefs = FileManager.default.urls(
+                    for: .libraryDirectory,
+                    in: .userDomainMask
+                ).first?.appendingPathComponent("Preferences/com.stormacq.mac.wispr.plist")
+            else {
                 fatalError("Library directory unavailable")
             }
             return prefs

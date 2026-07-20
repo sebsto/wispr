@@ -5,10 +5,10 @@
 //  Settings persistence using UserDefaults
 //
 
-import WisprCore
 import Foundation
 import Observation
 import ServiceManagement
+import WisprCore
 import os
 
 @MainActor
@@ -16,21 +16,33 @@ import os
 final class SettingsStore {
     // MARK: - Hotkey Settings
     var hotkeyKeyCode: UInt32 {
-        didSet { guard !isLoading else { return }; defaults.set(Int(hotkeyKeyCode), forKey: Keys.hotkeyKeyCode) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(Int(hotkeyKeyCode), forKey: Keys.hotkeyKeyCode)
+        }
     }
 
     var hotkeyModifiers: UInt32 {
-        didSet { guard !isLoading else { return }; defaults.set(Int(hotkeyModifiers), forKey: Keys.hotkeyModifiers) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(Int(hotkeyModifiers), forKey: Keys.hotkeyModifiers)
+        }
     }
 
     // MARK: - Audio Settings
     var selectedAudioDeviceUID: String? {
-        didSet { guard !isLoading else { return }; defaults.set(selectedAudioDeviceUID, forKey: Keys.selectedAudioDeviceUID) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(selectedAudioDeviceUID, forKey: Keys.selectedAudioDeviceUID)
+        }
     }
 
     // MARK: - Model Settings
     var activeModelName: String {
-        didSet { guard !isLoading else { return }; defaults.set(activeModelName, forKey: Keys.activeModelName) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(activeModelName, forKey: Keys.activeModelName)
+        }
     }
 
     // MARK: - Language Settings
@@ -45,7 +57,10 @@ final class SettingsStore {
 
     // MARK: - General Settings
     var showRecordingOverlay: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(showRecordingOverlay, forKey: Keys.showRecordingOverlay) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(showRecordingOverlay, forKey: Keys.showRecordingOverlay)
+        }
     }
 
     var launchAtLogin: Bool {
@@ -56,24 +71,57 @@ final class SettingsStore {
     }
 
     var onboardingCompleted: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
+        }
     }
 
     var onboardingLastStep: Int {
-        didSet { guard !isLoading else { return }; defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
+        }
     }
-    
+
     // MARK: - Dictation Mode
 
     /// When true, hotkey toggles recording on/off (press once to start, press again to stop).
     /// When false, uses push-to-talk (hold to record, release to stop).
     var handsFreeMode: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(handsFreeMode, forKey: Keys.handsFreeMode) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(handsFreeMode, forKey: Keys.handsFreeMode)
+        }
+    }
+
+    /// When true, the "Others" track is split into per-speaker labels
+    /// (Speaker 1, Speaker 2, …) using on-device Sortformer diarization.
+    /// Requires a one-time model download (~30 MB). Defaults to false.
+    var meetingDiarizationEnabled: Bool {
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(meetingDiarizationEnabled, forKey: Keys.meetingDiarizationEnabled)
+        }
+    }
+
+    /// When true, microphone transcriptions that duplicate a recent system-audio
+    /// ("Others") transcription are suppressed. Without headphones, remote
+    /// participants' speech leaks from the speakers into the mic and would
+    /// otherwise be transcribed twice (see issue #65). Defaults to true.
+    var meetingEchoSuppressionEnabled: Bool {
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(meetingEchoSuppressionEnabled, forKey: Keys.meetingEchoSuppressionEnabled)
+        }
     }
 
     /// When true, plays short audio cues on recording start/stop.
     var soundFeedbackEnabled: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled)
+        }
     }
 
     // MARK: - Meeting Detection
@@ -88,33 +136,48 @@ final class SettingsStore {
 
     /// When true, appends `autoSuffixText` to transcribed text before insertion.
     var autoSuffixEnabled: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(autoSuffixEnabled, forKey: Keys.autoSuffixEnabled) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(autoSuffixEnabled, forKey: Keys.autoSuffixEnabled)
+        }
     }
 
     /// The suffix string appended to transcribed text when `autoSuffixEnabled` is true.
     var autoSuffixText: String {
-        didSet { guard !isLoading else { return }; defaults.set(autoSuffixText, forKey: Keys.autoSuffixText) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(autoSuffixText, forKey: Keys.autoSuffixText)
+        }
     }
 
     // MARK: - Filler Word Removal Settings
 
     /// When true, removes common filler words (um, uh, ah, etc.) from transcriptions before insertion.
     var removeFillerWords: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(removeFillerWords, forKey: Keys.removeFillerWords) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(removeFillerWords, forKey: Keys.removeFillerWords)
+        }
     }
 
     // MARK: - Auto-Send Enter Settings
 
     /// When true, simulates an Enter/Return keystroke after text insertion.
     var autoSendEnterEnabled: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(autoSendEnterEnabled, forKey: Keys.autoSendEnterEnabled) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(autoSendEnterEnabled, forKey: Keys.autoSendEnterEnabled)
+        }
     }
 
     // MARK: - AI Text Correction Settings
 
     /// When true, applies on-device AI text correction after filler word removal.
     var aiTextCorrectionEnabled: Bool {
-        didSet { guard !isLoading else { return }; defaults.set(aiTextCorrectionEnabled, forKey: Keys.aiTextCorrectionEnabled) }
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(aiTextCorrectionEnabled, forKey: Keys.aiTextCorrectionEnabled)
+        }
     }
 
     /// The correction style used by AI text correction.
@@ -139,6 +202,8 @@ final class SettingsStore {
         static let onboardingCompleted = "onboardingCompleted"
         static let onboardingLastStep = "onboardingLastStep"
         static let handsFreeMode = "handsFreeMode"
+        static let meetingDiarizationEnabled = "meetingDiarizationEnabled"
+        static let meetingEchoSuppressionEnabled = "meetingEchoSuppressionEnabled"
         static let soundFeedbackEnabled = "soundFeedbackEnabled"
         static let meetingDetectionEnabled = "meetingDetectionEnabled"
         static let autoSuffixEnabled = "autoSuffixEnabled"
@@ -148,14 +213,14 @@ final class SettingsStore {
         static let aiTextCorrectionEnabled = "aiTextCorrectionEnabled"
         static let aiTextCorrectionStyle = "aiTextCorrectionStyle"
     }
-    
+
     // MARK: - Default Values
 
     /// Single source of truth for all setting defaults.
     /// Referenced by `init`, `restoreDefaults()`, and tests.
     enum Defaults {
-        static let hotkeyKeyCode: UInt32 = 49          // Space
-        static let hotkeyModifiers: UInt32 = 2048      // Option
+        static let hotkeyKeyCode: UInt32 = 49  // Space
+        static let hotkeyModifiers: UInt32 = 2048  // Option
         static let selectedAudioDeviceUID: String? = nil
         static let activeModelName: String = ModelInfo.KnownID.tiny
         static let languageMode: TranscriptionLanguage = .autoDetect
@@ -164,8 +229,10 @@ final class SettingsStore {
         static let onboardingCompleted: Bool = false
         static let onboardingLastStep: Int = 0
         static let handsFreeMode: Bool = false
+        static let meetingDiarizationEnabled: Bool = false
+        static let meetingEchoSuppressionEnabled: Bool = true
         static let soundFeedbackEnabled: Bool = false
-        static let meetingDetectionEnabled: Bool = true
+        static let meetingDetectionEnabled: Bool = false
         static let autoSuffixEnabled: Bool = false
         static let autoSuffixText: String = " "
         static let removeFillerWords: Bool = false
@@ -177,11 +244,11 @@ final class SettingsStore {
     // MARK: - Dependencies
     private let defaults: UserDefaults
     private var isLoading = false
-    
+
     // MARK: - Initialization
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        
+
         // Initialize with defaults
         self.hotkeyKeyCode = Defaults.hotkeyKeyCode
         self.hotkeyModifiers = Defaults.hotkeyModifiers
@@ -193,6 +260,8 @@ final class SettingsStore {
         self.onboardingCompleted = Defaults.onboardingCompleted
         self.onboardingLastStep = Defaults.onboardingLastStep
         self.handsFreeMode = Defaults.handsFreeMode
+        self.meetingDiarizationEnabled = Defaults.meetingDiarizationEnabled
+        self.meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
         self.soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         self.meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         self.autoSuffixEnabled = Defaults.autoSuffixEnabled
@@ -220,6 +289,8 @@ final class SettingsStore {
         showRecordingOverlay = Defaults.showRecordingOverlay
         launchAtLogin = Defaults.launchAtLogin
         handsFreeMode = Defaults.handsFreeMode
+        meetingDiarizationEnabled = Defaults.meetingDiarizationEnabled
+        meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
         soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         autoSuffixEnabled = Defaults.autoSuffixEnabled
@@ -229,7 +300,7 @@ final class SettingsStore {
         aiTextCorrectionEnabled = Defaults.aiTextCorrectionEnabled
         aiTextCorrectionStyle = Defaults.aiTextCorrectionStyle
     }
-    
+
     // MARK: - Persistence
 
     /// Persists all current values to UserDefaults without forcing a disk flush.
@@ -246,6 +317,8 @@ final class SettingsStore {
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
         defaults.set(handsFreeMode, forKey: Keys.handsFreeMode)
+        defaults.set(meetingDiarizationEnabled, forKey: Keys.meetingDiarizationEnabled)
+        defaults.set(meetingEchoSuppressionEnabled, forKey: Keys.meetingEchoSuppressionEnabled)
         defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled)
         defaults.set(meetingDetectionEnabled, forKey: Keys.meetingDetectionEnabled)
         defaults.set(autoSuffixEnabled, forKey: Keys.autoSuffixEnabled)
@@ -270,47 +343,57 @@ final class SettingsStore {
         save()
         defaults.synchronize()
     }
-    
+
     func load() {
         isLoading = true
         defer { isLoading = false }
-        
+
         // Load hotkey settings
         let storedKeyCode = defaults.integer(forKey: Keys.hotkeyKeyCode)
         if storedKeyCode != 0 || defaults.object(forKey: Keys.hotkeyKeyCode) != nil {
             self.hotkeyKeyCode = UInt32(storedKeyCode)
         }
-        
+
         let storedModifiers = defaults.integer(forKey: Keys.hotkeyModifiers)
         if storedModifiers != 0 || defaults.object(forKey: Keys.hotkeyModifiers) != nil {
             self.hotkeyModifiers = UInt32(storedModifiers)
         }
-        
+
         // Load audio settings
         self.selectedAudioDeviceUID = defaults.string(forKey: Keys.selectedAudioDeviceUID)
-        
+
         // Load model settings
         if let modelName = defaults.string(forKey: Keys.activeModelName) {
             self.activeModelName = modelName
         }
-        
+
         // Load language mode
         if let data = defaults.data(forKey: Keys.languageMode),
-           let decoded = try? JSONDecoder().decode(TranscriptionLanguage.self, from: data) {
+            let decoded = try? JSONDecoder().decode(TranscriptionLanguage.self, from: data)
+        {
             self.languageMode = decoded
         }
-        
+
         // Load general settings
         if defaults.object(forKey: Keys.showRecordingOverlay) != nil {
             self.showRecordingOverlay = defaults.bool(forKey: Keys.showRecordingOverlay)
         }
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
         self.onboardingCompleted = defaults.bool(forKey: Keys.onboardingCompleted)
-        
+
         self.onboardingLastStep = defaults.integer(forKey: Keys.onboardingLastStep)
-        
+
         if defaults.object(forKey: Keys.handsFreeMode) != nil {
             self.handsFreeMode = defaults.bool(forKey: Keys.handsFreeMode)
+        }
+
+        if defaults.object(forKey: Keys.meetingDiarizationEnabled) != nil {
+            self.meetingDiarizationEnabled = defaults.bool(forKey: Keys.meetingDiarizationEnabled)
+        }
+
+        if defaults.object(forKey: Keys.meetingEchoSuppressionEnabled) != nil {
+            self.meetingEchoSuppressionEnabled = defaults.bool(
+                forKey: Keys.meetingEchoSuppressionEnabled)
         }
 
         if defaults.object(forKey: Keys.soundFeedbackEnabled) != nil {
@@ -346,13 +429,14 @@ final class SettingsStore {
         }
 
         if let data = defaults.data(forKey: Keys.aiTextCorrectionStyle),
-           let decoded = try? JSONDecoder().decode(CorrectionStyle.self, from: data) {
+            let decoded = try? JSONDecoder().decode(CorrectionStyle.self, from: data)
+        {
             self.aiTextCorrectionStyle = decoded
         }
     }
-    
+
     // MARK: - Launch at Login
-    
+
     /// Registers or unregisters the app as a login item using ServiceManagement.
     /// After the operation, reads back the actual system state so the toggle
     /// always reflects reality.
@@ -372,7 +456,7 @@ final class SettingsStore {
         } catch {
             Log.app.error("Failed to \(enabled ? "register" : "unregister") login item: \(error)")
         }
-        
+
         // Always sync back to the actual system state.
         // The source of truth for launch-at-login is ServiceManagement, not UserDefaults,
         // so no explicit defaults.set is needed — load() reads from SMAppService.mainApp.status.

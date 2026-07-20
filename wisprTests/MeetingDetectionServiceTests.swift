@@ -14,7 +14,8 @@ import Testing
 
 /// Fake input-activity monitor that captures the `onChange` closure so tests
 /// can drive activity events synchronously.
-final class FakeInputActivityMonitor: InputActivityMonitoring, @unchecked Sendable {
+@MainActor
+final class FakeInputActivityMonitor: InputActivityMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private var onChange: (@Sendable (Bool) -> Void)?
@@ -77,10 +78,10 @@ private func makeService(
 struct MeetingDetectionServiceTests {
 
     @Test("start() begins monitoring and requests authorization when enabled")
-    func testStartBeginsMonitoring() {
+    func testStartBeginsMonitoring() async {
         let (service, monitor, notifier, _) = makeService(enabled: true)
 
-        service.start()
+        await service.start()
 
         #expect(monitor.isStarted)
         #expect(monitor.startCount == 1)
@@ -88,10 +89,10 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("start() does not monitor when the setting is disabled")
-    func testStartDisabledDoesNotMonitor() {
+    func testStartDisabledDoesNotMonitor() async {
         let (service, monitor, notifier, _) = makeService(enabled: false)
 
-        service.start()
+        await service.start()
 
         #expect(monitor.isStarted == false)
         #expect(monitor.startCount == 0)
@@ -99,9 +100,9 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("rising edge posts exactly one notification")
-    func testRisingEdgePostsNotification() {
+    func testRisingEdgePostsNotification() async {
         let (service, _, notifier, _) = makeService(enabled: true)
-        service.start()
+        await service.start()
 
         service.handleActivityChange(true)
 
@@ -109,9 +110,9 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("no rising edge (already running) posts nothing")
-    func testNoEdgePostsNothing() {
+    func testNoEdgePostsNothing() async {
         let (service, _, notifier, _) = makeService(enabled: true)
-        service.start()
+        await service.start()
 
         service.handleActivityChange(true)
         service.handleActivityChange(true)  // still running, no new edge
@@ -120,9 +121,9 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("falling then rising edge posts again after cooldown of zero")
-    func testSecondEdgePostsWithNoCooldown() {
+    func testSecondEdgePostsWithNoCooldown() async {
         let (service, _, notifier, _) = makeService(enabled: true, cooldown: 0)
-        service.start()
+        await service.start()
 
         service.handleActivityChange(true)
         service.handleActivityChange(false)
@@ -132,9 +133,9 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("cooldown suppresses a second notification within the window")
-    func testCooldownSuppressesSecondNotification() {
+    func testCooldownSuppressesSecondNotification() async {
         let (service, _, notifier, _) = makeService(enabled: true, cooldown: 5 * 60)
-        service.start()
+        await service.start()
 
         service.handleActivityChange(true)
         service.handleActivityChange(false)
@@ -144,9 +145,9 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("disabled setting suppresses notification on rising edge")
-    func testDisabledSuppressesNotification() {
+    func testDisabledSuppressesNotification() async {
         let (service, _, notifier, settings) = makeService(enabled: true)
-        service.start()
+        await service.start()
         settings.meetingDetectionEnabled = false
 
         service.handleActivityChange(true)
@@ -155,10 +156,10 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("self microphone usage suppresses notification")
-    func testSelfUsageSuppressesNotification() {
+    func testSelfUsageSuppressesNotification() async {
         let (service, _, notifier, _) = makeService(enabled: true)
         service.isSelfUsingMicrophone = { true }
-        service.start()
+        await service.start()
 
         service.handleActivityChange(true)
 
@@ -166,11 +167,11 @@ struct MeetingDetectionServiceTests {
     }
 
     @Test("stop() stops the monitor")
-    func testStopStopsMonitor() {
+    func testStopStopsMonitor() async {
         let (service, monitor, _, _) = makeService(enabled: true)
-        service.start()
+        await service.start()
 
-        service.stop()
+        await service.stop()
 
         #expect(monitor.isStarted == false)
         #expect(monitor.stopCount == 1)

@@ -60,16 +60,16 @@ final class MeetingDetectionService {
     // MARK: - Lifecycle
 
     /// Starts observing the setting and, if enabled, begins monitoring.
-    func start() {
-        applyMonitoringState()
+    func start() async {
+        await applyMonitoringState()
         observeSettings()
     }
 
     /// Stops all observation and monitoring.
-    func stop() {
+    func stop() async {
         settingsObservationTask?.cancel()
         settingsObservationTask = nil
-        stopMonitoring()
+        await stopMonitoring()
     }
 
     // MARK: - Settings Observation
@@ -85,30 +85,30 @@ final class MeetingDetectionService {
                         continuation.resume()
                     }
                 }
-                self.applyMonitoringState()
+                await self.applyMonitoringState()
             }
         }
     }
 
-    private func applyMonitoringState() {
+    private func applyMonitoringState() async {
         if settingsStore.meetingDetectionEnabled {
-            startMonitoring()
+            await startMonitoring()
         } else {
-            stopMonitoring()
+            await stopMonitoring()
         }
     }
 
     // MARK: - Monitoring
 
-    private func startMonitoring() {
+    private func startMonitoring() async {
         guard !isMonitoring else { return }
         isMonitoring = true
         lastRunningState = false
 
         notifier.requestAuthorization()
 
-        monitor.start { [weak self] running in
-            // Listener may fire on an arbitrary queue — hop to the main actor.
+        await monitor.start { [weak self] running in
+            // Listener fires from an arbitrary context — hop to the main actor.
             Task { @MainActor in
                 self?.handleActivityChange(running)
             }
@@ -116,10 +116,10 @@ final class MeetingDetectionService {
         Log.app.debug("MeetingDetectionService — monitoring started")
     }
 
-    private func stopMonitoring() {
+    private func stopMonitoring() async {
         guard isMonitoring else { return }
         isMonitoring = false
-        monitor.stop()
+        await monitor.stop()
         lastRunningState = false
         Log.app.debug("MeetingDetectionService — monitoring stopped")
     }

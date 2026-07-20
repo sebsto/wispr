@@ -58,6 +58,9 @@ enum SFSymbols {
     /// Stop button icon for meeting transcription.
     static let stopFill = "stop.fill"
 
+    /// Icon for the meeting / speaker-diarization settings section.
+    static let meeting = "person.2.wave.2"
+
     /// Checkmark (filled circle) for success / active states.
     static let checkmark = "checkmark.circle.fill"
 

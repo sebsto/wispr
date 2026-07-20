@@ -8,8 +8,8 @@
 //  Requirements: 5.6, 13.1, 13.12, 13.16
 //
 
-import WisprCore
 import SwiftUI
+import WisprCore
 import os
 
 /// Main application entry point for Wispr.
@@ -98,6 +98,9 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Posts actionable notifications when a meeting is detected.
     let meetingNotificationService = MeetingNotificationService()
 
+    /// Speaker diarization engine for the meeting "Others" track.
+    let meetingDiarizer = MeetingDiarizer()
+
     /// Central state coordinator — depends on all services above.
     private(set) var stateManager: StateManager?
 
@@ -177,7 +180,8 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         let msm = MeetingStateManager(
             meetingAudioEngine: meetingAudioEngine,
             transcriptionEngine: whisperService,
-            settingsStore: settingsStore
+            settingsStore: settingsStore,
+            meetingDiarizer: meetingDiarizer
         )
         meetingStateManager = msm
 
@@ -202,8 +206,8 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             let inMeeting = self.meetingStateManager?.meetingState == .recording
             return dictating || inMeeting
         }
-        detection.start()
         meetingDetectionService = detection
+        Task { await detection.start() }
 
         // Create menu bar controller (Req 5.1)
         menuBarController = MenuBarController(
@@ -330,7 +334,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         meetingStateManager?.cancelRecording()
 
         // Stop meeting detection monitoring.
-        meetingDetectionService?.stop()
+        Task { await meetingDetectionService?.stop() }
 
         // Force UserDefaults to flush to disk before the process exits.
         settingsStore.flush()

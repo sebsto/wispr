@@ -187,10 +187,10 @@ struct MeetingTranscriptView: View {
                 .frame(width: 50, alignment: .trailing)
 
             // Speaker badge
-            Text(entry.speaker.rawValue)
+            Text(entry.speaker.displayName)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(entry.speaker == .you ? .blue : .green)
-                .frame(width: 48, alignment: .leading)
+                .foregroundStyle(speakerColor(entry.speaker))
+                .frame(width: 56, alignment: .leading)
 
             // Text
             Text(entry.text)
@@ -204,6 +204,21 @@ struct MeetingTranscriptView: View {
 
     private func formatTime(_ date: Date) -> String {
         MeetingTranscript.formatTime(date)
+    }
+
+    /// Color for a speaker badge. "You" is blue; each diarized remote speaker
+    /// gets a distinct color, cycling for indices beyond the palette. Unknown
+    /// (cold-start / diarization off) remote speech is gray.
+    private func speakerColor(_ speaker: MeetingSpeaker) -> Color {
+        switch speaker {
+        case .you:
+            return .blue
+        case .others(.none):
+            return .gray
+        case .others(.some(let index)):
+            let palette: [Color] = [.green, .orange, .purple, .pink]
+            return palette[index % palette.count]
+        }
     }
 
     // MARK: - Footer

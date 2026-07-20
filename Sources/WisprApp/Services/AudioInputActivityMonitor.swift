@@ -17,29 +17,27 @@ import os
 
 /// Abstraction over "the default input device is / is not in use", so the
 /// coordinating service can be unit-tested with a fake.
-protocol InputActivityMonitoring: AnyObject, Sendable {
+protocol InputActivityMonitoring: Sendable {
     /// Starts observing input-device activity.
     ///
     /// The `onChange` closure is invoked whenever the "in use" state changes,
     /// and once immediately with the current state to establish a baseline.
-    /// It may be called on an arbitrary queue.
-    nonisolated func start(onChange: @escaping @Sendable (Bool) -> Void)
+    /// It may be called from an arbitrary isolation context.
+    func start(onChange: @escaping @Sendable (Bool) -> Void) async
 
     /// Stops observing and releases all CoreAudio listeners.
-    nonisolated func stop()
+    func stop() async
 }
 
 /// Observes `kAudioDevicePropertyDeviceIsRunningSomewhere` on the current
 /// default input device.
 ///
-/// **Concurrency:** every CoreAudio call and all mutable state are confined to
-/// a single private serial queue. CoreAudio listener blocks are registered
-/// against that same queue, so they never run concurrently with `start` /
-/// `stop` work. The type is `@unchecked Sendable` because this confinement is a
-/// runtime discipline the compiler cannot prove.
-nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unchecked Sendable {
-
-    private let queue = DispatchQueue(label: "com.stormacq.mac.wispr.meeting-detection")
+/// **Concurrency:** all mutable state and every CoreAudio registration call are
+/// isolated to this `actor`, so the compiler guarantees they never race.
+/// CoreAudio delivers listener callbacks on an unspecified HAL thread (we pass
+/// no dispatch queue); each callback immediately hops back onto the actor with
+/// a `Task`, so state is only ever touched inside the actor's isolation domain.
+actor AudioInputActivityMonitor: InputActivityMonitoring {
 
     /// The input device currently being observed.
     private var deviceID = AudioObjectID(kAudioObjectUnknown)
@@ -50,32 +48,42 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
     /// Listener on the system object's default-input-device property.
     private var defaultDeviceListenerBlock: AudioObjectPropertyListenerBlock?
 
-    /// Consumer callback; only read/written on `queue`.
+    /// Consumer callback; only read/written inside the actor.
     private var onChange: (@Sendable (Bool) -> Void)?
 
     // MARK: - InputActivityMonitoring
 
     func start(onChange: @escaping @Sendable (Bool) -> Void) {
-        queue.async {
-            self.onChange = onChange
-            self.attachDefaultDeviceChangeListener()
-            self.attachToDefaultInput()
-            // Emit the current state so the consumer has a baseline and does not
-            // treat an already-in-use device as a fresh rising edge.
-            onChange(Self.readIsRunning(self.deviceID))
-        }
+        self.onChange = onChange
+        attachDefaultDeviceChangeListener()
+        attachToDefaultInput()
+        // Emit the current state so the consumer has a baseline and does not
+        // treat an already-in-use device as a fresh rising edge.
+        onChange(Self.readIsRunning(deviceID))
     }
 
     func stop() {
-        queue.sync {
-            self.detachRunningListener()
-            self.detachDefaultDeviceChangeListener()
-            self.onChange = nil
-            self.deviceID = AudioObjectID(kAudioObjectUnknown)
-        }
+        detachRunningListener()
+        detachDefaultDeviceChangeListener()
+        onChange = nil
+        deviceID = AudioObjectID(kAudioObjectUnknown)
     }
 
-    // MARK: - Listener Management (all on `queue`)
+    // MARK: - Listener Callbacks (hopped back onto the actor)
+
+    /// The observed device's running-somewhere flag changed.
+    private func runningStateChanged() {
+        onChange?(Self.readIsRunning(deviceID))
+    }
+
+    /// The system default input device changed — move the running listener to it.
+    private func defaultInputDeviceChanged() {
+        detachRunningListener()
+        attachToDefaultInput()
+        onChange?(Self.readIsRunning(deviceID))
+    }
+
+    // MARK: - Listener Management (actor-isolated)
 
     private func attachToDefaultInput() {
         let device = Self.defaultInputDevice()
@@ -88,9 +96,11 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
         var address = Self.runningAddress()
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             guard let self else { return }
-            self.onChange?(Self.readIsRunning(self.deviceID))
+            Task { await self.runningStateChanged() }
         }
-        let status = AudioObjectAddPropertyListenerBlock(device, &address, queue, block)
+        // Pass no dispatch queue: CoreAudio invokes the block on a HAL-owned
+        // thread and the block hops back onto the actor.
+        let status = AudioObjectAddPropertyListenerBlock(device, &address, nil, block)
         if status == noErr {
             runningListenerBlock = block
         } else {
@@ -104,7 +114,7 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
             deviceID != AudioObjectID(kAudioObjectUnknown)
         else { return }
         var address = Self.runningAddress()
-        AudioObjectRemovePropertyListenerBlock(deviceID, &address, queue, block)
+        AudioObjectRemovePropertyListenerBlock(deviceID, &address, nil, block)
         runningListenerBlock = nil
     }
 
@@ -112,13 +122,10 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
         var address = Self.defaultInputAddress()
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             guard let self else { return }
-            // Default input device changed — move the running listener to it.
-            self.detachRunningListener()
-            self.attachToDefaultInput()
-            self.onChange?(Self.readIsRunning(self.deviceID))
+            Task { await self.defaultInputDeviceChanged() }
         }
         let status = AudioObjectAddPropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject), &address, queue, block)
+            AudioObjectID(kAudioObjectSystemObject), &address, nil, block)
         if status == noErr {
             defaultDeviceListenerBlock = block
         } else {
@@ -132,14 +139,14 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
         guard let block = defaultDeviceListenerBlock else { return }
         var address = Self.defaultInputAddress()
         AudioObjectRemovePropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject), &address, queue, block)
+            AudioObjectID(kAudioObjectSystemObject), &address, nil, block)
         defaultDeviceListenerBlock = nil
     }
 
     // MARK: - CoreAudio Helpers
 
     /// Fresh property address for the default input device on the system object.
-    private static func defaultInputAddress() -> AudioObjectPropertyAddress {
+    private nonisolated static func defaultInputAddress() -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -147,7 +154,7 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
     }
 
     /// Fresh property address for a device's "is running somewhere" flag.
-    private static func runningAddress() -> AudioObjectPropertyAddress {
+    private nonisolated static func runningAddress() -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -155,7 +162,7 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
     }
 
     /// Resolves the current default input device, or `kAudioObjectUnknown`.
-    private static func defaultInputDevice() -> AudioObjectID {
+    private nonisolated static func defaultInputDevice() -> AudioObjectID {
         var address = defaultInputAddress()
         var device = AudioObjectID(kAudioObjectUnknown)
         var size = UInt32(MemoryLayout<AudioObjectID>.size)
@@ -165,7 +172,7 @@ nonisolated final class AudioInputActivityMonitor: InputActivityMonitoring, @unc
     }
 
     /// Reads whether `device` is currently in use by any process.
-    private static func readIsRunning(_ device: AudioObjectID) -> Bool {
+    private nonisolated static func readIsRunning(_ device: AudioObjectID) -> Bool {
         guard device != AudioObjectID(kAudioObjectUnknown) else { return false }
         var address = runningAddress()
         var value: UInt32 = 0

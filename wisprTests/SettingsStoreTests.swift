@@ -280,22 +280,22 @@ struct SettingsStoreTests {
 
     // MARK: - Meeting Detection Tests
 
-    @Test("SettingsStore meetingDetectionEnabled defaults to true")
+    @Test("SettingsStore meetingDetectionEnabled defaults to false (opt-in)")
     func testMeetingDetectionDefault() {
         let defaults = createTestDefaults()
         let store = SettingsStore(defaults: defaults)
-        #expect(store.meetingDetectionEnabled == true)
+        #expect(store.meetingDetectionEnabled == false)
     }
 
     @Test("SettingsStore persists meetingDetectionEnabled")
     func testMeetingDetectionPersistence() {
         let defaults = createTestDefaults()
         let store = SettingsStore(defaults: defaults)
-        store.meetingDetectionEnabled = false
+        store.meetingDetectionEnabled = true
 
         let newStore = SettingsStore(defaults: defaults)
         #expect(
-            newStore.meetingDetectionEnabled == false, "meetingDetectionEnabled should persist")
+            newStore.meetingDetectionEnabled == true, "meetingDetectionEnabled should persist")
     }
 
     // MARK: - Filler Word Removal Tests
@@ -324,6 +324,34 @@ struct SettingsStoreTests {
         store.removeFillerWords = true
         store.restoreDefaults()
         #expect(store.removeFillerWords == false)
+    }
+
+    // MARK: - Meeting Echo Suppression Tests
+
+    @Test("SettingsStore meetingEchoSuppressionEnabled defaults to true")
+    func testMeetingEchoSuppressionDefault() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        #expect(store.meetingEchoSuppressionEnabled == true)
+    }
+
+    @Test("SettingsStore persists meetingEchoSuppressionEnabled")
+    func testMeetingEchoSuppressionPersistence() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.meetingEchoSuppressionEnabled = false
+
+        let newStore = SettingsStore(defaults: defaults)
+        #expect(newStore.meetingEchoSuppressionEnabled == false, "meetingEchoSuppressionEnabled should persist")
+    }
+
+    @Test("SettingsStore restoreDefaults resets meetingEchoSuppressionEnabled to true")
+    func testRestoreDefaultsResetsMeetingEchoSuppression() {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.meetingEchoSuppressionEnabled = false
+        store.restoreDefaults()
+        #expect(store.meetingEchoSuppressionEnabled == true)
     }
 
     // MARK: - Property-Based Tests

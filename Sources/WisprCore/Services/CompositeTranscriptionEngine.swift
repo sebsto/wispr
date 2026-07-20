@@ -96,6 +96,12 @@ public actor CompositeTranscriptionEngine: TranscriptionEngine {
             throw WisprError.modelLoadFailed("No engine found for model \(modelName)")
         }
 
+        // Already loaded on the right engine — skip the unload/reload cycle.
+        let activeModel = await engines[idx].activeModel()
+        guard activeEngineIndex != idx || activeModel != modelName else {
+            return
+        }
+
         // Unload the previous engine to free memory before loading the new one.
         if let currentIdx = activeEngineIndex, currentIdx != idx {
             await engines[currentIdx].unloadCurrentModel()
