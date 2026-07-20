@@ -26,7 +26,8 @@ import SwiftUI
 ///
 /// AudioEngine and WhisperService are actors — their inits do nothing dangerous.
 /// HotkeyMonitor's init is fine; it's `register()` that touches Carbon.
-/// TextInsertionService's init is fine; it's `insertText()` that uses AX APIs.
+/// TextInsertionService's init is fine; it's `insertText()` that touches the
+/// pasteboard and posts a ⌘V keystroke via CGEvent.
 /// PermissionManager's init calls checkPermissions() which calls AXIsProcessTrusted()
 /// and AVAudioApplication — these return false in preview but don't crash.
 /// SettingsStore's init with ephemeral UserDefaults avoids polluting real prefs.
