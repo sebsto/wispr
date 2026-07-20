@@ -26,7 +26,7 @@ struct TranscriptStoreTests {
         )
         original.entries.append(
             MeetingTranscriptEntry(
-                speaker: .others, text: "Hi there",
+                speaker: .others(speakerIndex: nil), text: "Hi there",
                 timestamp: Date(timeIntervalSince1970: 1_700_000_020))
         )
 
@@ -41,7 +41,7 @@ struct TranscriptStoreTests {
         #expect(decoded.entries.count == 2)
         #expect(decoded.entries[0].speaker == .you)
         #expect(decoded.entries[0].text == "Hello")
-        #expect(decoded.entries[1].speaker == .others)
+        #expect(decoded.entries[1].speaker == .others(speakerIndex: nil))
         #expect(decoded.entries[1].text == "Hi there")
         #expect(decoded.asPlainText() == original.asPlainText())
     }
