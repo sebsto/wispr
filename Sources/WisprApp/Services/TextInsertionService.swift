@@ -126,6 +126,12 @@ final class TextInsertionService: TextInserting {
             throw WisprError.textInsertionFailed("Failed to copy text to pasteboard")
         }
 
+        // Snapshot the change count now that OUR transcription is staged on the
+        // pasteboard, before we post ⌘V. If anything moves it before the restore
+        // fires (e.g. the user copies something new), we must not clobber that.
+        // (Bug: manual copy clobbered)
+        let expectedChangeCount = pasteboard.changeCount
+
         // Log the overwrite without logging clipboard/transcription content
         // (privacy guarantee: transcribed text is never logged).
         Log.textInsertion.debug(
@@ -138,11 +144,6 @@ final class TextInsertionService: TextInserting {
             throw WisprError.textInsertionFailed("Failed to simulate ⌘V keystroke")
         }
 
-        // Snapshot the change count now that OUR transcription is on the pasteboard.
-        // If anything changes it before the restore fires (e.g. the user copies
-        // something new), we must not clobber that. (Bug: manual copy clobbered)
-        let expectedChangeCount = pasteboard.changeCount
-
         // Cancel any pending restore and reschedule, always restoring to the
         // original snapshot captured before the first override. (Requirement 4.5)
         let contentsToRestore = originalPasteboardContents ?? [:]
@@ -154,6 +155,11 @@ final class TextInsertionService: TextInserting {
                 after: self.restoreDelay,
                 ifChangeCountIs: expectedChangeCount
             )
+            // Only the currently-active restore clears shared state. A superseded
+            // task (cancelled when a newer insertion rescheduled) must NOT nil these
+            // out — doing so drops the handle to the live task and lets the next
+            // insertion re-snapshot our own transcription as the "original".
+            guard !Task.isCancelled else { return }
             self.originalPasteboardContents = nil
             self.pasteboardRestoreTask = nil
         }
@@ -198,11 +204,13 @@ final class TextInsertionService: TextInserting {
         after delay: Duration,
         ifChangeCountIs expectedChangeCount: Int
     ) async {
-        // Wait for the delay, but still restore even if cancelled
+        // Wait for the restore window. If we're cancelled, a newer insertion has
+        // rescheduled and now owns the restore, so this superseded task must bow
+        // out rather than touch the pasteboard or emit misleading logs.
         do {
             try await Task.sleep(for: delay)
         } catch {
-            // Even if cancelled, fall through to restore the pasteboard
+            return
         }
 
         // If the user copied something after our paste, our transcription is no
