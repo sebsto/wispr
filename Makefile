@@ -118,7 +118,10 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 		test -f "$$f" || { echo "Error: missing installer resource: $$f"; exit 1; }; \
 	done
 	@echo "🔒 Checking secrets are not tracked by git…"
-	@git ls-files --error-unmatch "$(SECRETS_JSON)" >/dev/null 2>&1 && \
+	@# Match a repo-relative path so this is robust across git versions (some
+	@# treat an absolute path outside the cwd differently). --error-unmatch
+	@# exits non-zero when the file is NOT tracked — the desired state.
+	@git ls-files --error-unmatch "$(SECRETS_JSON:$(CURDIR)/%=%)" >/dev/null 2>&1 && \
 		{ echo "Error: $(SECRETS_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true
 	@test -n "$(INSTALLER_IDENTITY)" || { echo "Error: installer_identity not found in $(SECRETS_JSON)"; exit 1; }
 	@security find-identity -v -p basic | grep -qF "$(INSTALLER_IDENTITY)" || \
