@@ -88,6 +88,13 @@ extension TranscriptionEngine {
         try await reloadModelWithRetry(maxAttempts: 3)
     }
 
+    /// Default implementation so adding this requirement is not source-breaking
+    /// for existing conformers. Engines that support partial results override
+    /// this; most (e.g. WhisperService) get the correct `false` default.
+    public func supportsPartialResults() async -> Bool {
+        false
+    }
+
     /// Two-argument convenience overload that preserves existing call sites.
     /// Swift protocol *requirements* cannot carry default argument values, so
     /// the default lives here in the extension. This forwards to the
