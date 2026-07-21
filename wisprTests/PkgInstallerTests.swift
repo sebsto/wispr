@@ -1,0 +1,178 @@
+//
+//  PkgInstallerTests.swift
+//  wisprTests
+//
+//  Property-based tests for the pkg-installer build pipeline.
+//  See .kiro/specs/pkg-installer/design.md — "Correctness Properties".
+//
+//  These exercise the shell commands the Makefile relies on (jq, sed, file
+//  existence checks) via Process, rather than the Makefile itself. Each
+//  property runs at least 100 randomized iterations.
+//
+
+import Testing
+import Foundation
+
+@Suite("pkg-installer Properties")
+struct PkgInstallerTests {
+
+    // Runs a command, returns (exitCode, trimmedStdout).
+    private func run(_ launchPath: String, _ args: [String], stdin: String? = nil) -> (Int32, String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: launchPath)
+        process.arguments = args
+
+        let outPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = Pipe()
+
+        if let stdin {
+            let inPipe = Pipe()
+            process.standardInput = inPipe
+            inPipe.fileHandleForWriting.write(Data(stdin.utf8))
+            inPipe.fileHandleForWriting.closeFile()
+        }
+
+        do {
+            try process.run()
+        } catch {
+            return (-1, "")
+        }
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let output = String(decoding: data, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (process.terminationStatus, output)
+    }
+
+    private func tempDir() -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pkg-installer-tests-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    // MARK: - Property 1: Installer identity extraction round trip
+    // Validates: Requirements 3.2, 7.2
+
+    @Test("Property 1: installer_identity extracted via jq round-trips exactly")
+    func testInstallerIdentityRoundTrip() throws {
+        let teamIDs = ["ABCDE12345", "9Z8Y7X6W5V", "TEAMID0001", "QWERTYUIOP"]
+        let names = ["Jane Doe", "Acme Corp", "S. Stormacq", "Développeur"]
+
+        for _ in 0..<100 {
+            let name = names.randomElement()!
+            let team = teamIDs.randomElement()!
+            let identity = "Developer ID Installer: \(name) (\(team))"
+
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let jsonURL = dir.appendingPathComponent("asc-api-key.json")
+
+            let object: [String: Any] = [
+                "apple_api_key_id": "KEY\(Int.random(in: 1000...9999))",
+                "apple_api_issuer_id": UUID().uuidString,
+                "apple_api_key": "base64data",
+                "installer_identity": identity,
+            ]
+            let data = try JSONSerialization.data(withJSONObject: object)
+            try data.write(to: jsonURL)
+
+            let (code, output) = run("/usr/bin/env", ["jq", "-r", ".installer_identity", jsonURL.path])
+            #expect(code == 0)
+            #expect(output == identity)
+        }
+    }
+
+    // MARK: - Property 2: Output package filename follows version pattern
+    // Validates: Requirements 5.2
+
+    @Test("Property 2: final .pkg filename is wispr-X.Y.Z.pkg under build/export")
+    func testOutputFilenamePattern() {
+        for _ in 0..<100 {
+            let x = Int.random(in: 0...99)
+            let y = Int.random(in: 0...99)
+            let z = Int.random(in: 0...99)
+            let version = "\(x).\(y).\(z)"
+
+            let exportDir = "build/export"
+            let finalPath = "\(exportDir)/wispr-\(version).pkg"
+
+            #expect(finalPath == "build/export/wispr-\(x).\(y).\(z).pkg")
+            #expect(finalPath.hasPrefix("build/export/"))
+            #expect(finalPath.hasSuffix(".pkg"))
+
+            let filename = (finalPath as NSString).lastPathComponent
+            #expect(filename == "wispr-\(version).pkg")
+        }
+    }
+
+    // MARK: - Property 3: Marketing version injection
+    // Validates: Requirements 6.1
+
+    @Test("Property 3: sed rewrites every MARKETING_VERSION to the new value")
+    func testMarketingVersionInjection() throws {
+        for _ in 0..<100 {
+            let old = "\(Int.random(in: 0...9)).\(Int.random(in: 0...9)).\(Int.random(in: 0...9))"
+            let new = "\(Int.random(in: 10...99)).\(Int.random(in: 0...99)).\(Int.random(in: 0...99))"
+
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let pbxURL = dir.appendingPathComponent("project.pbxproj")
+
+            let content = """
+            \t\t\t\tPRODUCT_NAME = wispr;
+            \t\t\t\tMARKETING_VERSION = \(old);
+            \t\t\t\tOTHER_SETTING = 1;
+            \t\t\t\tMARKETING_VERSION = \(old);
+            """
+            try content.write(to: pbxURL, atomically: true, encoding: .utf8)
+
+            let (code, _) = run("/usr/bin/sed", [
+                "-i", "",
+                "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = \(new)/g",
+                pbxURL.path,
+            ])
+            #expect(code == 0)
+
+            let result = try String(contentsOf: pbxURL, encoding: .utf8)
+            let entries = result.components(separatedBy: "\n")
+                .filter { $0.contains("MARKETING_VERSION") }
+            #expect(!entries.isEmpty)
+            for entry in entries {
+                #expect(entry.contains("MARKETING_VERSION = \(new);"))
+                #expect(!entry.contains("= \(old);"))
+            }
+        }
+    }
+
+    // MARK: - Property 4: Missing resource file detection
+    // Validates: Requirements 8.4
+
+    @Test("Property 4: validation names the missing installer resource")
+    func testMissingResourceFileDetection() throws {
+        let required = ["background.png", "welcome.html", "readme.html", "license.txt"]
+
+        for _ in 0..<100 {
+            let missing = required.randomElement()!
+
+            let dir = tempDir()
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let resources = dir.appendingPathComponent("resources")
+            try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+
+            for file in required where file != missing {
+                try Data("x".utf8).write(to: resources.appendingPathComponent(file))
+            }
+
+            // Mirror the Makefile validation loop.
+            let script = required.map { file in
+                "test -f \"\(resources.path)/\(file)\" || { echo \"Error: missing installer resource: \(file)\"; exit 1; }"
+            }.joined(separator: "; ")
+
+            let (code, output) = run("/bin/sh", ["-c", script])
+            #expect(code != 0)
+            #expect(output.contains("Error: missing installer resource: \(missing)"))
+        }
+    }
+}

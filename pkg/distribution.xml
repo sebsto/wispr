@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>Wispr</title>
+    <background file="background.png" alignment="bottomleft" scaling="proportional"/>
+    <welcome file="welcome.html"/>
+    <readme file="readme.html"/>
+    <license file="license.txt"/>
+    <options customize="never" require-scripts="false"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="wispr"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="wispr" visible="false">
+        <pkg-ref id="com.stormacq.mac.wispr"/>
+    </choice>
+    <pkg-ref id="com.stormacq.mac.wispr" version="__VERSION__" onConclusion="none">wispr-component.pkg</pkg-ref>
+</installer-gui-script>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+    body {
+        font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+        color: #1d2c42;
+        margin: 0;
+        padding: 16px 18px;
+        line-height: 1.45;
+        font-size: 13px;
+    }
+    h1 {
+        font-size: 18px;
+        color: #23384f;
+        margin: 0 0 12px 0;
+    }
+    h2 {
+        font-size: 14px;
+        color: #23384f;
+        margin: 16px 0 6px 0;
+    }
+    ul, ol {
+        margin: 6px 0 0 0;
+        padding-left: 20px;
+    }
+    li {
+        margin-bottom: 5px;
+    }
+    code {
+        font-family: "SF Mono", Menlo, monospace;
+        background: #eef3f8;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    strong {
+        color: #23384f;
+    }
+</style>
+</head>
+<body>
+    <h1>Before You Install</h1>
+
+    <h2>System Requirements</h2>
+    <ul>
+        <li><strong>macOS 26.2 or later</strong></li>
+        <li><strong>Apple Silicon Mac</strong> (arm64) &mdash; Intel Macs are not supported</li>
+        <li>A microphone (built-in or external)</li>
+    </ul>
+
+    <h2>What Gets Installed</h2>
+    <ul>
+        <li><strong>Wispr.app</strong> is installed into <code>/Applications</code>.</li>
+        <li>The app bundles the optional <strong>WisprCLI</strong> command-line tool at <code>Contents/Resources/bin/WisprCLI</code>, which transcribes audio and video files offline from the terminal.</li>
+    </ul>
+
+    <h2>After Installing</h2>
+    <ol>
+        <li>Launch <strong>Wispr</strong> from <code>/Applications</code>. It lives in the menu bar &mdash; there is no Dock icon.</li>
+        <li>Follow the onboarding flow to <strong>grant Microphone and Accessibility permissions</strong>.</li>
+        <li><strong>Download a model</strong> on first launch (Whisper Tiny is ~75 MB; larger models offer higher accuracy). Models download over the network as an explicit action.</li>
+        <li>Choose a dictation hotkey and try a test dictation.</li>
+    </ol>
+
+    <p>Your audio never leaves your Mac &mdash; all transcription runs on-device.</p>
+</body>
+</html>

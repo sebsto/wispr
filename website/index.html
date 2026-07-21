@@ -74,7 +74,24 @@
                         </svg>
                     </div>
                     <h2>Get Started</h2>
-                    <p class="card-subtitle">Install Wispr with Homebrew</p>
+                    <p class="card-subtitle">Two easy ways to install Wispr</p>
+
+                    <div class="install-option">
+                        <span class="install-option-label">Recommended · No terminal needed</span>
+                        <a href="https://github.com/sebsto/wispr/releases/latest" id="pkg-download-link" target="_blank" rel="noopener noreferrer" class="download-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span id="pkg-download-text">Download the .pkg installer</span>
+                        </a>
+                        <p class="install-note">Signed &amp; notarized by Apple. Passes Gatekeeper and installs straight to /Applications &mdash; just double-click.</p>
+                        <p class="version-info" id="version-info">Loading version...</p>
+                    </div>
+
+                    <div class="install-divider"><span>or install with Homebrew</span></div>
+
                     <div class="install-steps">
                         <div class="code-block">
                             <code>brew tap sebsto/macos</code>
@@ -84,18 +101,6 @@
                             <code>brew install wispr</code>
                             <button type="button" class="copy-btn" data-copy="brew install wispr">Copy</button>
                         </div>
-                    </div>
-                    <div class="card-bottom">
-                        <p class="install-note">Or download the latest release:</p>
-                        <a href="https://github.com/sebsto/wispr/releases/latest" id="download-link" target="_blank" rel="noopener noreferrer" class="download-button">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            <span id="download-text">Download Latest Release</span>
-                        </a>
-                        <p class="version-info" id="version-info">Loading version...</p>
                     </div>
                 </div>
                 

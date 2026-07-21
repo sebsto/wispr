@@ -23,36 +23,41 @@ async function fetchLatestRelease() {
         }
         
         const data = await response.json();
-        
-        const downloadLink = document.getElementById('download-link');
-        const downloadText = document.getElementById('download-text');
+
+        const pkgDownloadLink = document.getElementById('pkg-download-link');
+        const pkgDownloadText = document.getElementById('pkg-download-text');
         const versionInfo = document.getElementById('version-info');
         const footerDownloadLink = document.querySelector('.footer-links a[href*="releases"]');
-        
+
         if (data.assets && data.assets.length > 0) {
-            // Find the .dmg or .pkg file
-            const asset = data.assets.find(a => a.name.endsWith('.dmg') || a.name.endsWith('.pkg')) || data.assets[0];
+            // Prefer the signed & notarized .pkg installer, then fall back to any .pkg/.dmg, then the first asset
+            const pkgAsset = data.assets.find(a => a.name.endsWith('.pkg'));
+            const asset = pkgAsset || data.assets.find(a => a.name.endsWith('.dmg')) || data.assets[0];
             const downloadUrl = asset.browser_download_url;
-            
-            // Update main download button (with null checks)
-            if (downloadLink) downloadLink.href = downloadUrl;
-            if (downloadText) downloadText.textContent = `Download ${data.tag_name}`;
+
+            // Update .pkg download button (with null checks)
+            if (pkgDownloadLink) pkgDownloadLink.href = downloadUrl;
+            if (pkgDownloadText) {
+                pkgDownloadText.textContent = pkgAsset
+                    ? `Download the .pkg installer (${data.tag_name})`
+                    : `Download ${data.tag_name}`;
+            }
             if (versionInfo) versionInfo.textContent = `Latest: ${data.tag_name} • ${(asset.size / 1024 / 1024).toFixed(1)} MB`;
             if (footerDownloadLink) footerDownloadLink.href = downloadUrl;
         } else {
-            if (downloadLink) downloadLink.href = data.html_url;
-            if (downloadText) downloadText.textContent = `View ${data.tag_name} on GitHub`;
+            if (pkgDownloadLink) pkgDownloadLink.href = data.html_url;
+            if (pkgDownloadText) pkgDownloadText.textContent = `View ${data.tag_name} on GitHub`;
             if (versionInfo) versionInfo.textContent = `Latest: ${data.tag_name}`;
             if (footerDownloadLink) footerDownloadLink.href = data.html_url;
         }
     } catch (error) {
         console.error('Failed to fetch latest release:', error);
-        const downloadLink = document.getElementById('download-link');
+        const pkgDownloadLink = document.getElementById('pkg-download-link');
         const versionInfo = document.getElementById('version-info');
         const footerDownloadLink = document.querySelector('.footer-links a[href*="releases"]');
-        
+
         const fallbackUrl = 'https://github.com/sebsto/wispr/releases/latest';
-        if (downloadLink) downloadLink.href = fallbackUrl;
+        if (pkgDownloadLink) pkgDownloadLink.href = fallbackUrl;
         if (versionInfo) versionInfo.textContent = 'View releases on GitHub';
         if (footerDownloadLink) footerDownloadLink.href = fallbackUrl;
     }

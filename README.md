@@ -39,7 +39,7 @@ brew install wispr
 
 ### Building from Source
 
-Requires macOS 15.0+ and Xcode 16+
+Requires macOS 26.2+ and Xcode 26+ (Apple Silicon only)
 
 1. Clone the repo
 2. Open `wispr.xcodeproj` in Xcode
@@ -59,7 +59,8 @@ See also: [argmaxinc/WhisperKit#451](https://github.com/argmaxinc/WhisperKit/iss
 
 ## Requirements
 
-- macOS 15.0+
+- macOS 26.2+
+- Apple Silicon (ARM64)
 - Microphone permission
 
 ## Architecture

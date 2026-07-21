@@ -22,7 +22,33 @@ API_KEY_PATH   := $(API_KEYS_DIR)/AuthKey_$(API_KEY_ID).p8
 APP_PATH          := $(EXPORT_DIR)/Wispr.app
 ZIP_PATH          := $(EXPORT_DIR)/wispr-notarized.zip
 
-.PHONY: help test bump-build archive upload notarize brew-release brew-clean list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-login-item reset-onboarding
+# pkg installer (see .kiro/specs/pkg-installer)
+# INSTALLER_IDENTITY is the only new secret — the Developer ID Installer certificate
+# name, added to the existing secrets/asc-api-key.json. App signing itself is automatic
+# Developer ID via ExportOptionsHomebrew.plist (handled by the `notarize` target).
+#
+# secrets/asc-api-key.json schema (git-ignored, never committed):
+#   {
+#     "apple_api_key_id":    "[key_id]",
+#     "apple_api_issuer_id": "[issuer_id]",
+#     "apple_api_key":       "[base64-encoded .p8 key]",
+#     "installer_identity":  "Developer ID Installer: [name] ([team_id])"
+#   }
+# The first three fields are used by notarytool; `installer_identity` (new) is
+# used by `productsign` in the `pkg` target.
+INSTALLER_IDENTITY := $(shell jq -r '.installer_identity // empty' $(SECRETS_JSON) 2>/dev/null)
+COMPONENT_PKG      := $(EXPORT_DIR)/wispr-component.pkg
+PRODUCT_PKG        := $(EXPORT_DIR)/wispr-unsigned.pkg
+SIGNED_PKG         := $(EXPORT_DIR)/wispr-signed.pkg
+PKG_RESOURCES      := $(CURDIR)/pkg/resources
+DISTRIBUTION_XML   := $(CURDIR)/pkg/distribution.xml
+# VERSION: a caller-supplied value (make pkg VERSION=x.y.z or pkg-release) always wins;
+# otherwise fall back to the project's current MARKETING_VERSION so the output filename
+# and package version stay deterministic.
+VERSION ?= $(shell grep -m1 'MARKETING_VERSION' $(XCODEPROJ)/project.pbxproj | sed 's/.*= *//;s/;.*//')
+FINAL_PKG          := $(EXPORT_DIR)/wispr-$(VERSION).pkg
+
+.PHONY: help test bump-build archive upload notarize pkg pkg-release brew-release brew-clean list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-login-item reset-onboarding
 
 _setup-api-key:
 	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
@@ -85,6 +111,63 @@ notarize: archive _setup-api-key ## Archive, export with Developer ID, notarize,
 	@echo "✅ Notarization complete"
 	@spctl -a -vvv -t install "$(APP_PATH)"
 	@$(MAKE) _cleanup-api-key
+
+pkg: notarize _setup-api-key ## Build a signed, notarized .pkg installer (reuses notarize; VERSION optional)
+	@echo "🔎 Validating installer resources…"
+	@for f in "$(DISTRIBUTION_XML)" "$(PKG_RESOURCES)/background.png" "$(PKG_RESOURCES)/welcome.html" "$(PKG_RESOURCES)/readme.html" "$(PKG_RESOURCES)/license.txt"; do \
+		test -f "$$f" || { echo "Error: missing installer resource: $$f"; exit 1; }; \
+	done
+	@echo "🔒 Checking secrets are not tracked by git…"
+	@git ls-files --error-unmatch "$(SECRETS_JSON)" >/dev/null 2>&1 && \
+		{ echo "Error: $(SECRETS_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true
+	@test -n "$(INSTALLER_IDENTITY)" || { echo "Error: installer_identity not found in $(SECRETS_JSON)"; exit 1; }
+	@security find-identity -v -p basic | grep -qF "$(INSTALLER_IDENTITY)" || \
+		{ echo 'Error: certificate "$(INSTALLER_IDENTITY)" not found in keychain'; exit 1; }
+	@echo "📦 Building component package (version $(VERSION))…"
+	@pkgbuild --component "$(APP_PATH)" \
+		--install-location /Applications \
+		--identifier $(BUNDLE_ID) \
+		--version $(VERSION) \
+		"$(COMPONENT_PKG)" || { echo "Error: pkgbuild failed"; exit 1; }
+	@echo "🏗️  Building product package with custom UI…"
+	@sed 's/__VERSION__/$(VERSION)/g' "$(DISTRIBUTION_XML)" > "$(EXPORT_DIR)/distribution.xml"
+	@productbuild --distribution "$(EXPORT_DIR)/distribution.xml" \
+		--resources "$(PKG_RESOURCES)" \
+		--package-path "$(EXPORT_DIR)" \
+		"$(PRODUCT_PKG)" || { echo "Error: productbuild failed"; exit 1; }
+	@echo "✍️  Signing product package…"
+	@productsign --sign "$(INSTALLER_IDENTITY)" "$(PRODUCT_PKG)" "$(SIGNED_PKG)" || \
+		{ echo "Error: productsign failed"; exit 1; }
+	@echo "📤 Notarizing, stapling, and verifying the .pkg…"
+	@sh -c 'trap "rm -f \"$(API_KEY_PATH)\"" EXIT; \
+		xcrun notarytool submit "$(SIGNED_PKG)" \
+			--key "$(API_KEY_PATH)" \
+			--key-id "$(API_KEY_ID)" \
+			--issuer "$(API_ISSUER)" \
+			--wait || { echo "Error: notarization failed. Check the log URL above"; exit 1; }; \
+		xcrun stapler staple "$(SIGNED_PKG)" || { echo "Error: stapler failed"; exit 1; }; \
+		spctl -a -vvv -t install "$(SIGNED_PKG)"'
+	@$(MAKE) _cleanup-api-key
+	@mv "$(SIGNED_PKG)" "$(FINAL_PKG)"
+	@echo "✅ Installer ready: $(FINAL_PKG)"
+
+pkg-release: ## Build .pkg and upload to GitHub Releases (usage: make pkg-release VERSION=1.0.0)
+	@test -n "$(VERSION)" || { echo "Usage: make pkg-release VERSION=x.y.z"; exit 1; }
+	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
+	$(eval TAG := v$(VERSION))
+	@echo "📝 Setting version to $(VERSION)…"
+	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
+	@$(MAKE) pkg VERSION=$(VERSION)
+	@echo "🏷️  Creating GitHub release $(TAG)…"
+	@git tag $(TAG) || true
+	@git push --no-verify origin $(TAG) || true
+	@# One release per version, multiple artifacts: if the tag already has a release
+	@# (e.g. brew-release uploaded the .zip), `create` fails and we `upload` the .pkg
+	@# alongside the existing assets. --clobber only replaces the same-named .pkg on
+	@# re-runs; it never touches the .zip or other differently-named assets.
+	@gh release create $(TAG) --generate-notes "$(FINAL_PKG)" || \
+		gh release upload $(TAG) "$(FINAL_PKG)" --clobber
+	@echo "✅ Release $(VERSION) complete: $(FINAL_PKG)"
 
 brew-clean: ## Clean up existing release tags, GitHub release, and homebrew cask (usage: make brew-clean VERSION=1.0.0)
 	@test -n "$(VERSION)" || { echo "Usage: make brew-clean VERSION=1.0.0"; exit 1; }
