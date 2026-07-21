@@ -52,11 +52,19 @@ struct PkgInstallerTests {
         return url
     }
 
+    // `jq` is not part of a stock macOS install. Skip jq-dependent tests on a
+    // clean machine rather than failing the whole app test run.
+    private var isJQAvailable: Bool {
+        run("/usr/bin/env", ["jq", "--version"]).0 == 0
+    }
+
     // MARK: - Property 1: Installer identity extraction round trip
     // Validates: Requirements 3.2, 7.2
 
     @Test("Property 1: installer_identity extracted via jq round-trips exactly")
     func testInstallerIdentityRoundTrip() throws {
+        try #require(isJQAvailable, "jq not installed — skipping jq round-trip property")
+
         let teamIDs = ["ABCDE12345", "9Z8Y7X6W5V", "TEAMID0001", "QWERTYUIOP"]
         let names = ["Jane Doe", "Acme Corp", "S. Stormacq", "Développeur"]
 
@@ -165,14 +173,18 @@ struct PkgInstallerTests {
                 try Data("x".utf8).write(to: resources.appendingPathComponent(file))
             }
 
-            // Mirror the Makefile validation loop.
+            // Mirror the Makefile validation loop, which echoes the FULL path
+            // of the missing resource (`$$f`), not just the basename.
             let script = required.map { file in
-                "test -f \"\(resources.path)/\(file)\" || { echo \"Error: missing installer resource: \(file)\"; exit 1; }"
+                let path = "\(resources.path)/\(file)"
+                return "test -f \"\(path)\" || { echo \"Error: missing installer resource: \(path)\"; exit 1; }"
             }.joined(separator: "; ")
 
+            let missingPath = "\(resources.path)/\(missing)"
             let (code, output) = run("/bin/sh", ["-c", script])
             #expect(code != 0)
-            #expect(output.contains("Error: missing installer resource: \(missing)"))
+            #expect(output.contains("Error: missing installer resource: \(missingPath)"))
+            #expect(output.contains(missing))
         }
     }
 }

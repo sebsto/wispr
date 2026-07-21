@@ -112,7 +112,7 @@ notarize: archive _setup-api-key ## Archive, export with Developer ID, notarize,
 	@spctl -a -vvv -t install "$(APP_PATH)"
 	@$(MAKE) _cleanup-api-key
 
-pkg: notarize _setup-api-key ## Build a signed, notarized .pkg installer (reuses notarize; VERSION optional)
+pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERSION optional)
 	@echo "🔎 Validating installer resources…"
 	@for f in "$(DISTRIBUTION_XML)" "$(PKG_RESOURCES)/background.png" "$(PKG_RESOURCES)/welcome.html" "$(PKG_RESOURCES)/readme.html" "$(PKG_RESOURCES)/license.txt"; do \
 		test -f "$$f" || { echo "Error: missing installer resource: $$f"; exit 1; }; \
@@ -139,7 +139,13 @@ pkg: notarize _setup-api-key ## Build a signed, notarized .pkg installer (reuses
 	@productsign --sign "$(INSTALLER_IDENTITY)" "$(PRODUCT_PKG)" "$(SIGNED_PKG)" || \
 		{ echo "Error: productsign failed"; exit 1; }
 	@echo "📤 Notarizing, stapling, and verifying the .pkg…"
+	@# The decrypted .p8 key is created here (only notarytool needs it) and a
+	@# trap removes it on ANY exit of this shell — success or failure — so a
+	@# failed notarize/staple/verify never leaves the sensitive key on disk.
+	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
 	@sh -c 'trap "rm -f \"$(API_KEY_PATH)\"" EXIT; \
+		mkdir -p "$(API_KEYS_DIR)"; \
+		jq -r .apple_api_key "$(SECRETS_JSON)" | base64 -d > "$(API_KEY_PATH)" || { echo "Error: failed to decode API key"; exit 1; }; \
 		xcrun notarytool submit "$(SIGNED_PKG)" \
 			--key "$(API_KEY_PATH)" \
 			--key-id "$(API_KEY_ID)" \
@@ -147,7 +153,6 @@ pkg: notarize _setup-api-key ## Build a signed, notarized .pkg installer (reuses
 			--wait || { echo "Error: notarization failed. Check the log URL above"; exit 1; }; \
 		xcrun stapler staple "$(SIGNED_PKG)" || { echo "Error: stapler failed"; exit 1; }; \
 		spctl -a -vvv -t install "$(SIGNED_PKG)"'
-	@$(MAKE) _cleanup-api-key
 	@mv "$(SIGNED_PKG)" "$(FINAL_PKG)"
 	@echo "✅ Installer ready: $(FINAL_PKG)"
 
