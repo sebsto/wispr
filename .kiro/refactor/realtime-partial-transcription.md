@@ -2,7 +2,11 @@
 
 ## Goal
 
-Add real-time "ghost text" during recording: as the user speaks, partial transcription text appears in the recording overlay, giving immediate visual feedback before the final transcription is produced. This is opt-in (off by default), only available for models that support it, and builds on top of the hands-free / EOU infrastructure from PR #22.
+Add real-time "ghost text" during recording: as the user speaks, partial transcription text appears in the recording overlay, giving immediate visual feedback before the final transcription is produced. This is opt-in (off by default), only available for models that support it, and builds on top of the hands-free / EOU infrastructure that is now merged into `main` (originally PR #22).
+
+> **Prerequisite (already satisfied on `main`):** This plan depends on the EOU streaming infrastructure — `TranscriptionResult.isEndOfUtterance`, `TranscriptionEngine.supportsEndOfUtteranceDetection()`, `ParakeetService.transcribeStreamWithEou(_:)`, and `StateManager.startEouMonitoringIfSupported()`. All of these exist on `main` today, so this plan is actionable from the current tree.
+
+> **Module layout:** The project is organized as SPM targets, not a flat `wispr/` folder. Model/service/engine types live in the **`WisprCore`** target (`Sources/WisprCore/`); UI, `StateManager`, and `SettingsStore` live in the **`WisprApp`** target (`Sources/WisprApp/`). Types crossing the module boundary (`TranscriptionResult`, `ModelInfo`, `TranscriptionEngine`) are `public`, so any new fields/methods on them must also be `public`.
 
 ## Background — What the SDK Supports
 
@@ -33,19 +37,19 @@ Add real-time "ghost text" during recording: as the user speaks, partial transcr
 Like `supportsEndOfUtteranceDetection()` on the protocol, we tag models that support partial results. Since the user asked for manual tagging in `ModelInfo` (like EOU), we add a stored property.
 
 ```swift
-// ModelInfo.swift
-struct ModelInfo: Identifiable, Sendable, Equatable {
+// Sources/WisprCore/Models/ModelInfo.swift
+public nonisolated struct ModelInfo: Identifiable, Sendable, Equatable {
     // ... existing fields ...
 
     /// Whether this model supports real-time partial transcription results.
-    let supportsPartialResults: Bool
+    public let supportsPartialResults: Bool
 
     // Default to false for backward compat
-    init(..., supportsPartialResults: Bool = false) { ... }
+    public init(..., supportsPartialResults: Bool = false) { ... }
 }
 ```
 
-Set to `true` only for `parakeetEou` in `ParakeetService.availableModels()`.
+Set to `true` only for the `parakeetEou` model in `ParakeetService.availableModels()`.
 
 ### 2. SettingsStore — `showRealtimeText` setting
 
@@ -64,12 +68,14 @@ Add `Keys.showRealtimeText`, init to `false`, persist in `save()`/`load()`, rese
 ### 3. TranscriptionEngine — `supportsPartialResults()` query
 
 ```swift
-// TranscriptionEngine.swift
+// Sources/WisprCore/Services/TranscriptionEngine.swift
 /// Whether the currently loaded model supports real-time partial transcription.
 /// When true and the feature is enabled, transcribeStream() should invoke
 /// partial result callbacks during processing.
 func supportsPartialResults() async -> Bool
 ```
+
+This mirrors the existing `supportsEndOfUtteranceDetection()` requirement already on the protocol.
 
 - `WhisperService`: returns `false`
 - `ParakeetService`: returns `true` when `activeModelName == .parakeetEou && eouManager != nil`
@@ -86,18 +92,20 @@ Two options were considered:
 **Decision: Option B.** It reuses the existing streaming infrastructure, requires no new protocol methods beyond the capability query, and the StateManager already consumes `transcribeStream` output for EOU monitoring. Partial results are naturally interleaved.
 
 ```swift
-// TranscriptionResult.swift — add isPartial flag
-struct TranscriptionResult: Sendable, Equatable {
-    let text: String
-    let detectedLanguage: String?
-    let duration: TimeInterval
-    let isEndOfUtterance: Bool  // from PR #22
-    let isPartial: Bool         // NEW
+// Sources/WisprCore/Models/TranscriptionResult.swift — add isPartial flag
+public nonisolated struct TranscriptionResult: Sendable, Equatable {
+    public let text: String
+    public let detectedLanguage: String?
+    public let duration: TimeInterval
+    public let isEndOfUtterance: Bool  // already on main
+    public let isPartial: Bool         // NEW
 
-    init(text: String, detectedLanguage: String? = nil, duration: TimeInterval,
-         isEndOfUtterance: Bool = false, isPartial: Bool = false) { ... }
+    public init(text: String, detectedLanguage: String? = nil, duration: TimeInterval,
+                isEndOfUtterance: Bool = false, isPartial: Bool = false) { ... }
 }
 ```
+
+> `isEndOfUtterance` is already present on `main` (verified in `Sources/WisprCore/Models/TranscriptionResult.swift`). Only `isPartial` is a new field. Because `TranscriptionResult` is `public` and consumed across the module boundary by `WisprApp`, the new field and updated initializer must remain `public`.
 
 ### 5. ParakeetService — wire up `setPartialCallback`
 
@@ -119,9 +127,13 @@ private func transcribeStreamWithEou(
         await manager.reset()
         let startTime = Date()
 
-        // Register partial callback if requested
+        // Register partial callback if requested.
+        // `startTime` is an immutable `let` captured by value, so there is no
+        // data race on it. The callback yields into the AsyncThrowingStream
+        // continuation, which is itself thread-safe, so it is safe to fire from
+        // whatever thread FluidAudio invokes it on.
         if emitPartialResults {
-            await manager.setPartialCallback { partialText in
+            await manager.setPartialCallback { [startTime] partialText in
                 let trimmed = partialText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
                 continuation.yield(TranscriptionResult(
@@ -160,17 +172,31 @@ private func transcribeStreamWithEou(
         }
     }
 
-    continuation.onTermination = { _ in task.cancel() }
+    // On termination, cancel the processing task AND replace the partial
+    // callback with a no-op so a lingering callback can't keep yielding to
+    // this (now finished) continuation across sessions. Yielding to an
+    // already-finished continuation is a safe no-op in Swift — not a crash —
+    // but overwriting the callback releases the captured continuation and
+    // avoids wasted work.
+    //
+    // NOTE (verified against FluidAudio 0.13.4): `StreamingEouAsrManager.reset()`
+    // does NOT clear `partialCallback`, and `setPartialCallback(_:)` takes a
+    // non-optional `@escaping PartialCallback` — there is no `nil` overload.
+    // So we install a no-op closure rather than passing nil.
+    continuation.onTermination = { [weak manager] _ in
+        task.cancel()
+        Task { await manager?.setPartialCallback { _ in } }
+    }
     return stream
 }
 ```
 
 The `emitPartialResults` parameter is threaded through `transcribeStream()`. The protocol method signature stays the same — the engine reads the setting internally or we add it as a parameter.
 
-**Decision:** Add an optional `emitPartialResults: Bool = false` parameter to `transcribeStream` on the protocol, defaulting to `false` so all existing call sites are unaffected.
+**Decision:** Add `emitPartialResults: Bool` as a required (non-defaulted) parameter to the `transcribeStream` protocol requirement, and provide a two-argument convenience overload in a protocol extension that forwards with `emitPartialResults: false`. Swift protocol *requirements* cannot carry default argument values — the default lives in the extension overload, not on the requirement. Existing two-argument call sites bind to the extension overload and are unaffected.
 
 ```swift
-// TranscriptionEngine.swift — updated signature
+// Sources/WisprCore/Services/TranscriptionEngine.swift — updated requirement
 func transcribeStream(
     _ audioStream: AsyncStream<[Float]>,
     language: TranscriptionLanguage,
@@ -178,10 +204,15 @@ func transcribeStream(
 ) async -> AsyncThrowingStream<TranscriptionResult, Error>
 ```
 
-With a default extension:
+With a convenience overload in the extension (this is the mechanism that preserves existing call sites — NOT a default argument on the requirement):
 ```swift
 extension TranscriptionEngine {
-    func transcribeStream(
+    // Two-argument convenience overload. Existing callers keep compiling and
+    // route here, which forwards to the three-argument requirement above.
+    // No recursion: this overload has a DIFFERENT arity than the requirement
+    // it calls, so `transcribeStream(_:language:)` dispatches to the
+    // conforming type's `transcribeStream(_:language:emitPartialResults:)`.
+    public func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
         language: TranscriptionLanguage
     ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
@@ -189,6 +220,8 @@ extension TranscriptionEngine {
     }
 }
 ```
+
+This mirrors the existing `reloadModelWithRetry()` / `reloadModelWithRetry(maxAttempts:)` overload pair already in `TranscriptionEngine.swift`.
 
 ### 6. StateManager — surface partial text
 
@@ -214,6 +247,11 @@ private func startEouMonitoringIfSupported() async {
 
     eouMonitoringTask = Task { @MainActor [weak self] in
         guard let self else { return }
+        // Single source of cleanup: `defer` guarantees the ghost text is
+        // cleared on EVERY exit path — normal completion, EOU break, thrown
+        // error, or cancellation. This avoids the "clear before EOU handling
+        // AND again in catch" duplication and the stale-text-on-throw gap.
+        defer { self.partialTranscriptionText = nil }
         do {
             let resultStream = await self.whisperService.transcribeStream(
                 await self.audioEngine.captureStream,
@@ -224,7 +262,11 @@ private func startEouMonitoringIfSupported() async {
             var finalResult: TranscriptionResult?
             for try await result in resultStream {
                 if result.isPartial {
-                    // Update overlay text — this is the "ghost text"
+                    // Update overlay text — this is the "ghost text".
+                    // The whole task runs on @MainActor, so this mutation of
+                    // the @MainActor StateManager property is isolation-safe;
+                    // the partial value arrives via the AsyncThrowingStream
+                    // (thread-safe hand-off), not via direct cross-actor access.
                     self.partialTranscriptionText = result.text
                     continue
                 }
@@ -234,10 +276,15 @@ private func startEouMonitoringIfSupported() async {
                 }
             }
 
-            self.partialTranscriptionText = nil
-            // ... rest of EOU handling unchanged ...
+            // finalResult is nil if the stream ended without EOU (e.g. the
+            // input audio stream closed first). That is a normal, non-error
+            // exit — just return; do NOT force-unwrap. The existing EOU
+            // handling already guards on `finalResult` being non-nil.
+            guard let finalResult, !Task.isCancelled, self.appState == .recording else {
+                return
+            }
+            // ... rest of EOU handling unchanged (uses finalResult) ...
         } catch {
-            self.partialTranscriptionText = nil
             guard !Task.isCancelled else { return }
             Log.stateManager.warning("EOU monitoring failed: \(error.localizedDescription)")
         }
@@ -245,7 +292,9 @@ private func startEouMonitoringIfSupported() async {
 }
 ```
 
-Clear `partialTranscriptionText` in `resetToIdle()`, `endRecording()`, and `cancelEouMonitoring()`.
+> Because the entire monitoring task is annotated `@MainActor` and `StateManager` is `@MainActor @Observable`, every mutation of `partialTranscriptionText` (the `continue` path, the `defer`, and the explicit clears listed below) runs on the main actor. There is no cross-isolation access to synchronize.
+
+Also clear `partialTranscriptionText` in `resetToIdle()`, `endRecording()`, and `cancelEouMonitoring()` so it is reset even when monitoring never started (e.g. push-to-talk, or a non-EOU model).
 
 ### 7. RecordingOverlayView — display partial text
 
@@ -275,7 +324,7 @@ private var recordingContent: some View {
 }
 ```
 
-The overlay height may need to grow when partial text is present. Use `.fixedSize(horizontal: false, vertical: true)` or adjust `overlayHeight` conditionally.
+The overlay height needs to grow when partial text is present. Adjusting `overlayHeight` (a fixed `@ScaledMetric` of `72` in `RecordingOverlayView`) alone is **not sufficient**: `RecordingOverlayPanel.createPanel()` sizes both the `NSHostingView` and the `NSPanel` to a hard-coded `260 × 92` and never updates them, so the SwiftUI view would be clipped. Either reserve a taller fixed panel height up front, or resize the hosting view / panel when partial text toggles (see the RecordingOverlayPanel row in the Files to Change table).
 
 ### 8. SettingsView — toggle in General section
 
@@ -330,32 +379,32 @@ if !settingsStore.handsFreeMode || !activeModelSupportsPartialResults {
 
 | File | Change |
 |------|--------|
-| `wispr/Models/ModelInfo.swift` | Add `supportsPartialResults: Bool` property with default `false` |
-| `wispr/Models/TranscriptionResult.swift` | Add `isPartial: Bool` property with default `false` |
-| `wispr/Services/TranscriptionEngine.swift` | Add `supportsPartialResults() async -> Bool` requirement. Add `emitPartialResults: Bool` parameter to `transcribeStream`. Add default extension for backward compat. |
+| `Sources/WisprCore/Models/ModelInfo.swift` | Add `public let supportsPartialResults: Bool` property with default `false` in the `public init` |
+| `Sources/WisprCore/Models/TranscriptionResult.swift` | Add `public let isPartial: Bool` property with default `false` in the `public init` |
+| `Sources/WisprCore/Services/TranscriptionEngine.swift` | Add `supportsPartialResults() async -> Bool` requirement. Add `emitPartialResults: Bool` parameter to the `transcribeStream` requirement. Add the two-argument convenience overload in the protocol extension for backward compat. |
 
 ### Phase 2: Engine implementations
 
 | File | Change |
 |------|--------|
-| `wispr/Services/ParakeetService.swift` | Set `supportsPartialResults: true` on EOU model in `availableModels()`. Implement `supportsPartialResults()`. Wire `setPartialCallback` in `transcribeStreamWithEou()` when `emitPartialResults` is true. |
-| `wispr/Services/WhisperService.swift` | Implement `supportsPartialResults()` returning `false`. Add `emitPartialResults` parameter to `transcribeStream` (ignored). |
-| `wispr/Services/CompositeTranscriptionEngine.swift` | Forward `supportsPartialResults()` to active engine. Forward `emitPartialResults` in `transcribeStream`. |
+| `Sources/WisprCore/Services/ParakeetService.swift` | Set `supportsPartialResults: true` on EOU model in `availableModels()`. Implement `supportsPartialResults()`. Wire `setPartialCallback` (+ no-op reset in `onTermination`) in `transcribeStreamWithEou()` when `emitPartialResults` is true. |
+| `Sources/WisprCore/Services/WhisperService.swift` | Implement `supportsPartialResults()` returning `false`. Add `emitPartialResults` parameter to `transcribeStream` (ignored). |
+| `Sources/WisprCore/Services/CompositeTranscriptionEngine.swift` | Forward `supportsPartialResults()` to active engine. Forward `emitPartialResults` in `transcribeStream`. |
 
 ### Phase 3: Settings & state
 
 | File | Change |
 |------|--------|
-| `wispr/Services/SettingsStore.swift` | Add `showRealtimeText: Bool` property, key, init, save, load |
-| `wispr/Services/StateManager.swift` | Add `partialTranscriptionText: String?`. Update `startEouMonitoringIfSupported()` to pass `emitPartialResults` and handle partial results. Clear partial text in `resetToIdle()`, `endRecording()`, `cancelEouMonitoring()`. |
+| `Sources/WisprApp/Services/SettingsStore.swift` | Add `showRealtimeText: Bool` property, `Keys.showRealtimeText`, `Defaults.showRealtimeText = false`, init, `save()`, `load()`, and reset in `restoreDefaults()` |
+| `Sources/WisprApp/Services/StateManager.swift` | Add `partialTranscriptionText: String?`. Update `startEouMonitoringIfSupported()` to pass `emitPartialResults` and handle partial results (with `defer`-based cleanup). Clear partial text in `resetToIdle()`, `endRecording()`, `cancelEouMonitoring()`. |
 
 ### Phase 4: UI
 
 | File | Change |
 |------|--------|
-| `wispr/UI/RecordingOverlayView.swift` | Show `partialTranscriptionText` below audio level meter. Adjust overlay sizing. |
-| `wispr/UI/RecordingOverlayPanel.swift` | No changes expected (overlay already resizes based on content) |
-| `wispr/UI/Settings/SettingsView.swift` | Add "Show Real-Time Transcription" toggle in general section, disabled when unsupported. Add `restoreDefaults()` reset. |
+| `Sources/WisprApp/UI/RecordingOverlayView.swift` | Show `partialTranscriptionText` below audio level meter. Adjust the `overlayHeight` (`@ScaledMetric`, currently `72`) so the overlay grows when partial text is present. |
+| `Sources/WisprApp/UI/RecordingOverlayPanel.swift` | **Changes required.** The panel and its `NSHostingView` are created with a *fixed* frame (`260 × 92`, hard-coded in `createPanel()`) and never resized. To show multi-line ghost text the panel must either (a) grow its content size when `partialTranscriptionText` becomes non-nil, or (b) reserve a fixed taller height up front. Pick one and wire it through `createPanel()` / `positionPanel(_:)`. |
+| `Sources/WisprApp/UI/Settings/SettingsView.swift` | Add "Show Real-Time Transcription" toggle in general section, disabled when unsupported. |
 
 ### Phase 5: Tests
 
@@ -390,7 +439,7 @@ Each step should compile independently.
 | Partial text updates too frequently, causing UI jank | `setPartialCallback` fires per-chunk (160ms). At ~6 updates/sec this is fine for SwiftUI text updates. If needed, throttle with a `Date` comparison. |
 | Overlay height changes cause visual jitter when partial text appears/disappears | Use `.animation(.easeInOut(duration: 0.2))` on the text transition. Consider a fixed reserved height for the text area when in partial-results mode. |
 | User enables setting but switches to a non-EOU model | Toggle shows disabled state with explanatory caption. Setting value persists but has no effect — the `supportsPartialResults()` check in StateManager gates the behavior. |
-| `setPartialCallback` not cleared between sessions | Call `manager.reset()` (already done) which should clear internal state. Verify in FluidAudio source that reset clears the callback, or explicitly set a nil callback on cleanup. |
+| `setPartialCallback` not cleared between sessions | **Verified in FluidAudio 0.13.4: `StreamingEouAsrManager.reset()` does NOT clear `partialCallback`.** Mandatory mitigation: install a no-op callback (`setPartialCallback { _ in }`) in `continuation.onTermination`, as shown in section 5. There is no `nil` overload, so a no-op closure is the mechanism. This is required, not optional. |
 
 ## What This Does NOT Do
 
