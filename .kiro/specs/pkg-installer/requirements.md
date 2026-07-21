@@ -12,7 +12,7 @@ Wispr is distributed via the App Store and Homebrew. This feature adds a third d
 - **Distribution_XML**: An XML file that defines the Product_Pkg installer flow, including title, background, welcome, readme, license, and install choices
 - **Installer_Resources**: Static files (background image, welcome text, readme text, license) displayed during the Product_Pkg installation wizard
 - **Installer_Identity**: The "Developer ID Installer" signing certificate used to sign `.pkg` files for distribution outside the App Store
-- **Notarization_Config**: The `secrets/notarization.json` file containing Apple ID, team ID, and signing identity values used by the Build_Pipeline
+- **Secrets_Config**: The existing `secrets/asc-api-key.json` file (Makefile variable `$(SECRETS_JSON)`) containing the App Store Connect API key used by the Build_Pipeline. This feature adds an `installer_identity` field to it.
 - **GitHub_Release**: A versioned release on GitHub containing downloadable artifacts (zip, pkg) and auto-generated release notes
 
 ## Requirements
@@ -50,7 +50,7 @@ Wispr is distributed via the App Store and Homebrew. This feature adds a third d
 #### Acceptance Criteria
 
 1. WHEN the Product_Pkg is created, THE Build_Pipeline SHALL sign the Product_Pkg using `productsign` with the Installer_Identity
-2. THE Build_Pipeline SHALL read the Installer_Identity name from the Notarization_Config file
+2. THE Build_Pipeline SHALL read the Installer_Identity name from the Secrets_Config file
 3. IF the Installer_Identity is not found in the keychain, THEN THE Build_Pipeline SHALL print an error message identifying the missing certificate and stop execution
 4. IF `productsign` exits with a non-zero status, THEN THE Build_Pipeline SHALL print an error message and stop execution
 
@@ -78,7 +78,7 @@ Wispr is distributed via the App Store and Homebrew. This feature adds a third d
 3. THE Build_Pipeline SHALL print a summary line with the path to the final Product_Pkg on successful completion
 4. THE `pkg` target SHALL reuse the existing `notarize` target for the app archive and signing step
 5. THE `pkg` target SHALL reuse the existing `_setup-api-key` and `_cleanup-api-key` targets for API key management
-6. THE `pkg` target SHALL reuse the existing Makefile variables (`SIGNING_IDENTITY`, `API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`) rather than redefining them
+6. THE `pkg` target SHALL reuse the existing Makefile variables (`API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `SECRETS_JSON`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`) rather than redefining them. App signing is handled by the existing `notarize` target via automatic Developer ID signing (there is no `SIGNING_IDENTITY` variable); the only new variable this feature introduces is `INSTALLER_IDENTITY` (for `productsign`)
 7. THE `pkg` target SHALL NOT duplicate any archive, app-signing, or notarization logic that already exists in the `notarize` target
 
 ### Requirement 6: Makefile `pkg-release` Target
@@ -100,9 +100,9 @@ Wispr is distributed via the App Store and Homebrew. This feature adds a third d
 
 #### Acceptance Criteria
 
-1. THE Notarization_Config SHALL include an `installer_identity` field containing the Developer ID Installer certificate name
-2. THE Build_Pipeline SHALL read the `installer_identity` value from the Notarization_Config using `jq`
-3. IF the `installer_identity` field is missing from the Notarization_Config, THEN THE Build_Pipeline SHALL print an error message specifying the expected field name and stop execution
+1. THE Secrets_Config SHALL include an `installer_identity` field containing the Developer ID Installer certificate name
+2. THE Build_Pipeline SHALL read the `installer_identity` value from the Secrets_Config using `jq`
+3. IF the `installer_identity` field is missing from the Secrets_Config, THEN THE Build_Pipeline SHALL print an error message specifying the expected field name and stop execution
 
 ### Requirement 8: Installer Resource Files
 

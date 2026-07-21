@@ -2,7 +2,7 @@
 
 ## Overview
 
-Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets that produce a signed, notarized `.pkg` installer with custom UI. All installer resources (`pkg/distribution.xml`, `pkg/resources/`) are created as static files. The `secrets/notarization.json` schema is extended with an `installer_identity` field. Property-based tests use Python/Hypothesis.
+Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets that produce a signed, notarized `.pkg` installer with custom UI. All installer resources (`pkg/distribution.xml`, `pkg/resources/`) are created as static files. The existing secrets file `secrets/asc-api-key.json` (`$(SECRETS_JSON)`) is extended with an `installer_identity` field. The optional automated tests (task 8) are written with **Swift Testing** to match the repo's existing test suite (`wisprTests/`) — no new language toolchain is introduced.
 
 ## Tasks
 
@@ -38,12 +38,12 @@ Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets
 
 - [ ] 3. Extend Makefile with `pkg` target
   - [ ] 3.1 Add new Makefile variables for the pkg pipeline
-    - `INSTALLER_IDENTITY` read from `$(NOTARIZATION_JSON)` via `jq -r .installer_identity`
+    - `INSTALLER_IDENTITY` read from `$(SECRETS_JSON)` (the existing `secrets/asc-api-key.json`) via `jq -r .installer_identity`
     - `COMPONENT_PKG`, `PRODUCT_PKG`, `SIGNED_PKG`, `FINAL_PKG` derived paths in `$(EXPORT_DIR)`
     - `PKG_RESOURCES` pointing to `$(CURDIR)/pkg/resources`
     - `DISTRIBUTION_XML` pointing to `$(CURDIR)/pkg/distribution.xml`
     - `VERSION` resolution: use `VERSION ?= $(shell grep -m1 'MARKETING_VERSION' $(XCODEPROJ)/project.pbxproj | sed 's/.*= *//;s/;.*//')` so a caller-supplied `VERSION` wins and `make pkg` without an argument falls back to the project's current `MARKETING_VERSION`. This keeps the output filename and package version deterministic in both invocation paths.
-    - Reuse all existing variables (`BUNDLE_ID`, `SIGNING_IDENTITY`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`, `API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `NOTARIZATION_JSON`)
+    - Reuse all existing variables (`BUNDLE_ID`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`, `API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `SECRETS_JSON`). Do NOT reference `SIGNING_IDENTITY` or `NOTARIZATION_JSON` — they don't exist in the current Makefile (app signing is automatic Developer ID via `ExportOptionsHomebrew.plist`). `INSTALLER_IDENTITY` is the only new variable to add.
     - _Requirements: 5.6, 7.1, 7.2_
 
   - [ ] 3.2 Add resource file validation step to the `pkg` target recipe
@@ -52,8 +52,8 @@ Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets
     - _Requirements: 8.4_
 
   - [ ] 3.3 Add secrets guard and `installer_identity` validation step
-    - Fail early if `$(NOTARIZATION_JSON)` is tracked by git (defense-in-depth against credential exposure — CWE-540): `git ls-files --error-unmatch "$(NOTARIZATION_JSON)" >/dev/null 2>&1 && { echo "Error: $(NOTARIZATION_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true`
-    - Read `INSTALLER_IDENTITY` from `$(NOTARIZATION_JSON)` and verify it is non-empty
+    - Fail early if `$(SECRETS_JSON)` is tracked by git (defense-in-depth against credential exposure — CWE-540): `git ls-files --error-unmatch "$(SECRETS_JSON)" >/dev/null 2>&1 && { echo "Error: $(SECRETS_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true`
+    - Read `INSTALLER_IDENTITY` from `$(SECRETS_JSON)` and verify it is non-empty
     - Print `Error: installer_identity not found in <path>` and `exit 1` if missing
     - Verify the certificate is present in the keychain before signing: run `security find-identity -v -p basic | grep -qF "$(INSTALLER_IDENTITY)"` and, if absent, print `Error: certificate "<name>" not found in keychain` and `exit 1` (satisfies Requirement 3.3, which requires failing early when the certificate is missing, not just when the field is empty)
     - _Requirements: 3.3, 7.2, 7.3_
@@ -111,7 +111,7 @@ Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets
     - Mirror the `brew-release` pattern for `gh release create` / `gh release upload`
     - _Requirements: 6.3, 6.4_
 
-- [ ] 6. Document `installer_identity` field in `secrets/notarization.json`
+- [ ] 6. Document `installer_identity` field in `secrets/asc-api-key.json`
   - Add a comment or update project documentation noting the new `installer_identity` field
   - Provide the expected JSON schema: `"installer_identity": "Developer ID Installer: [name] ([team_id])"`
   - _Requirements: 7.1_
@@ -119,7 +119,7 @@ Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets
 - [ ] 7. Checkpoint — Verify full Makefile integration
   - Ensure `pkg` and `pkg-release` targets are defined and follow existing Makefile patterns. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Property-based tests (Python/Hypothesis)
+- [ ] 8. Property-based tests (Swift Testing, in `wisprTests/`)
   - [ ] 8.1 (optional) Write property test for installer identity extraction round trip
     - **Property 1: Installer identity extraction round trip**
     - Generate random valid JSON with a non-empty `installer_identity` string, write to temp file, extract via `jq -r .installer_identity`, assert output matches original
@@ -148,6 +148,6 @@ Extend the existing Makefile build pipeline with `pkg` and `pkg-release` targets
 - Tasks annotated `(optional)` (all of task 8) can be skipped for a faster MVP
 - The user is responsible for obtaining the Developer ID Installer certificate
 - The `background.png` in task 1.4 may need manual refinement for production quality
-- Property tests use Python/Hypothesis and can be run with `pytest`
+- Property tests use Swift Testing (`@Test`) in `wisprTests/` and run via `xcodebuild test` — no separate Python toolchain
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation

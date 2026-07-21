@@ -6,9 +6,11 @@ This feature adds a `.pkg` installer distribution channel for Wispr. The impleme
 
 The flow is: `notarize` (existing) → `pkgbuild` → `productbuild` → `productsign` → `notarytool` → `stapler`. The final artifact is a signed, notarized `.pkg` with a custom installer UI (branded background, welcome, readme, license screens) that installs Wispr.app to `/Applications`.
 
-All installer resources live in `pkg/resources/` and the distribution XML at `pkg/distribution.xml`, both version-controlled. The `installer_identity` (Developer ID Installer certificate name) is read from the existing `secrets/notarization.json`.
+All installer resources live in `pkg/resources/` and the distribution XML at `pkg/distribution.xml`, both version-controlled. The `installer_identity` (Developer ID Installer certificate name) is a **new field added to the existing secrets file** `secrets/asc-api-key.json` (referenced by the current Makefile as `$(SECRETS_JSON)`); no new secrets file is introduced.
 
-> **Security:** `secrets/notarization.json` holds sensitive credentials (Apple ID, team ID, signing identities) and MUST NOT be committed to version control. The repository's `.gitignore` already excludes the entire `secrets/` directory. See the [Data Models](#data-models) section for the credential-exposure guard the `pkg` target adds.
+> **Note on the current Makefile:** as of `main`, the Makefile uses a single secrets file `$(SECRETS_JSON)` = `secrets/asc-api-key.json` for App Store Connect API credentials (`API_KEY_ID`, `API_ISSUER`, `API_KEY_PATH`), and app signing is **automatic Developer ID** via `ExportOptionsHomebrew.plist` (`method=developer-id`, `signingStyle=automatic`) — there is no `SIGNING_IDENTITY`, `NOTARIZATION_JSON`, `APPLE_ID`, or `TEAM_ID` Makefile variable. This spec therefore adds only one new secret (`installer_identity`, needed by `productsign`, which has no automatic-signing equivalent) and one new Makefile variable (`INSTALLER_IDENTITY`).
+
+> **Security:** `secrets/asc-api-key.json` holds sensitive credentials (App Store Connect API key + the new installer identity) and MUST NOT be committed to version control. The repository's `.gitignore` already excludes the entire `secrets/` directory. See the [Data Models](#data-models) section for the credential-exposure guard the `pkg` target adds.
 
 ## Architecture
 
@@ -52,7 +54,7 @@ The `pkg` target calls `notarize` as a prerequisite, then runs the pkg-specific 
 
 | Variable | Source | Value |
 |----------|--------|-------|
-| `INSTALLER_IDENTITY` | `secrets/notarization.json` → `.installer_identity` | Developer ID Installer certificate name |
+| `INSTALLER_IDENTITY` | `$(SECRETS_JSON)` (`secrets/asc-api-key.json`) → `.installer_identity` | Developer ID Installer certificate name (new field added to the existing secrets file) |
 | `COMPONENT_PKG` | Derived | `$(EXPORT_DIR)/wispr-component.pkg` |
 | `PRODUCT_PKG` | Derived | `$(EXPORT_DIR)/wispr-unsigned.pkg` |
 | `SIGNED_PKG` | Derived | `$(EXPORT_DIR)/wispr-signed.pkg` |
@@ -60,7 +62,7 @@ The `pkg` target calls `notarize` as a prerequisite, then runs the pkg-specific 
 | `PKG_RESOURCES` | Static | `$(CURDIR)/pkg/resources` |
 | `DISTRIBUTION_XML` | Static | `$(CURDIR)/pkg/distribution.xml` |
 
-All existing variables (`BUNDLE_ID`, `SIGNING_IDENTITY`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`, `API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `NOTARIZATION_JSON`) are reused as-is.
+All existing variables (`BUNDLE_ID`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`, `API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `SECRETS_JSON`) are reused as-is. `INSTALLER_IDENTITY` is the only new variable. App signing itself is handled by the existing `notarize` target via automatic Developer ID signing (`ExportOptionsHomebrew.plist`), so no explicit `SIGNING_IDENTITY` is needed; `INSTALLER_IDENTITY` is required only because `productsign` (for the `.pkg`) has no automatic-signing mode.
 
 #### VERSION resolution
 
@@ -82,8 +84,8 @@ All existing variables (`BUNDLE_ID`, `SIGNING_IDENTITY`, `APP_PATH`, `EXPORT_DIR
 Orchestrates the full `.pkg` build pipeline:
 
 1. Depends on `notarize` — produces the signed, notarized `Wispr.app` at `$(APP_PATH)`
-2. Guards that `$(NOTARIZATION_JSON)` is not tracked by git (see [Data Models](#data-models) security note)
-3. Reads `INSTALLER_IDENTITY` from `$(NOTARIZATION_JSON)`
+2. Guards that `$(SECRETS_JSON)` is not tracked by git (see [Data Models](#data-models) security note)
+3. Reads `INSTALLER_IDENTITY` from `$(SECRETS_JSON)`
 4. Validates `INSTALLER_IDENTITY` is non-empty AND present in the keychain via `security find-identity -v -p basic` (fails with an error naming the missing certificate if absent — Requirement 3.3)
 5. Extracts `VERSION` from the Xcode project's `MARKETING_VERSION` (if not provided)
 6. Runs `pkgbuild` with `--component "$(APP_PATH)"` (not `--root`) to create the component package. Using `--component` packages only `Wispr.app`; a `--root` pointing at `$(EXPORT_DIR)` would also sweep in `wispr-notarized.zip` (which the `notarize` target leaves in that directory) and any other artifacts, installing them under `/Applications`
@@ -129,7 +131,7 @@ repo/
 │       ├── readme.html           # System requirements & post-install
 │       └── license.txt           # Apache License 2.0 (copy of LICENSE)
 ├── secrets/
-│   └── notarization.json         # Now includes "installer_identity" field
+│   └── asc-api-key.json          # Existing secrets file — now also includes "installer_identity" field
 ├── Makefile                      # Extended with pkg + pkg-release targets
 └── build/
     └── export/
@@ -139,27 +141,29 @@ repo/
 
 ## Data Models
 
-### `secrets/notarization.json` (extended)
+### `secrets/asc-api-key.json` (extended)
+
+The existing secrets file (Makefile variable `$(SECRETS_JSON)`) already holds the App Store Connect API key used for notarization. This feature adds a single `installer_identity` field to it — no new secrets file is created:
 
 ```json
 {
-  "apple_id": "[email]",
-  "team_id": "[team_id]",
-  "signing_identity": "Developer ID Application: [name] ([team_id])",
+  "apple_api_key_id": "[key_id]",
+  "apple_api_issuer_id": "[issuer_id]",
+  "apple_api_key": "[base64-encoded .p8 key]",
   "installer_identity": "Developer ID Installer: [name] ([team_id])"
 }
 ```
 
-The only change is the addition of the `installer_identity` field. All existing fields remain unchanged.
+The first three fields already exist and are unchanged; `installer_identity` is the only addition. (App/`.pkg` *signing* uses automatic Developer ID via `ExportOptionsHomebrew.plist` and `productsign`, so no Application signing-identity name is stored here.)
 
-> **Security — this file must never be committed.** It contains sensitive credentials (Apple ID, team ID, and both the Application and Installer signing-identity names). Exposure risk is [CWE-540: Inclusion of Sensitive Information in Source Code](https://cwe.mitre.org/data/definitions/540.html).
+> **Security — this file must never be committed.** It contains sensitive credentials (the App Store Connect API key and the Installer signing-identity name). Exposure risk is [CWE-540: Inclusion of Sensitive Information in Source Code](https://cwe.mitre.org/data/definitions/540.html).
 >
-> - The repository `.gitignore` already excludes the entire `secrets/` directory (line: `secrets`), so `notarization.json` is untracked by default.
+> - The repository `.gitignore` already excludes the entire `secrets/` directory (line: `secrets`), so `asc-api-key.json` is untracked by default.
 > - As a defense-in-depth guard, the `pkg` target fails early if the secrets file is ever tracked by git:
 >
 >   ```makefile
->   @git ls-files --error-unmatch "$(NOTARIZATION_JSON)" >/dev/null 2>&1 && \
->       { echo "Error: $(NOTARIZATION_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true
+>   @git ls-files --error-unmatch "$(SECRETS_JSON)" >/dev/null 2>&1 && \
+>       { echo "Error: $(SECRETS_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true
 >   ```
 >
 >   `git ls-files --error-unmatch` exits non-zero when the path is untracked (the desired state), so the guard only aborts the build when the file *is* tracked.
@@ -210,7 +214,7 @@ Key design decisions:
 
 ### Property 1: Installer identity extraction round trip
 
-*For any* valid `notarization.json` file containing an `installer_identity` field with a non-empty string value, reading that field via `jq -r .installer_identity` shall produce the exact string stored in the JSON.
+*For any* valid `asc-api-key.json` file containing an `installer_identity` field with a non-empty string value, reading that field via `jq -r .installer_identity` shall produce the exact string stored in the JSON.
 
 **Validates: Requirements 3.2, 7.2**
 
@@ -278,7 +282,7 @@ Since the deliverable is a Makefile with shell commands, unit tests verify:
 
 1. **Static file validation**: Parse `pkg/distribution.xml` and verify it contains the required elements (background, welcome, readme, license, single choice, correct pkg-ref identifier)
 2. **Resource file existence**: Verify all four required files exist in `pkg/resources/`
-3. **JSON schema**: Verify `secrets/notarization.json` contains the `installer_identity` field
+3. **JSON schema**: Verify `secrets/asc-api-key.json` contains the `installer_identity` field
 4. **Makefile target existence**: Verify `pkg` and `pkg-release` targets are defined
 5. **Makefile dependency chain**: Verify `pkg` depends on `notarize` (grep the Makefile)
 6. **No logic duplication**: Verify the `pkg` target recipe does not contain `xcodebuild archive`, `codesign --deep`, or other commands that belong to the `notarize` target
@@ -287,9 +291,7 @@ These can be implemented as a shell-based test script (e.g., `test_pkg_installer
 
 ### Property-Based Tests
 
-Property-based tests use [Hypothesis](https://hypothesis.readthedocs.io/) (via `hypothesis` for shell/Python hybrid) or a shell-based approach with randomized inputs. Given the Makefile/shell nature of this project, a lightweight Python test file using `hypothesis` is the most practical choice.
-
-Each property test runs a minimum of 100 iterations.
+These are **optional** and written with **Swift Testing** (`import Testing`, `@Test`) to match the repo's existing suite under `wisprTests/` — introducing a Python/Hypothesis toolchain solely for these checks would add CI/setup burden for no benefit. Randomized inputs are generated in-test with a simple loop (Swift Testing has no built-in property generator); the properties below are the checks, not the framework. Each property test runs a minimum of 100 randomized iterations. The commands under test (`jq`, `sed`, file-existence checks) are exercised via `Process`/`Foundation`.
 
 - **Feature: pkg-installer, Property 1: Installer identity extraction round trip** — Generate random valid JSON objects with an `installer_identity` string field, write to a temp file, extract via `jq -r .installer_identity`, assert output matches the original string.
 
