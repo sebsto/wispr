@@ -8,6 +8,8 @@ The flow is: `notarize` (existing) → `pkgbuild` → `productbuild` → `produc
 
 All installer resources live in `pkg/resources/` and the distribution XML at `pkg/distribution.xml`, both version-controlled. The `installer_identity` (Developer ID Installer certificate name) is read from the existing `secrets/notarization.json`.
 
+> **Security:** `secrets/notarization.json` holds sensitive credentials (Apple ID, team ID, signing identities) and MUST NOT be committed to version control. The repository's `.gitignore` already excludes the entire `secrets/` directory. See the [Data Models](#data-models) section for the credential-exposure guard the `pkg` target adds.
+
 ## Architecture
 
 The design maximizes reuse of the existing Makefile infrastructure. No new scripts or build tools are introduced — everything is standard Apple command-line tools (`pkgbuild`, `productbuild`, `productsign`, `notarytool`, `stapler`, `spctl`) invoked from Make.
@@ -60,6 +62,19 @@ The `pkg` target calls `notarize` as a prerequisite, then runs the pkg-specific 
 
 All existing variables (`BUNDLE_ID`, `SIGNING_IDENTITY`, `APP_PATH`, `EXPORT_DIR`, `ARCHIVE_PATH`, `API_KEY_PATH`, `API_KEY_ID`, `API_ISSUER`, `NOTARIZATION_JSON`) are reused as-is.
 
+#### VERSION resolution
+
+`VERSION` determines both the output filename (`wispr-$(VERSION).pkg`) and the `pkgbuild --version` / distribution `pkg-ref` version, so it must be deterministic:
+
+- `make pkg-release` **requires** `VERSION=x.y.z` (validated up front, like `brew-release`); it sets `MARKETING_VERSION` from that value before invoking `pkg`.
+- `make pkg` invoked directly: if `VERSION` is passed on the command line it is used verbatim; otherwise it is derived from the project's current `MARKETING_VERSION`:
+
+  ```makefile
+  VERSION ?= $(shell grep -m1 'MARKETING_VERSION' $(XCODEPROJ)/project.pbxproj | sed 's/.*= *//;s/;.*//')
+  ```
+
+  Because `?=` only assigns when `VERSION` is unset, a caller-supplied `VERSION` always wins. This makes the produced filename and package version deterministic in both invocation paths.
+
 ### New Makefile Targets
 
 #### `pkg` target
@@ -67,17 +82,18 @@ All existing variables (`BUNDLE_ID`, `SIGNING_IDENTITY`, `APP_PATH`, `EXPORT_DIR
 Orchestrates the full `.pkg` build pipeline:
 
 1. Depends on `notarize` — produces the signed, notarized `Wispr.app` at `$(APP_PATH)`
-2. Reads `INSTALLER_IDENTITY` from `$(NOTARIZATION_JSON)`
-3. Validates `INSTALLER_IDENTITY` is non-empty
-4. Extracts `VERSION` from the Xcode project's `MARKETING_VERSION` (if not provided)
-5. Runs `pkgbuild` to create the component package
-6. Runs `productbuild` to create the product package with custom UI
-7. Runs `productsign` to sign the product package
-8. Runs `notarytool` to notarize the signed package (reuses `_setup-api-key` / `_cleanup-api-key`)
-9. Runs `stapler` to staple the notarization ticket
-10. Runs `spctl` to verify
-11. Renames to final `wispr-<VERSION>.pkg`
-12. Prints summary with path
+2. Guards that `$(NOTARIZATION_JSON)` is not tracked by git (see [Data Models](#data-models) security note)
+3. Reads `INSTALLER_IDENTITY` from `$(NOTARIZATION_JSON)`
+4. Validates `INSTALLER_IDENTITY` is non-empty AND present in the keychain via `security find-identity -v -p basic` (fails with an error naming the missing certificate if absent — Requirement 3.3)
+5. Extracts `VERSION` from the Xcode project's `MARKETING_VERSION` (if not provided)
+6. Runs `pkgbuild` with `--component "$(APP_PATH)"` (not `--root`) to create the component package. Using `--component` packages only `Wispr.app`; a `--root` pointing at `$(EXPORT_DIR)` would also sweep in `wispr-notarized.zip` (which the `notarize` target leaves in that directory) and any other artifacts, installing them under `/Applications`
+7. Substitutes `$(VERSION)` for the `__VERSION__` placeholder in a temporary copy of `distribution.xml`, then runs `productbuild` against that copy to create the product package with custom UI
+8. Runs `productsign` to sign the product package
+9. Runs `notarytool` to notarize the signed package (reuses `_setup-api-key` / `_cleanup-api-key`)
+10. Runs `stapler` to staple the notarization ticket
+11. Runs `spctl` to verify
+12. Renames to final `wispr-<VERSION>.pkg`
+13. Prints summary with path
 
 #### `pkg-release` target
 
@@ -94,8 +110,8 @@ Mirrors `brew-release` pattern:
 
 | Step | Tool | Key Arguments |
 |------|------|---------------|
-| Component pkg | `pkgbuild` | `--root` (app path parent), `--component-plist` (not needed, single app), `--install-location /Applications`, `--identifier $(BUNDLE_ID)`, `--version $(VERSION)` |
-| Product pkg | `productbuild` | `--distribution $(DISTRIBUTION_XML)`, `--resources $(PKG_RESOURCES)`, `--package-path $(EXPORT_DIR)` |
+| Component pkg | `pkgbuild` | `--component "$(APP_PATH)"`, `--install-location /Applications`, `--identifier $(BUNDLE_ID)`, `--version $(VERSION)` |
+| Product pkg | `productbuild` | `--distribution $(EXPORT_DIR)/distribution.xml` (version-substituted temp copy), `--resources $(PKG_RESOURCES)`, `--package-path $(EXPORT_DIR)` |
 | Sign pkg | `productsign` | `--sign "$(INSTALLER_IDENTITY)"` |
 | Notarize pkg | `notarytool` | `--key`, `--key-id`, `--issuer`, `--wait` |
 | Staple pkg | `stapler` | `staple` |
@@ -136,6 +152,18 @@ repo/
 
 The only change is the addition of the `installer_identity` field. All existing fields remain unchanged.
 
+> **Security — this file must never be committed.** It contains sensitive credentials (Apple ID, team ID, and both the Application and Installer signing-identity names). Exposure risk is [CWE-540: Inclusion of Sensitive Information in Source Code](https://cwe.mitre.org/data/definitions/540.html).
+>
+> - The repository `.gitignore` already excludes the entire `secrets/` directory (line: `secrets`), so `notarization.json` is untracked by default.
+> - As a defense-in-depth guard, the `pkg` target fails early if the secrets file is ever tracked by git:
+>
+>   ```makefile
+>   @git ls-files --error-unmatch "$(NOTARIZATION_JSON)" >/dev/null 2>&1 && \
+>       { echo "Error: $(NOTARIZATION_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true
+>   ```
+>
+>   `git ls-files --error-unmatch` exits non-zero when the path is untracked (the desired state), so the guard only aborts the build when the file *is* tracked.
+
 ### `pkg/distribution.xml`
 
 ```xml
@@ -156,14 +184,14 @@ The only change is the addition of the `installer_identity` field. All existing 
     <choice id="wispr" visible="false">
         <pkg-ref id="com.stormacq.mac.wispr"/>
     </choice>
-    <pkg-ref id="com.stormacq.mac.wispr" version="0" onConclusion="none">wispr-component.pkg</pkg-ref>
+    <pkg-ref id="com.stormacq.mac.wispr" version="__VERSION__" onConclusion="none">wispr-component.pkg</pkg-ref>
 </installer-gui-script>
 ```
 
 Key design decisions:
 - `customize="never"` — single component, no user choice needed
 - `require-scripts="false"` — no pre/post-install scripts per requirements
-- The `pkg-ref` version is `0` because the actual version is set in the component package via `pkgbuild --version`
+- The `pkg-ref` `version` must match `$(VERSION)` (the same value passed to `pkgbuild --version`). `distribution.xml` is version-controlled with a `__VERSION__` placeholder; the `pkg` target substitutes `$(VERSION)` into a temporary copy (via `sed`) before invoking `productbuild`, so the distribution version can never drift from the component-package version. `productbuild` fails if a `pkg-ref` version does not match the referenced component package, so a hardcoded `0` would break the build once the component carries a real version.
 - The `pkg-ref` filename matches the `COMPONENT_PKG` basename
 
 ### Installer Resource Files
@@ -172,7 +200,7 @@ Key design decisions:
 |------|--------|---------|
 | `background.png` | PNG, ~660×440 | Wispr branding with project color palette |
 | `welcome.html` | HTML | Brief intro: what Wispr is, key features, on-device privacy |
-| `readme.html` | HTML | System requirements (macOS 15.0+, microphone), post-install steps (grant permissions, download model) |
+| `readme.html` | HTML | System requirements (minimum macOS version + Apple Silicon — source from the repo `README.md` / project `MACOSX_DEPLOYMENT_TARGET` at implementation time rather than hardcoding a version that will drift; microphone), post-install steps (grant permissions, download model). Note: the installed `Wispr.app` bundles the `WisprCLI` tool at `Contents/Resources/bin/WisprCLI`, so the `.pkg` ships the CLI automatically — mention the optional `wispr` CLI here. |
 | `license.txt` | Plain text | Copy of the repo root `LICENSE` file (Apache 2.0) |
 
 
@@ -206,7 +234,7 @@ Key design decisions:
 
 ## Error Handling
 
-All error handling follows the existing Makefile pattern: print a descriptive message to stderr and `exit 1`. No partial artifacts are left behind on failure.
+All error handling follows the existing Makefile pattern: print a descriptive message to stderr and `exit 1`.
 
 | Error Condition | Message Pattern | Source Requirement |
 |---|---|---|
@@ -227,7 +255,18 @@ Each tool invocation in the Makefile recipe uses `||` to catch failures:
 @pkgbuild ... || { echo "Error: pkgbuild failed"; exit 1; }
 ```
 
-The `_cleanup-api-key` target is called in a trap or final step to ensure the API key file is removed even on failure, matching the existing pattern.
+### API key cleanup on failure
+
+The existing `notarize`/`upload` targets invoke `_cleanup-api-key` only as the last recipe line, so a failure in an earlier step leaves the decrypted `AuthKey_*.p8` on disk. The `pkg` target must not inherit that gap: the notarization step (task 3.7) runs inside a single recipe line (`sh -c`) that installs a shell trap so the private key is removed even when notarization, stapling, or verification fails. Sketch:
+
+```makefile
+@sh -c 'trap "rm -f \"$(API_KEY_PATH)\"" EXIT; \
+    xcrun notarytool submit "$(SIGNED_PKG)" --key "$(API_KEY_PATH)" ... --wait && \
+    xcrun stapler staple "$(SIGNED_PKG)" && \
+    spctl -a -vvv -t install "$(SIGNED_PKG)"'
+```
+
+Because `trap ... EXIT` fires on any exit path of the subshell, the key is cleaned up whether the pipeline succeeds or fails. `_cleanup-api-key` remains as a defensive final call. Partial `.pkg` artifacts (component/unsigned/signed) may remain in `$(EXPORT_DIR)` on failure; they are overwritten on the next run and `$(EXPORT_DIR)` is wiped by the `notarize` prerequisite at the start of every build.
 
 ## Testing Strategy
 

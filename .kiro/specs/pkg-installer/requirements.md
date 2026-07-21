@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Wispr is distributed via the App Store and Homebrew. This feature adds a third distribution channel: a signed and notarized Apple `.pkg` installer with a custom installer UI. The `.pkg` installs Wispr.app to `/Applications` and is uploaded to GitHub Releases alongside the existing Homebrew zip. The build flow reuses the existing archive and notarization pipeline and extends the Makefile with new targets.
+Wispr is distributed via the App Store and Homebrew. This feature adds a third distribution channel: a signed and notarized Apple `.pkg` installer with a custom installer UI. The `.pkg` installs `Wispr.app` (which bundles the `WisprCLI` command-line tool under `Contents/Resources/bin/`) to `/Applications` and is uploaded to GitHub Releases alongside the existing Homebrew zip. The build flow reuses the existing archive and notarization pipeline and extends the Makefile with new targets.
 
 ## Glossary
 
