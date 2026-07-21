@@ -21,6 +21,12 @@ public actor ParakeetService {
     // MARK: - EOU State
     nonisolated(unsafe) private var eouManager: StreamingEouAsrManager?
 
+    /// Monotonic token identifying the most recent partial-callback registration.
+    /// Incremented each time a streaming session registers a partial callback so
+    /// that an older session's termination cleanup can't clobber a newer session's
+    /// callback (fast stop→start race).
+    private var partialCallbackGeneration = 0
+
     // MARK: - Shared State
     private let defaults: UserDefaults
     private var activeModelName: String?
@@ -119,6 +125,30 @@ public actor ParakeetService {
         Log.whisperService.debug("ParakeetService — EOU model unloaded")
     }
 
+    /// Registers a partial-result callback on the given manager and returns the
+    /// generation token identifying this registration. Each call bumps the
+    /// generation so a later session always wins over an earlier one.
+    private func registerPartialCallback(
+        on manager: StreamingEouAsrManager,
+        _ callback: @escaping @Sendable (String) -> Void
+    ) async -> Int {
+        partialCallbackGeneration += 1
+        let generation = partialCallbackGeneration
+        await manager.setPartialCallback(callback)
+        return generation
+    }
+
+    /// Clears the partial callback (with a no-op) only if `generation` is still
+    /// the most recent registration. This prevents a stopped session's cleanup
+    /// from clobbering a newer session's callback during a fast stop→start.
+    private func clearPartialCallbackIfCurrent(
+        on manager: StreamingEouAsrManager,
+        generation: Int
+    ) async {
+        guard generation == partialCallbackGeneration else { return }
+        await manager.setPartialCallback { _ in }
+    }
+
     // MARK: - Audio Helpers
 
     private nonisolated func createPCMBuffer(from samples: [Float], sampleRate: Double) throws -> AVAudioPCMBuffer {
@@ -180,8 +210,15 @@ public actor ParakeetService {
             // `startTime` is an immutable value captured by copy (no race), and
             // the callback yields into the thread-safe stream continuation, so
             // it is safe to fire from whatever thread FluidAudio uses.
+            //
+            // The returned generation token identifies THIS registration. On any
+            // exit path we clear the callback only if our generation is still the
+            // current one, so a stopped session can't clobber a newer session's
+            // callback during a fast stop→start (StreamingEouAsrManager.reset()
+            // does not clear partialCallback, and there is no nil overload).
+            var partialGeneration: Int?
             if emitPartialResults {
-                await manager.setPartialCallback { [startTime] partialText in
+                partialGeneration = await self.registerPartialCallback(on: manager) { [startTime] partialText in
                     let trimmed = partialText.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
                     continuation.yield(TranscriptionResult(
@@ -190,6 +227,11 @@ public actor ParakeetService {
                         duration: Date().timeIntervalSince(startTime),
                         isPartial: true
                     ))
+                }
+            }
+            defer {
+                if let partialGeneration {
+                    Task { await self.clearPartialCallbackIfCurrent(on: manager, generation: partialGeneration) }
                 }
             }
 
@@ -222,14 +264,10 @@ public actor ParakeetService {
             }
         }
 
-        // On termination, cancel the processing task AND replace the partial
-        // callback with a no-op. StreamingEouAsrManager.reset() does not clear
-        // partialCallback, and setPartialCallback takes a non-optional closure
-        // (no nil overload), so a lingering callback would otherwise keep a
-        // reference to this finished continuation across sessions.
-        continuation.onTermination = { [weak manager] _ in
+        // On termination, cancel the processing task. The task's `defer` handles
+        // clearing the partial callback (guarded by generation token).
+        continuation.onTermination = { _ in
             task.cancel()
-            Task { await manager?.setPartialCallback { _ in } }
         }
         return stream
     }
