@@ -181,15 +181,21 @@ public actor CompositeTranscriptionEngine: TranscriptionEngine {
         return await engines[idx].supportsEndOfUtteranceDetection()
     }
 
+    public func supportsPartialResults() async -> Bool {
+        guard let idx = activeEngineIndex else { return false }
+        return await engines[idx].supportsPartialResults()
+    }
+
     public func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         guard let idx = activeEngineIndex else {
             let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
             continuation.finish(throwing: WisprError.modelNotDownloaded)
             return stream
         }
-        return await engines[idx].transcribeStream(audioStream, language: language)
+        return await engines[idx].transcribeStream(audioStream, language: language, emitPartialResults: emitPartialResults)
     }
 }

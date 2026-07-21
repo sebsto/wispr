@@ -63,7 +63,8 @@ public protocol TranscriptionEngine: Actor {
     /// and yield a single final result when the input stream finishes.
     func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error>
 
     /// Whether the currently loaded model supports end-of-utterance detection.
@@ -71,6 +72,12 @@ public protocol TranscriptionEngine: Actor {
     /// stops speaking. When false, transcribeStream() only finishes when
     /// the input audio stream ends.
     func supportsEndOfUtteranceDetection() async -> Bool
+
+    /// Whether the currently loaded model supports real-time partial
+    /// transcription results. When true and `emitPartialResults` is passed to
+    /// transcribeStream(), the engine yields intermediate `isPartial` results
+    /// during processing.
+    func supportsPartialResults() async -> Bool
 }
 
 // MARK: - Default Parameter Convenience
@@ -79,5 +86,18 @@ extension TranscriptionEngine {
     /// Convenience overload with default retry count.
     public func reloadModelWithRetry() async throws {
         try await reloadModelWithRetry(maxAttempts: 3)
+    }
+
+    /// Two-argument convenience overload that preserves existing call sites.
+    /// Swift protocol *requirements* cannot carry default argument values, so
+    /// the default lives here in the extension. This forwards to the
+    /// three-argument requirement above; the differing arity means it
+    /// dispatches to the conforming type's implementation, not to itself
+    /// (no recursion).
+    public func transcribeStream(
+        _ audioStream: AsyncStream<[Float]>,
+        language: TranscriptionLanguage
+    ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
+        await transcribeStream(audioStream, language: language, emitPartialResults: false)
     }
 }

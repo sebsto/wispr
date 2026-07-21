@@ -48,7 +48,11 @@ struct RecordingOverlayView: View {
         ZStack {
             overlayContent
         }
-        .frame(width: overlayWidth, height: overlayHeight)
+        // Fixed width, but flexible height so the overlay can grow when
+        // real-time partial transcription ("ghost text") is displayed.
+        // The hosting panel tracks this via preferredContentSize.
+        .frame(width: overlayWidth)
+        .frame(minHeight: overlayHeight)
         .liquidGlassOverlay()
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .highContrastBorder(cornerRadius: 16)
@@ -117,24 +121,42 @@ struct RecordingOverlayView: View {
         }
     }
 
-    /// Recording state: microphone icon + animated audio level bars.
+    /// Recording state: microphone icon + animated audio level bars, plus
+    /// optional real-time partial transcription ("ghost text") below.
     private var recordingContent: some View {
-        HStack(spacing: 10) {
-            Image(systemName: SFSymbols.recordingMicrophone)
-                .font(.title)
-                .foregroundStyle(theme.accentColor)
-                .symbolEffect(.pulse, isActive: !theme.reduceMotion)
-                .shadow(
-                    color: theme.reduceMotion
-                        ? .clear
-                        : theme.accentColor.opacity(isGlowActive ? 0.6 : 0.0),
-                    radius: isGlowActive ? 8 : 0
-                )
-                .accessibilityHidden(true)
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: SFSymbols.recordingMicrophone)
+                    .font(.title)
+                    .foregroundStyle(theme.accentColor)
+                    .symbolEffect(.pulse, isActive: !theme.reduceMotion)
+                    .shadow(
+                        color: theme.reduceMotion
+                            ? .clear
+                            : theme.accentColor.opacity(isGlowActive ? 0.6 : 0.0),
+                        radius: isGlowActive ? 8 : 0
+                    )
+                    .accessibilityHidden(true)
 
-            audioLevelMeter
+                audioLevelMeter
+            }
+
+            if let partialText = stateManager.partialTranscriptionText, !partialText.isEmpty {
+                Text(partialText)
+                    .font(.caption)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .lineLimit(2)
+                    .truncationMode(.head)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+                    .accessibilityLabel("Partial transcription: \(partialText)")
+            }
         }
         .padding(.horizontal, 20)
+        .animation(
+            theme.reduceMotion ? nil : .easeInOut(duration: 0.2),
+            value: stateManager.partialTranscriptionText
+        )
     }
 
     /// Processing state: spinner + label.

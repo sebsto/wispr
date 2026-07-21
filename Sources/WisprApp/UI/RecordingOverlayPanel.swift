@@ -34,6 +34,7 @@ final class RecordingOverlayPanel {
     // MARK: - Properties
 
     private var panel: NSPanel?
+    private var contentSizeObservation: NSKeyValueObservation?
     private let stateManager: StateManager
     private let settingsStore: SettingsStore
     private let themeEngine: UIThemeEngine
@@ -111,8 +112,13 @@ final class RecordingOverlayPanel {
             .environment(settingsStore)
             .environment(themeEngine)
 
-        let hostingView = NSHostingView(rootView: overlayView)
-        hostingView.setFrameSize(NSSize(width: 260, height: 92))
+        // Use a hosting *controller* with .preferredContentSize so the panel
+        // resizes itself to fit the SwiftUI content. This lets the overlay grow
+        // vertically when real-time partial transcription text is shown, and
+        // shrink back when it is cleared — the fixed-size NSHostingView we used
+        // before would clip the extra text.
+        let hostingController = NSHostingController(rootView: overlayView)
+        hostingController.sizingOptions = [.preferredContentSize]
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 260, height: 92),
@@ -120,6 +126,9 @@ final class RecordingOverlayPanel {
             backing: .buffered,
             defer: false
         )
+        // Assigning the content view controller (rather than a fixed-size
+        // content view) lets .preferredContentSize drive the panel's size.
+        panel.contentViewController = hostingController
 
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -129,9 +138,27 @@ final class RecordingOverlayPanel {
         panel.isMovableByWindowBackground = false
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.contentView = hostingView
 
         self.panel = panel
+
+        // Keep the panel bottom-centered as its height changes.
+        contentSizeObservation = panel.observe(\.frame, options: [.old, .new]) { [weak self] observedPanel, change in
+            guard let old = change.oldValue, let new = change.newValue,
+                old.size.height != new.size.height else { return }
+            MainActor.assumeIsolated {
+                self?.repositionForResize(observedPanel, previousHeight: old.size.height)
+            }
+        }
+    }
+
+    /// Re-anchors the panel to its bottom edge when the content height changes,
+    /// so it grows upward from a stable baseline instead of shifting.
+    private func repositionForResize(_ panel: NSPanel, previousHeight: CGFloat) {
+        let heightDelta = panel.frame.size.height - previousHeight
+        guard heightDelta != 0 else { return }
+        var origin = panel.frame.origin
+        origin.y -= heightDelta
+        panel.setFrameOrigin(origin)
     }
 
     private func positionPanel(_ panel: NSPanel) {

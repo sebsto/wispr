@@ -70,6 +70,16 @@ final class SettingsStore {
         }
     }
 
+    /// When true and the active model supports it, partial transcription text
+    /// ("ghost text") is shown in the recording overlay as the user speaks.
+    /// Defaults to false.
+    var showRealtimeText: Bool {
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(showRealtimeText, forKey: Keys.showRealtimeText)
+        }
+    }
+
     var onboardingCompleted: Bool {
         didSet {
             guard !isLoading else { return }
@@ -199,6 +209,7 @@ final class SettingsStore {
         static let languageMode = "languageMode"
         static let showRecordingOverlay = "showRecordingOverlay"
         static let launchAtLogin = "launchAtLogin"
+        static let showRealtimeText = "showRealtimeText"
         static let onboardingCompleted = "onboardingCompleted"
         static let onboardingLastStep = "onboardingLastStep"
         static let handsFreeMode = "handsFreeMode"
@@ -226,6 +237,7 @@ final class SettingsStore {
         static let languageMode: TranscriptionLanguage = .autoDetect
         static let showRecordingOverlay: Bool = true
         static let launchAtLogin: Bool = false
+        static let showRealtimeText: Bool = false
         static let onboardingCompleted: Bool = false
         static let onboardingLastStep: Int = 0
         static let handsFreeMode: Bool = false
@@ -257,6 +269,7 @@ final class SettingsStore {
         self.languageMode = Defaults.languageMode
         self.showRecordingOverlay = Defaults.showRecordingOverlay
         self.launchAtLogin = Defaults.launchAtLogin
+        self.showRealtimeText = Defaults.showRealtimeText
         self.onboardingCompleted = Defaults.onboardingCompleted
         self.onboardingLastStep = Defaults.onboardingLastStep
         self.handsFreeMode = Defaults.handsFreeMode
@@ -288,6 +301,7 @@ final class SettingsStore {
         languageMode = Defaults.languageMode
         showRecordingOverlay = Defaults.showRecordingOverlay
         launchAtLogin = Defaults.launchAtLogin
+        showRealtimeText = Defaults.showRealtimeText
         handsFreeMode = Defaults.handsFreeMode
         meetingDiarizationEnabled = Defaults.meetingDiarizationEnabled
         meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
@@ -314,6 +328,7 @@ final class SettingsStore {
         defaults.set(selectedAudioDeviceUID, forKey: Keys.selectedAudioDeviceUID)
         defaults.set(activeModelName, forKey: Keys.activeModelName)
         defaults.set(showRecordingOverlay, forKey: Keys.showRecordingOverlay)
+        defaults.set(showRealtimeText, forKey: Keys.showRealtimeText)
         defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
         defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
         defaults.set(handsFreeMode, forKey: Keys.handsFreeMode)
@@ -377,6 +392,9 @@ final class SettingsStore {
         // Load general settings
         if defaults.object(forKey: Keys.showRecordingOverlay) != nil {
             self.showRecordingOverlay = defaults.bool(forKey: Keys.showRecordingOverlay)
+        }
+        if defaults.object(forKey: Keys.showRealtimeText) != nil {
+            self.showRealtimeText = defaults.bool(forKey: Keys.showRealtimeText)
         }
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
         self.onboardingCompleted = defaults.bool(forKey: Keys.onboardingCompleted)

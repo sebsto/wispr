@@ -160,7 +160,10 @@ public actor ParakeetService {
         return TranscriptionResult(text: trimmed, detectedLanguage: nil, duration: duration)
     }
 
-    private func transcribeStreamWithEou(_ audioStream: AsyncStream<[Float]>) -> AsyncThrowingStream<TranscriptionResult, Error> {
+    private func transcribeStreamWithEou(
+        _ audioStream: AsyncStream<[Float]>,
+        emitPartialResults: Bool = false
+    ) -> AsyncThrowingStream<TranscriptionResult, Error> {
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
 
         let manager = self.eouManager
@@ -172,6 +175,24 @@ public actor ParakeetService {
             }
             await manager.reset()
             let startTime = Date()
+
+            // Register a partial-result callback for real-time "ghost text".
+            // `startTime` is an immutable value captured by copy (no race), and
+            // the callback yields into the thread-safe stream continuation, so
+            // it is safe to fire from whatever thread FluidAudio uses.
+            if emitPartialResults {
+                await manager.setPartialCallback { [startTime] partialText in
+                    let trimmed = partialText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    continuation.yield(TranscriptionResult(
+                        text: trimmed,
+                        detectedLanguage: nil,
+                        duration: Date().timeIntervalSince(startTime),
+                        isPartial: true
+                    ))
+                }
+            }
+
             do {
                 var eouDetected = false
                 for await chunk in audioStream {
@@ -201,7 +222,15 @@ public actor ParakeetService {
             }
         }
 
-        continuation.onTermination = { _ in task.cancel() }
+        // On termination, cancel the processing task AND replace the partial
+        // callback with a no-op. StreamingEouAsrManager.reset() does not clear
+        // partialCallback, and setPartialCallback takes a non-optional closure
+        // (no nil overload), so a lingering callback would otherwise keep a
+        // reference to this finished continuation across sessions.
+        continuation.onTermination = { [weak manager] _ in
+            task.cancel()
+            Task { await manager?.setPartialCallback { _ in } }
+        }
         return stream
     }
 }
@@ -226,7 +255,8 @@ extension ParakeetService: TranscriptionEngine {
                 sizeDescription: "~150 MB",
                 qualityDescription: "Low-latency streaming with end-of-utterance detection (English only)",
                 estimatedSize: 150 * 1024 * 1024,
-                status: .notDownloaded
+                status: .notDownloaded,
+                supportsPartialResults: true
             )
         ]
     }
@@ -504,12 +534,17 @@ extension ParakeetService: TranscriptionEngine {
         return activeModelName == ModelInfo.KnownID.parakeetEou && eouManager != nil
     }
 
+    public func supportsPartialResults() async -> Bool {
+        return activeModelName == ModelInfo.KnownID.parakeetEou && eouManager != nil
+    }
+
     public func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         if activeModelName == ModelInfo.KnownID.parakeetEou {
-            return transcribeStreamWithEou(audioStream)
+            return transcribeStreamWithEou(audioStream, emitPartialResults: emitPartialResults)
         }
 
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
