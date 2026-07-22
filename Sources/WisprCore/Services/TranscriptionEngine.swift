@@ -56,11 +56,16 @@ public protocol TranscriptionEngine: Actor {
 
     // MARK: - Streaming Transcription
 
-    /// Accepts a stream of audio chunks and yields partial transcription results
-    /// as they become available.
+    /// Accepts a stream of audio chunks and yields transcription results.
     ///
     /// Engines that don't support true streaming should accumulate all chunks
     /// and yield a single final result when the input stream finishes.
+    ///
+    /// - Parameter emitPartialResults: When `true` *and* the loaded model
+    ///   reports `supportsPartialResults()`, the engine additionally yields
+    ///   intermediate `isPartial` results ("ghost text") during processing.
+    ///   When `false`, or when the model doesn't support partials, only final
+    ///   result(s) are yielded. Engines that never produce partials ignore it.
     func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
         language: TranscriptionLanguage,
