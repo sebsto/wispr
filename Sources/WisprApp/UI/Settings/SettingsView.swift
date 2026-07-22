@@ -6,6 +6,7 @@
 //  Recognition, After Transcription, Feedback, and General.
 //
 
+import AppKit
 import SwiftUI
 import WisprCore
 import os
@@ -74,6 +75,8 @@ struct SettingsView: View {
             "When enabled, the meeting transcript labels remote participants as Speaker 1, Speaker 2, and so on using on-device diarization"
         static let meetingEchoSuppression =
             "When enabled, speech from remote participants that leaks into your microphone is not transcribed a second time as your own speech"
+        static let openTranscriptsFolder =
+            "Opens the folder where saved meeting transcripts are stored in Finder"
 
         // General section
         static let launchAtLogin = "When enabled, Wispr starts automatically when you log in"
@@ -403,6 +406,24 @@ struct SettingsView: View {
             )
             .font(.caption)
             .foregroundStyle(theme.secondaryTextColor)
+
+            Divider()
+
+            HStack {
+                Text("Saved Transcripts")
+                    .foregroundStyle(theme.primaryTextColor)
+                Spacer()
+                Button("Open Folder") {
+                    openTranscriptsFolder()
+                }
+                .accessibilityHint(AccessibilityHints.openTranscriptsFolder)
+            }
+
+            Text(transcriptsFolderPath)
+                .font(.caption)
+                .foregroundStyle(theme.secondaryTextColor)
+                .textSelection(.enabled)
+                .accessibilityLabel("Transcripts are saved to \(transcriptsFolderPath)")
         } header: {
             SectionHeader(
                 title: "Meeting",
@@ -410,6 +431,22 @@ struct SettingsView: View {
                 tint: .indigo
             )
         }
+    }
+
+    // MARK: - Transcripts Folder
+
+    /// Home-abbreviated path to the folder where meeting transcripts are saved.
+    private var transcriptsFolderPath: String {
+        (TranscriptStore.directory.path(percentEncoded: false) as NSString)
+            .abbreviatingWithTildeInPath
+    }
+
+    /// Reveals the transcripts folder in Finder, creating it first if no meeting
+    /// has been saved yet so the button never opens a missing directory.
+    private func openTranscriptsFolder() {
+        let dir = TranscriptStore.directory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(dir)
     }
 
     // MARK: - General Section
