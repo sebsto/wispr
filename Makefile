@@ -159,7 +159,7 @@ notarize: archive _setup-api-key ## Archive, export with Developer ID, notarize,
 
 pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERSION optional)
 	@echo "🔎 Validating installer resources…"
-	@for f in "$(DISTRIBUTION_XML)" "$(PKG_RESOURCES)/background.png" "$(PKG_RESOURCES)/welcome.html" "$(PKG_RESOURCES)/readme.html" "$(PKG_RESOURCES)/license.txt"; do \
+	@for f in "$(DISTRIBUTION_XML)" "$(PKG_RESOURCES)/background.png" "$(PKG_RESOURCES)/background-darkAqua.png" "$(PKG_RESOURCES)/welcome.html" "$(PKG_RESOURCES)/readme.html" "$(PKG_RESOURCES)/license.txt"; do \
 		test -f "$$f" || { echo "Error: missing installer resource: $$f"; exit 1; }; \
 	done
 	@echo "🔒 Checking secrets are not tracked by git…"

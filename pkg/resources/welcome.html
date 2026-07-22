@@ -2,47 +2,81 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <style>
+    /* Wispr installer pane — palette derived from the app icon (see website/styles.css).
+       The content card is pinned to a LIGHT scheme in both system appearances
+       (color-scheme: light) so its colors are never dark-adapted by the installer's
+       WebView. Dark-mode chrome (sidebar, window) is handled by background-darkAqua.png. */
+    :root {
+        color-scheme: light;
+        --bg: #fbfcfe;
+        --text: #2b3a4f;
+        --heading: #22409e;
+        --muted: #55708a;
+        --panel: #eef5fc;
+        --panel-border: #549be6;
+        --panel-text: #33465e;
+    }
     body {
-        font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
-        color: #1d2c42;
+        font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+        background: var(--bg);
+        color: var(--text);
         margin: 0;
-        padding: 16px 18px;
-        line-height: 1.45;
+        padding: 20px 22px 22px;
+        line-height: 1.5;
         font-size: 13px;
+        -webkit-font-smoothing: antialiased;
     }
     h1 {
-        font-size: 20px;
-        color: #23384f;
-        margin: 0 0 6px 0;
+        font-family: -apple-system, "SF Pro Display", sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--heading);
+        margin: 0 0 8px 0;
+    }
+    /* Signature: brand gradient rule echoing the website's --gradient-primary. */
+    .rule {
+        height: 3px;
+        width: 52px;
+        border: 0;
+        border-radius: 2px;
+        margin: 0 0 14px 0;
+        background: linear-gradient(90deg, #2126a2, #549be6, #77c9ff);
     }
     .tagline {
-        color: #536787;
+        color: var(--muted);
         font-size: 13px;
-        margin: 0 0 14px 0;
+        margin: 0 0 12px 0;
     }
+    p { margin: 0 0 12px 0; }
     ul {
-        margin: 8px 0 0 0;
-        padding-left: 20px;
+        margin: 10px 0 0 0;
+        padding-left: 18px;
     }
     li {
-        margin-bottom: 6px;
+        margin-bottom: 7px;
+        padding-left: 2px;
     }
-    strong {
-        color: #23384f;
-    }
+    li::marker { color: var(--panel-border); }
+    strong { color: var(--heading); font-weight: 600; }
+    /* Translucent tint (not a solid light fill) + no explicit text color, so this
+       callout stays legible whether the installer renders the pane light or auto-darks
+       it: the tint composes over either background and the text inherits the adaptive
+       color. A solid light background here would trap white auto-dark text on a light box. */
     .privacy {
-        margin-top: 14px;
-        padding: 10px 12px;
-        background: #eef3f8;
-        border-left: 3px solid #7db3dd;
-        border-radius: 4px;
-        color: #3c4a5f;
+        margin-top: 16px;
+        padding: 11px 13px;
+        background: rgba(84, 155, 230, 0.14);
+        border-left: 3px solid var(--panel-border);
+        border-radius: 5px;
     }
 </style>
 </head>
 <body>
     <h1>Welcome to Wispr</h1>
+    <hr class="rule">
     <p class="tagline">On-device speech-to-text transcription for your Mac.</p>
     <p>Wispr is a menu bar app that turns your voice into text using OpenAI Whisper and NVIDIA Parakeet models &mdash; running entirely on your Mac.</p>
     <ul>

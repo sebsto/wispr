@@ -2,6 +2,7 @@
 <installer-gui-script minSpecVersion="2">
     <title>Wispr</title>
     <background file="background.png" alignment="bottomleft" scaling="proportional"/>
+    <background-darkAqua file="background-darkAqua.png" alignment="bottomleft" scaling="proportional"/>
     <welcome file="welcome.html"/>
     <readme file="readme.html"/>
     <license file="license.txt"/>

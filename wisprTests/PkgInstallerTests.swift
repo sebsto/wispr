@@ -162,7 +162,7 @@ struct PkgInstallerTests {
 
     @Test("Property 4: validation names the missing installer resource")
     func testMissingResourceFileDetection() throws {
-        let required = ["background.png", "welcome.html", "readme.html", "license.txt"]
+        let required = ["background.png", "background-darkAqua.png", "welcome.html", "readme.html", "license.txt"]
 
         for _ in 0..<100 {
             let missing = required.randomElement()!

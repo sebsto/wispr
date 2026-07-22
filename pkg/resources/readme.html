@@ -2,46 +2,77 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <style>
+    /* Wispr installer pane — palette derived from the app icon (see website/styles.css).
+       The content card is pinned to a LIGHT scheme in both system appearances
+       (color-scheme: light) so its colors are never dark-adapted by the installer's
+       WebView. Dark-mode chrome (sidebar, window) is handled by background-darkAqua.png. */
+    :root {
+        color-scheme: light;
+        --bg: #fbfcfe;
+        --text: #2b3a4f;
+        --heading: #22409e;
+    }
     body {
-        font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
-        color: #1d2c42;
+        font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+        background: var(--bg);
+        color: var(--text);
         margin: 0;
-        padding: 16px 18px;
-        line-height: 1.45;
+        padding: 20px 22px 22px;
+        line-height: 1.5;
         font-size: 13px;
+        -webkit-font-smoothing: antialiased;
     }
     h1 {
-        font-size: 18px;
-        color: #23384f;
-        margin: 0 0 12px 0;
+        font-family: -apple-system, "SF Pro Display", sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--heading);
+        margin: 0 0 8px 0;
+    }
+    /* Signature: brand gradient rule echoing the website's --gradient-primary. */
+    .rule {
+        height: 3px;
+        width: 52px;
+        border: 0;
+        border-radius: 2px;
+        margin: 0 0 16px 0;
+        background: linear-gradient(90deg, #2126a2, #549be6, #77c9ff);
     }
     h2 {
         font-size: 14px;
-        color: #23384f;
-        margin: 16px 0 6px 0;
+        font-weight: 600;
+        color: var(--heading);
+        margin: 18px 0 6px 0;
     }
+    p { margin: 12px 0 0 0; }
     ul, ol {
         margin: 6px 0 0 0;
-        padding-left: 20px;
+        padding-left: 18px;
     }
     li {
-        margin-bottom: 5px;
+        margin-bottom: 6px;
+        padding-left: 2px;
     }
+    li::marker { color: #549be6; }
+    /* Translucent tint + inherited text color so code chips stay legible whether the
+       pane is rendered light or auto-darked (a solid light fill would trap adaptive
+       white text on a light chip). */
     code {
         font-family: "SF Mono", Menlo, monospace;
-        background: #eef3f8;
-        padding: 1px 4px;
-        border-radius: 3px;
+        background: rgba(84, 155, 230, 0.16);
+        padding: 1px 5px;
+        border-radius: 4px;
         font-size: 12px;
     }
-    strong {
-        color: #23384f;
-    }
+    strong { color: var(--heading); font-weight: 600; }
 </style>
 </head>
 <body>
     <h1>Before You Install</h1>
+    <hr class="rule">
 
     <h2>System Requirements</h2>
     <ul>
