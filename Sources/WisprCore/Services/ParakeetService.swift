@@ -23,9 +23,15 @@ public actor ParakeetService {
 
     /// Monotonic token identifying the most recent partial-callback registration.
     /// Incremented each time a streaming session registers a partial callback so
-    /// that an older session's termination cleanup can't clobber a newer session's
-    /// callback (fast stop→start race).
-    private var partialCallbackGeneration = 0
+    /// that an older session can't clobber a newer one during a fast stop→start.
+    ///
+    /// Held behind a lock (not just actor state) because it is read
+    /// synchronously from inside the `@Sendable` partial callback, which fires
+    /// on FluidAudio's threads. The callback compares its own captured
+    /// generation against this value and becomes a no-op when stale — so even if
+    /// actor reentrancy causes an older session's `setPartialCallback` to land
+    /// last, its callback does nothing.
+    private let partialCallbackGeneration = OSAllocatedUnfairLock(initialState: 0)
 
     // MARK: - Shared State
     private let defaults: UserDefaults
@@ -128,13 +134,26 @@ public actor ParakeetService {
     /// Registers a partial-result callback on the given manager and returns the
     /// generation token identifying this registration. Each call bumps the
     /// generation so a later session always wins over an earlier one.
+    ///
+    /// The installed callback is wrapped with a generation check: it forwards to
+    /// `callback` only while its own generation is still current. This makes
+    /// registration itself order-safe — if actor reentrancy causes an older
+    /// session's `setPartialCallback` to land last, its wrapped callback is
+    /// already stale and does nothing.
     private func registerPartialCallback(
         on manager: StreamingEouAsrManager,
         _ callback: @escaping @Sendable (String) -> Void
     ) async -> Int {
-        partialCallbackGeneration += 1
-        let generation = partialCallbackGeneration
-        await manager.setPartialCallback(callback)
+        let generation = partialCallbackGeneration.withLock { value in
+            value += 1
+            return value
+        }
+        let currentGeneration = partialCallbackGeneration
+        await manager.setPartialCallback { text in
+            // Inert once a newer session has registered.
+            guard currentGeneration.withLock({ $0 }) == generation else { return }
+            callback(text)
+        }
         return generation
     }
 
@@ -145,7 +164,7 @@ public actor ParakeetService {
         on manager: StreamingEouAsrManager,
         generation: Int
     ) async {
-        guard generation == partialCallbackGeneration else { return }
+        guard partialCallbackGeneration.withLock({ $0 }) == generation else { return }
         await manager.setPartialCallback { _ in }
     }
 
