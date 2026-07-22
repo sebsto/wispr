@@ -48,6 +48,17 @@ DISTRIBUTION_XML   := $(CURDIR)/pkg/distribution.xml
 VERSION ?= $(shell grep -m1 'MARKETING_VERSION' $(XCODEPROJ)/project.pbxproj | sed 's/.*= *//;s/;.*//')
 FINAL_PKG          := $(EXPORT_DIR)/wispr-$(VERSION).pkg
 
+# Reusable guard: VERSION must be non-empty AND a safe version token before it is
+# interpolated into filenames, sed patterns, and pkgbuild args. Rejects spaces,
+# slashes, quotes, and sed metacharacters (e.g. a stray `/` would change the
+# meaning of `sed 's/.../.../'`). Allowed: digits, dots, and an optional
+# alphanumeric/hyphen prerelease suffix (e.g. 1.2.3 or 0.0.1-test).
+define check-version
+	@test -n "$(VERSION)" || { echo "Error: VERSION is empty; pass VERSION=x.y.z"; exit 1; }
+	@printf '%s' '$(VERSION)' | grep -Eq '^[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.]+)?$$' || \
+		{ echo "Error: VERSION '$(VERSION)' is not a valid version (expected e.g. 1.2.3 or 0.0.1-test)"; exit 1; }
+endef
+
 .PHONY: help test bump-build archive upload notarize pkg pkg-release brew-release release brew-clean list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-login-item reset-onboarding _setup-api-key _cleanup-api-key _commit-and-tag _generate-cask
 
 _setup-api-key:
@@ -105,8 +116,10 @@ _generate-cask:
 	@cd ../homebrew-macos && git pull --rebase origin main
 	@mkdir -p ../homebrew-macos/Casks
 	@cp wispr.rb ../homebrew-macos/Casks/
+	@# Gate the commit on staged changes so re-running with an unchanged cask
+	@# is idempotent (matches _commit-and-tag) instead of failing "nothing to commit".
 	@cd ../homebrew-macos && git add Casks/wispr.rb && \
-		git commit -m "Update wispr to $(VERSION)" && \
+		{ git diff --cached --quiet || git commit -m "Update wispr to $(VERSION)"; } && \
 		git push --no-verify origin main
 	@rm -f wispr.rb
 
@@ -181,7 +194,7 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@test -n "$(INSTALLER_IDENTITY)" || { echo "Error: installer_identity not found in $(SECRETS_JSON)"; exit 1; }
 	@security find-identity -v -p basic | grep -qF "$(INSTALLER_IDENTITY)" || \
 		{ echo 'Error: certificate "$(INSTALLER_IDENTITY)" not found in keychain'; exit 1; }
-	@test -n "$(VERSION)" || { echo "Error: VERSION is empty (could not read MARKETING_VERSION); pass VERSION=x.y.z"; exit 1; }
+	$(check-version)
 	@echo "📦 Building component package (version $(VERSION))…"
 	@pkgbuild --component "$(APP_PATH)" \
 		--install-location /Applications \
@@ -217,7 +230,7 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@echo "✅ Installer ready: $(FINAL_PKG)"
 
 pkg-release: ## Upload only the .pkg to GitHub Releases (usage: make pkg-release VERSION=1.0.0). Note: the build also produces the Homebrew zip; use `release` to publish both + the cask.
-	@test -n "$(VERSION)" || { echo "Usage: make pkg-release VERSION=x.y.z"; exit 1; }
+	$(check-version)
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
 	$(eval TAG := v$(VERSION))
 	@echo "📝 Setting version to $(VERSION)…"
@@ -250,7 +263,7 @@ brew-clean: ## Clean up existing release tags, GitHub release, and homebrew cask
 	@echo "✅ Cleanup complete"
 
 brew-release: ## Create Homebrew cask release only (usage: make brew-release VERSION=1.0.0). For both .pkg + Homebrew, use `release`.
-	@test -n "$(VERSION)" || { echo "Usage: make brew-release VERSION=1.0.0"; exit 1; }
+	$(check-version)
 	@test -d "../homebrew-macos" || { echo "Error: ../homebrew-macos not found"; exit 1; }
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
 	$(eval TAG := v$(VERSION))
@@ -268,7 +281,7 @@ brew-release: ## Create Homebrew cask release only (usage: make brew-release VER
 	@echo "✅ Release $(VERSION) complete!"
 
 release: ## Release BOTH .pkg and Homebrew cask under one version (usage: make release VERSION=1.0.0)
-	@test -n "$(VERSION)" || { echo "Usage: make release VERSION=x.y.z"; exit 1; }
+	$(check-version)
 	@test -d "../homebrew-macos" || { echo "Error: ../homebrew-macos not found"; exit 1; }
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
 	$(eval TAG := v$(VERSION))
