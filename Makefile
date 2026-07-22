@@ -126,6 +126,7 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@test -n "$(INSTALLER_IDENTITY)" || { echo "Error: installer_identity not found in $(SECRETS_JSON)"; exit 1; }
 	@security find-identity -v -p basic | grep -qF "$(INSTALLER_IDENTITY)" || \
 		{ echo 'Error: certificate "$(INSTALLER_IDENTITY)" not found in keychain'; exit 1; }
+	@test -n "$(VERSION)" || { echo "Error: VERSION is empty (could not read MARKETING_VERSION); pass VERSION=x.y.z"; exit 1; }
 	@echo "📦 Building component package (version $(VERSION))…"
 	@pkgbuild --component "$(APP_PATH)" \
 		--install-location /Applications \
@@ -148,7 +149,8 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
 	@sh -c 'trap "rm -f \"$(API_KEY_PATH)\"" EXIT; \
 		mkdir -p "$(API_KEYS_DIR)"; \
-		jq -r .apple_api_key "$(SECRETS_JSON)" | base64 -d > "$(API_KEY_PATH)" || { echo "Error: failed to decode API key"; exit 1; }; \
+		jq -r .apple_api_key "$(SECRETS_JSON)" | base64 -d > "$(API_KEY_PATH)"; \
+		test -s "$(API_KEY_PATH)" || { echo "Error: decoded API key is empty (missing .apple_api_key in $(SECRETS_JSON)?)"; exit 1; }; \
 		xcrun notarytool submit "$(SIGNED_PKG)" \
 			--key "$(API_KEY_PATH)" \
 			--key-id "$(API_KEY_ID)" \

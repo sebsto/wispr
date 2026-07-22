@@ -45,10 +45,10 @@ struct PkgInstallerTests {
         return (process.terminationStatus, output)
     }
 
-    private func tempDir() -> URL {
+    private func tempDir() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pkg-installer-tests-\(UUID().uuidString)")
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
 
@@ -73,7 +73,7 @@ struct PkgInstallerTests {
             let team = teamIDs.randomElement()!
             let identity = "Developer ID Installer: \(name) (\(team))"
 
-            let dir = tempDir()
+            let dir = try tempDir()
             defer { try? FileManager.default.removeItem(at: dir) }
             let jsonURL = dir.appendingPathComponent("asc-api-key.json")
 
@@ -124,7 +124,7 @@ struct PkgInstallerTests {
             let old = "\(Int.random(in: 0...9)).\(Int.random(in: 0...9)).\(Int.random(in: 0...9))"
             let new = "\(Int.random(in: 10...99)).\(Int.random(in: 0...99)).\(Int.random(in: 0...99))"
 
-            let dir = tempDir()
+            let dir = try tempDir()
             defer { try? FileManager.default.removeItem(at: dir) }
             let pbxURL = dir.appendingPathComponent("project.pbxproj")
 
@@ -164,7 +164,7 @@ struct PkgInstallerTests {
         for _ in 0..<100 {
             let missing = required.randomElement()!
 
-            let dir = tempDir()
+            let dir = try tempDir()
             defer { try? FileManager.default.removeItem(at: dir) }
             let resources = dir.appendingPathComponent("resources")
             try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)

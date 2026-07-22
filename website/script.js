@@ -26,6 +26,7 @@ async function fetchLatestRelease() {
 
         const pkgDownloadLink = document.getElementById('pkg-download-link');
         const pkgDownloadText = document.getElementById('pkg-download-text');
+        const pkgInstallNote = document.getElementById('pkg-install-note');
         const versionInfo = document.getElementById('version-info');
         const footerDownloadLink = document.querySelector('.footer-links a[href*="releases"]');
 
@@ -45,9 +46,11 @@ async function fetchLatestRelease() {
             if (versionInfo) versionInfo.textContent = `Latest: ${data.tag_name} • ${(installerAsset.size / 1024 / 1024).toFixed(1)} MB`;
             if (footerDownloadLink) footerDownloadLink.href = downloadUrl;
         } else {
-            // No installer asset yet — link to the releases page, not a non-installer asset.
+            // No installer asset yet — link to the releases page, not a non-installer asset,
+            // and drop the "signed .pkg" note since we can't offer a direct installer.
             if (pkgDownloadLink) pkgDownloadLink.href = data.html_url;
             if (pkgDownloadText) pkgDownloadText.textContent = `View ${data.tag_name} on GitHub`;
+            if (pkgInstallNote) pkgInstallNote.textContent = 'Download the latest release from GitHub.';
             if (versionInfo) versionInfo.textContent = `Latest: ${data.tag_name}`;
             if (footerDownloadLink) footerDownloadLink.href = data.html_url;
         }
@@ -55,13 +58,15 @@ async function fetchLatestRelease() {
         console.error('Failed to fetch latest release:', error);
         const pkgDownloadLink = document.getElementById('pkg-download-link');
         const pkgDownloadText = document.getElementById('pkg-download-text');
+        const pkgInstallNote = document.getElementById('pkg-install-note');
         const versionInfo = document.getElementById('version-info');
         const footerDownloadLink = document.querySelector('.footer-links a[href*="releases"]');
 
         const fallbackUrl = 'https://github.com/sebsto/wispr/releases/latest';
         if (pkgDownloadLink) pkgDownloadLink.href = fallbackUrl;
-        // Relabel so the button doesn't claim ".pkg installer" while pointing at the releases page.
+        // Relabel button + note so neither claims a signed ".pkg installer" while pointing at the releases page.
         if (pkgDownloadText) pkgDownloadText.textContent = 'View releases on GitHub';
+        if (pkgInstallNote) pkgInstallNote.textContent = 'Download the latest release from GitHub.';
         if (versionInfo) versionInfo.textContent = 'View releases on GitHub';
         if (footerDownloadLink) footerDownloadLink.href = fallbackUrl;
     }
