@@ -168,6 +168,12 @@ pkg-release: ## Build .pkg and upload to GitHub Releases (usage: make pkg-releas
 	@echo "📝 Setting version to $(VERSION)…"
 	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
 	@$(MAKE) pkg VERSION=$(VERSION)
+	@# Commit the version + build-number bump BEFORE tagging so the tag points at
+	@# reachable history whose embedded version matches the released artifact.
+	@echo "📌 Committing version bump…"
+	@git add $(XCODEPROJ)/project.pbxproj
+	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
+	@git push --no-verify origin HEAD
 	@echo "🏷️  Creating GitHub release $(TAG)…"
 	@git tag $(TAG) || true
 	@git push --no-verify origin $(TAG) || true
@@ -206,6 +212,12 @@ brew-release: ## Create Homebrew cask release (usage: make brew-release VERSION=
 	@$(MAKE) notarize
 	@echo "🗜️  Creating release zip..."
 	@cp "$(ZIP_PATH)" "$(EXPORT_DIR)/$(ZIP_NAME)"
+	@# Commit the version + build-number bump BEFORE tagging so the tag points at
+	@# reachable history whose embedded version matches the released artifact.
+	@echo "📌 Committing version bump…"
+	@git add $(XCODEPROJ)/project.pbxproj
+	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
+	@git push --no-verify origin HEAD
 	@echo "🏷️  Creating GitHub release..."
 	@git tag $(TAG) || true
 	@git push --no-verify origin $(TAG) || true
