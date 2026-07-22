@@ -216,7 +216,7 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@mv "$(SIGNED_PKG)" "$(FINAL_PKG)"
 	@echo "✅ Installer ready: $(FINAL_PKG)"
 
-pkg-release: ## Build .pkg only and upload to GitHub Releases (usage: make pkg-release VERSION=1.0.0). For both .pkg + Homebrew, use `release`.
+pkg-release: ## Upload only the .pkg to GitHub Releases (usage: make pkg-release VERSION=1.0.0). Note: the build also produces the Homebrew zip; use `release` to publish both + the cask.
 	@test -n "$(VERSION)" || { echo "Usage: make pkg-release VERSION=x.y.z"; exit 1; }
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
 	$(eval TAG := v$(VERSION))
