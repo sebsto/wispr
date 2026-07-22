@@ -79,6 +79,10 @@ struct RecordingOverlayView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabelForState)
+        // Surface live partial transcription on the root element. The child
+        // Text's own label is ignored under `.combine` + explicit label, so
+        // expose the ghost text as the root's accessibilityValue instead.
+        .accessibilityValue(partialTranscriptionAccessibilityValue)
         .accessibilityHint(
             settingsStore.handsFreeMode
                 ? "Press the hotkey again to stop recording. Recording may also stop automatically, depending on the model."
@@ -149,7 +153,7 @@ struct RecordingOverlayView: View {
                     .truncationMode(.head)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity)
-                    .accessibilityLabel("Partial transcription: \(partialText)")
+                    .accessibilityHidden(true)  // surfaced via the root's accessibilityValue
             }
         }
         .padding(.horizontal, 20)
@@ -297,6 +301,16 @@ struct RecordingOverlayView: View {
     }
 
     // MARK: - Accessibility
+
+    /// Live partial transcription surfaced as the root element's value, so
+    /// VoiceOver announces ghost text updates during recording. Empty when
+    /// there is no partial text.
+    private var partialTranscriptionAccessibilityValue: String {
+        guard case .recording = stateManager.appState,
+              let partial = stateManager.partialTranscriptionText, !partial.isEmpty
+        else { return "" }
+        return partial
+    }
 
     private var accessibilityLabelForState: String {
         switch stateManager.appState {
