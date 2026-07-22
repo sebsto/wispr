@@ -24,7 +24,10 @@ struct PkgInstallerTests {
 
         let outPipe = Pipe()
         process.standardOutput = outPipe
-        process.standardError = Pipe()
+        // Inherit the test process's stderr rather than an unconsumed Pipe():
+        // a child that writes enough to a full, undrained stderr pipe would block
+        // and hang the test run. This keeps diagnostics visible and avoids deadlock.
+        process.standardError = FileHandle.standardError
 
         if let stdin {
             let inPipe = Pipe()
