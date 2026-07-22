@@ -98,23 +98,56 @@ struct PkgInstallerTests {
     // MARK: - Property 2: Output package filename follows version pattern
     // Validates: Requirements 5.2
 
-    @Test("Property 2: final .pkg filename is wispr-X.Y.Z.pkg under build/export")
-    func testOutputFilenamePattern() {
+    @Test("Property 2: Makefile FINAL_PKG resolves to <EXPORT_DIR>/wispr-<VERSION>.pkg")
+    func testOutputFilenamePattern() throws {
+        // Derive the output path from the Makefile's ACTUAL variable definitions
+        // rather than a string rebuilt in the test, so a change to the packaging
+        // output-path logic (renamed var, moved dir, altered filename pattern)
+        // makes this fail. macOS ships GNU Make 3.81, which lacks a reliable way to
+        // print a resolved variable, so we read + expand the definitions ourselves.
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // wisprTests/
+            .deletingLastPathComponent()   // repo root
+        let makefile = root.appendingPathComponent("Makefile")
+        let makefileText = try String(contentsOf: makefile, encoding: .utf8)
+
+        // Grab the right-hand side of a `NAME := value` (or `NAME = value`) assignment.
+        func rhs(of name: String) -> String? {
+            for line in makefileText.components(separatedBy: "\n") {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix(name) else { continue }
+                let after = trimmed.dropFirst(name.count).trimmingCharacters(in: .whitespaces)
+                guard after.hasPrefix(":=") || after.hasPrefix("=") else { continue }
+                return after.drop(while: { $0 == ":" || $0 == "=" })
+                    .trimmingCharacters(in: .whitespaces)
+            }
+            return nil
+        }
+
+        let exportDirDef = try #require(rhs(of: "EXPORT_DIR"), "EXPORT_DIR not found in Makefile")
+        let finalPkgDef = try #require(rhs(of: "FINAL_PKG"), "FINAL_PKG not found in Makefile")
+
+        // EXPORT_DIR := $(CURDIR)/build/export  → resolve $(CURDIR) to the repo root.
+        let exportDir = exportDirDef.replacingOccurrences(of: "$(CURDIR)", with: root.path)
+        #expect(exportDir.hasSuffix("/build/export"),
+                "EXPORT_DIR resolved to \(exportDir), expected to end with /build/export")
+
         for _ in 0..<100 {
             let x = Int.random(in: 0...99)
             let y = Int.random(in: 0...99)
             let z = Int.random(in: 0...99)
             let version = "\(x).\(y).\(z)"
 
-            let exportDir = "build/export"
-            let finalPath = "\(exportDir)/wispr-\(version).pkg"
+            // Resolve FINAL_PKG (:= $(EXPORT_DIR)/wispr-$(VERSION).pkg) for this VERSION.
+            let resolved = finalPkgDef
+                .replacingOccurrences(of: "$(EXPORT_DIR)", with: exportDir)
+                .replacingOccurrences(of: "$(VERSION)", with: version)
 
-            #expect(finalPath == "build/export/wispr-\(x).\(y).\(z).pkg")
-            #expect(finalPath.hasPrefix("build/export/"))
-            #expect(finalPath.hasSuffix(".pkg"))
-
-            let filename = (finalPath as NSString).lastPathComponent
-            #expect(filename == "wispr-\(version).pkg")
+            let filename = (resolved as NSString).lastPathComponent
+            #expect(filename == "wispr-\(version).pkg",
+                    "FINAL_PKG basename was \(filename), expected wispr-\(version).pkg")
+            #expect(resolved.hasSuffix("/build/export/wispr-\(version).pkg"),
+                    "FINAL_PKG resolved to \(resolved), expected to end with /build/export/wispr-\(version).pkg")
         }
     }
 
