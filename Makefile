@@ -60,9 +60,10 @@ _cleanup-api-key:
 
 # Commit the version + build-number bump and tag it, so the tag points at
 # reachable history whose embedded version matches the released artifact.
-# Idempotent: the commit is skipped if nothing is staged and the tag is
-# created only if it doesn't already exist — so running this once per
-# release (or twice for the same VERSION) never double-commits or errors.
+# Idempotent for re-runs of the SAME release: the commit is skipped if nothing
+# is staged, and an existing tag is accepted only if it already points at HEAD.
+# If the tag exists but points elsewhere, fail loudly rather than uploading new
+# artifacts to a stale release/commit (mismatched artifact vs. source).
 _commit-and-tag:
 	@test -n "$(VERSION)" || { echo "Error: VERSION not set for _commit-and-tag"; exit 1; }
 	$(eval TAG := v$(VERSION))
@@ -71,8 +72,14 @@ _commit-and-tag:
 	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
 	@git push --no-verify origin HEAD
 	@echo "🏷️  Tagging $(TAG)…"
-	@git tag $(TAG) 2>/dev/null || true
-	@git push --no-verify origin $(TAG) 2>/dev/null || true
+	@if git rev-parse -q --verify "refs/tags/$(TAG)" >/dev/null; then \
+		test "$$(git rev-parse "$(TAG)^{commit}")" = "$$(git rev-parse HEAD)" || \
+			{ echo "Error: tag $(TAG) already exists and points at a different commit than HEAD — refusing to release mismatched artifacts. Delete/move the tag or bump VERSION."; exit 1; }; \
+		echo "Tag $(TAG) already at HEAD; reusing it."; \
+	else \
+		git tag "$(TAG)"; \
+	fi
+	@git push --no-verify origin "$(TAG)"
 
 # Generate the Homebrew cask from the released .zip and push it to the tap.
 # Expects the v$(VERSION) GitHub release + wispr-$(VERSION).zip asset to exist.
@@ -168,6 +175,9 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@# exits non-zero when the file is NOT tracked — the desired state.
 	@git ls-files --error-unmatch "$(SECRETS_JSON:$(CURDIR)/%=%)" >/dev/null 2>&1 && \
 		{ echo "Error: $(SECRETS_JSON) is tracked by git — remove it from version control before releasing"; exit 1; } || true
+	@# Check jq first: INSTALLER_IDENTITY is populated via `jq`, so a missing jq
+	@# would otherwise surface as a misleading "installer_identity not found".
+	@command -v jq >/dev/null || { echo "Error: jq is not installed (brew install jq)"; exit 1; }
 	@test -n "$(INSTALLER_IDENTITY)" || { echo "Error: installer_identity not found in $(SECRETS_JSON)"; exit 1; }
 	@security find-identity -v -p basic | grep -qF "$(INSTALLER_IDENTITY)" || \
 		{ echo 'Error: certificate "$(INSTALLER_IDENTITY)" not found in keychain'; exit 1; }

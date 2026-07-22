@@ -39,10 +39,17 @@ async function fetchLatestRelease() {
 
         if (installerAsset) {
             const downloadUrl = installerAsset.browser_download_url;
-            const kind = installerAsset.name.endsWith('.pkg') ? '.pkg installer' : '.dmg';
+            const isPkg = installerAsset.name.endsWith('.pkg');
+            const kind = isPkg ? '.pkg installer' : '.dmg';
+            // Keep the install note in sync with the asset kind so the instructions
+            // are accurate for whichever installer the release actually ships.
+            const note = isPkg
+                ? 'Signed & notarized by Apple. Passes Gatekeeper and installs straight to /Applications — just double-click.'
+                : 'Signed & notarized by Apple. Open the disk image and drag Wispr to your Applications folder.';
 
             if (pkgDownloadLink) pkgDownloadLink.href = downloadUrl;
             if (pkgDownloadText) pkgDownloadText.textContent = `Download the ${kind} (${data.tag_name})`;
+            if (pkgInstallNote) pkgInstallNote.textContent = note;
             if (versionInfo) versionInfo.textContent = `Latest: ${data.tag_name} • ${(installerAsset.size / 1024 / 1024).toFixed(1)} MB`;
             if (footerDownloadLink) footerDownloadLink.href = downloadUrl;
         } else {
