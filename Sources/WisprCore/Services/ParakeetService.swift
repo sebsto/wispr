@@ -225,33 +225,33 @@ public actor ParakeetService {
             await manager.reset()
             let startTime = Date()
 
-            // Register a partial-result callback for real-time "ghost text".
+            // Always register a partial-result callback for this session, even
+            // when partials are disabled — StreamingEouAsrManager.reset() does
+            // NOT clear the previous session's callback, so registering (and
+            // bumping the generation) is what deterministically supersedes it.
+            // Emission is gated on `emitPartialResults` INSIDE the callback, so
+            // a session with partials off installs an effectively inert callback
+            // rather than leaving a stale one that keeps firing.
+            //
             // `startTime` is an immutable value captured by copy (no race), and
             // the callback yields into the thread-safe stream continuation, so
-            // it is safe to fire from whatever thread FluidAudio uses.
-            //
-            // The returned generation token identifies THIS registration. On any
-            // exit path we clear the callback only if our generation is still the
-            // current one, so a stopped session can't clobber a newer session's
-            // callback during a fast stop→start (StreamingEouAsrManager.reset()
-            // does not clear partialCallback, and there is no nil overload).
-            var partialGeneration: Int?
-            if emitPartialResults {
-                partialGeneration = await self.registerPartialCallback(on: manager) { [startTime] partialText in
-                    let trimmed = partialText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    continuation.yield(TranscriptionResult(
-                        text: trimmed,
-                        detectedLanguage: nil,
-                        duration: Date().timeIntervalSince(startTime),
-                        isPartial: true
-                    ))
-                }
+            // it is safe to fire from whatever thread FluidAudio uses. The
+            // generation token identifies THIS registration; on any exit path we
+            // clear only if our generation is still current, so a stopped session
+            // can't clobber a newer session's callback during a fast stop→start.
+            let partialGeneration = await self.registerPartialCallback(on: manager) { [startTime] partialText in
+                guard emitPartialResults else { return }
+                let trimmed = partialText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                continuation.yield(TranscriptionResult(
+                    text: trimmed,
+                    detectedLanguage: nil,
+                    duration: Date().timeIntervalSince(startTime),
+                    isPartial: true
+                ))
             }
             defer {
-                if let partialGeneration {
-                    Task { await self.clearPartialCallbackIfCurrent(on: manager, generation: partialGeneration) }
-                }
+                Task { await self.clearPartialCallbackIfCurrent(on: manager, generation: partialGeneration) }
             }
 
             do {
