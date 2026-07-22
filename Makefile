@@ -48,7 +48,7 @@ DISTRIBUTION_XML   := $(CURDIR)/pkg/distribution.xml
 VERSION ?= $(shell grep -m1 'MARKETING_VERSION' $(XCODEPROJ)/project.pbxproj | sed 's/.*= *//;s/;.*//')
 FINAL_PKG          := $(EXPORT_DIR)/wispr-$(VERSION).pkg
 
-.PHONY: help test bump-build archive upload notarize pkg pkg-release brew-release brew-clean list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-login-item reset-onboarding
+.PHONY: help test bump-build archive upload notarize pkg pkg-release brew-release release brew-clean list-downloads clean-downloads list-container list-prefs clean-prefs reset-permissions reset-login-item reset-onboarding _setup-api-key _cleanup-api-key _commit-and-tag _generate-cask
 
 _setup-api-key:
 	@test -f "$(SECRETS_JSON)" || { echo "Error: $(SECRETS_JSON) not found"; exit 1; }
@@ -57,6 +57,51 @@ _setup-api-key:
 
 _cleanup-api-key:
 	@rm -f $(API_KEY_PATH)
+
+# Commit the version + build-number bump and tag it, so the tag points at
+# reachable history whose embedded version matches the released artifact.
+# Idempotent: the commit is skipped if nothing is staged and the tag is
+# created only if it doesn't already exist — so running this once per
+# release (or twice for the same VERSION) never double-commits or errors.
+_commit-and-tag:
+	@test -n "$(VERSION)" || { echo "Error: VERSION not set for _commit-and-tag"; exit 1; }
+	$(eval TAG := v$(VERSION))
+	@echo "📌 Committing version bump…"
+	@git add $(XCODEPROJ)/project.pbxproj
+	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
+	@git push --no-verify origin HEAD
+	@echo "🏷️  Tagging $(TAG)…"
+	@git tag $(TAG) 2>/dev/null || true
+	@git push --no-verify origin $(TAG) 2>/dev/null || true
+
+# Generate the Homebrew cask from the released .zip and push it to the tap.
+# Expects the v$(VERSION) GitHub release + wispr-$(VERSION).zip asset to exist.
+_generate-cask:
+	@test -n "$(VERSION)" || { echo "Error: VERSION not set for _generate-cask"; exit 1; }
+	@test -d "../homebrew-macos" || { echo "Error: ../homebrew-macos not found"; exit 1; }
+	$(eval TAG := v$(VERSION))
+	$(eval ZIP_NAME := wispr-$(VERSION).zip)
+	$(eval URL := https://github.com/sebsto/wispr/releases/download/$(TAG)/$(ZIP_NAME))
+	@echo "🍺 Generating cask..."
+	@echo "cask \"wispr\" do" > wispr.rb
+	@echo "  version \"$(VERSION)\"" >> wispr.rb
+	@echo "  sha256 \"$$(shasum -a 256 $(EXPORT_DIR)/$(ZIP_NAME) | awk '{print $$1}')\"" >> wispr.rb
+	@echo "" >> wispr.rb
+	@echo "  url \"$(URL)\"" >> wispr.rb
+	@echo "  name \"Wispr\"" >> wispr.rb
+	@echo "  desc \"Local speech-to-text transcription powered by OpenAI Whisper\"" >> wispr.rb
+	@echo "  homepage \"https://github.com/sebsto/wispr\"" >> wispr.rb
+	@echo "" >> wispr.rb
+	@echo "  app \"Wispr.app\"" >> wispr.rb
+	@echo "end" >> wispr.rb
+	@echo "📦 Updating homebrew tap..."
+	@cd ../homebrew-macos && git pull --rebase origin main
+	@mkdir -p ../homebrew-macos/Casks
+	@cp wispr.rb ../homebrew-macos/Casks/
+	@cd ../homebrew-macos && git add Casks/wispr.rb && \
+		git commit -m "Update wispr to $(VERSION)" && \
+		git push --no-verify origin main
+	@rm -f wispr.rb
 
 bump-build: ## Set build number (CFBundleVersion) to git commit count
 	$(eval BUILD_NUM := $(shell date +%y%m%d).$(shell git rev-list --count HEAD))
@@ -161,22 +206,15 @@ pkg: notarize ## Build a signed, notarized .pkg installer (reuses notarize; VERS
 	@mv "$(SIGNED_PKG)" "$(FINAL_PKG)"
 	@echo "✅ Installer ready: $(FINAL_PKG)"
 
-pkg-release: ## Build .pkg and upload to GitHub Releases (usage: make pkg-release VERSION=1.0.0)
+pkg-release: ## Build .pkg only and upload to GitHub Releases (usage: make pkg-release VERSION=1.0.0). For both .pkg + Homebrew, use `release`.
 	@test -n "$(VERSION)" || { echo "Usage: make pkg-release VERSION=x.y.z"; exit 1; }
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
 	$(eval TAG := v$(VERSION))
 	@echo "📝 Setting version to $(VERSION)…"
 	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
 	@$(MAKE) pkg VERSION=$(VERSION)
-	@# Commit the version + build-number bump BEFORE tagging so the tag points at
-	@# reachable history whose embedded version matches the released artifact.
-	@echo "📌 Committing version bump…"
-	@git add $(XCODEPROJ)/project.pbxproj
-	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
-	@git push --no-verify origin HEAD
+	@$(MAKE) _commit-and-tag VERSION=$(VERSION)
 	@echo "🏷️  Creating GitHub release $(TAG)…"
-	@git tag $(TAG) || true
-	@git push --no-verify origin $(TAG) || true
 	@# One release per version, multiple artifacts: if the tag already has a release
 	@# (e.g. brew-release uploaded the .zip), `create` fails and we `upload` the .pkg
 	@# alongside the existing assets. --clobber only replaces the same-named .pkg on
@@ -201,7 +239,7 @@ brew-clean: ## Clean up existing release tags, GitHub release, and homebrew cask
 	fi
 	@echo "✅ Cleanup complete"
 
-brew-release: ## Create Homebrew cask release (usage: make brew-release VERSION=1.0.0)
+brew-release: ## Create Homebrew cask release only (usage: make brew-release VERSION=1.0.0). For both .pkg + Homebrew, use `release`.
 	@test -n "$(VERSION)" || { echo "Usage: make brew-release VERSION=1.0.0"; exit 1; }
 	@test -d "../homebrew-macos" || { echo "Error: ../homebrew-macos not found"; exit 1; }
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
@@ -212,40 +250,35 @@ brew-release: ## Create Homebrew cask release (usage: make brew-release VERSION=
 	@$(MAKE) notarize
 	@echo "🗜️  Creating release zip..."
 	@cp "$(ZIP_PATH)" "$(EXPORT_DIR)/$(ZIP_NAME)"
-	@# Commit the version + build-number bump BEFORE tagging so the tag points at
-	@# reachable history whose embedded version matches the released artifact.
-	@echo "📌 Committing version bump…"
-	@git add $(XCODEPROJ)/project.pbxproj
-	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
-	@git push --no-verify origin HEAD
+	@$(MAKE) _commit-and-tag VERSION=$(VERSION)
 	@echo "🏷️  Creating GitHub release..."
-	@git tag $(TAG) || true
-	@git push --no-verify origin $(TAG) || true
 	@gh release create $(TAG) --generate-notes $(EXPORT_DIR)/$(ZIP_NAME) || \
-		gh release upload $(TAG) $(EXPORT_DIR)/$(ZIP_NAME)
-	$(eval URL := https://github.com/sebsto/wispr/releases/download/$(TAG)/$(ZIP_NAME))
-	@echo "🍺 Generating cask..."
-	@echo "cask \"wispr\" do" > wispr.rb
-	@echo "  version \"$(VERSION)\"" >> wispr.rb
-	@echo "  sha256 \"$$(shasum -a 256 $(EXPORT_DIR)/$(ZIP_NAME) | awk '{print $$1}')\"" >> wispr.rb
-	@echo "" >> wispr.rb
-	@echo "  url \"$(URL)\"" >> wispr.rb
-	@echo "  name \"Wispr\"" >> wispr.rb
-	@echo "  desc \"Local speech-to-text transcription powered by OpenAI Whisper\"" >> wispr.rb
-	@echo "  homepage \"https://github.com/sebsto/wispr\"" >> wispr.rb
-	@echo "" >> wispr.rb
-	@echo "  app \"Wispr.app\"" >> wispr.rb
-	@echo "end" >> wispr.rb
-	@echo "📦 Updating homebrew tap..."
-	@cd ../homebrew-macos && git pull --rebase origin main
-	@mkdir -p ../homebrew-macos/Casks
-	@cd ../homebrew-macos && git pull
-	@cp wispr.rb ../homebrew-macos/Casks/
-	@cd ../homebrew-macos && git add Casks/wispr.rb && \
-		git commit -m "Update wispr to $(VERSION)" && \
-		git push --no-verify origin main
-	@rm -f wispr.rb
+		gh release upload $(TAG) $(EXPORT_DIR)/$(ZIP_NAME) --clobber
+	@$(MAKE) _generate-cask VERSION=$(VERSION)
 	@echo "✅ Release $(VERSION) complete!"
+
+release: ## Release BOTH .pkg and Homebrew cask under one version (usage: make release VERSION=1.0.0)
+	@test -n "$(VERSION)" || { echo "Usage: make release VERSION=x.y.z"; exit 1; }
+	@test -d "../homebrew-macos" || { echo "Error: ../homebrew-macos not found"; exit 1; }
+	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
+	$(eval TAG := v$(VERSION))
+	$(eval ZIP_NAME := wispr-$(VERSION).zip)
+	@echo "📝 Setting version to $(VERSION)…"
+	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
+	@# `pkg` depends on `notarize`, which produces both the stapled app and the
+	@# Homebrew .zip — so one notarization round-trip yields both artifacts.
+	@$(MAKE) pkg VERSION=$(VERSION)
+	@echo "🗜️  Creating release zip..."
+	@cp "$(ZIP_PATH)" "$(EXPORT_DIR)/$(ZIP_NAME)"
+	@# Bump / commit / tag exactly once for both artifacts.
+	@$(MAKE) _commit-and-tag VERSION=$(VERSION)
+	@echo "🏷️  Creating GitHub release $(TAG) with both artifacts…"
+	@gh release create $(TAG) --generate-notes "$(FINAL_PKG)" "$(EXPORT_DIR)/$(ZIP_NAME)" || { \
+		gh release upload $(TAG) "$(FINAL_PKG)" --clobber; \
+		gh release upload $(TAG) "$(EXPORT_DIR)/$(ZIP_NAME)" --clobber; \
+	}
+	@$(MAKE) _generate-cask VERSION=$(VERSION)
+	@echo "✅ Release $(VERSION) complete: .pkg + Homebrew cask under $(TAG)"
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
