@@ -6,7 +6,6 @@
 //  Recognition, After Transcription, Feedback, and General.
 //
 
-import AppKit
 import SwiftUI
 import WisprCore
 import os
@@ -89,6 +88,7 @@ struct SettingsView: View {
     @Environment(HotkeyMonitor.self) private var hotkeyMonitor: HotkeyMonitor
     @Environment(TextCorrectionService.self) private var textCorrectionService:
         TextCorrectionService
+    @Environment(\.openURL) private var openURL
 
     @State private var audioDevices: [AudioInputDevice] = []
     @State private var whisperModels: [ModelInfo] = []
@@ -437,8 +437,10 @@ struct SettingsView: View {
 
     /// Home-abbreviated path to the folder where meeting transcripts are saved.
     private var transcriptsFolderPath: String {
-        (TranscriptStore.directory.path(percentEncoded: false) as NSString)
-            .abbreviatingWithTildeInPath
+        let path = TranscriptStore.directory.path(percentEncoded: false)
+        let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+        guard path.hasPrefix(home) else { return path }
+        return "~" + path.dropFirst(home.count)
     }
 
     /// Reveals the transcripts folder in Finder, creating it first if no meeting
@@ -446,7 +448,7 @@ struct SettingsView: View {
     private func openTranscriptsFolder() {
         let dir = TranscriptStore.directory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(dir)
+        openURL(dir)
     }
 
     // MARK: - General Section
