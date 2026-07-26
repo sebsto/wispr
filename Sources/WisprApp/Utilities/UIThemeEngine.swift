@@ -38,7 +38,7 @@ final class UIThemeEngine {
     // MARK: - Monitoring Handle
 
     /// Retained handle to the active monitor. Assigned by `UIThemeEngineMonitor.start()`.
-    var monitor: (any Sendable)?
+    var monitor: UIThemeEngineMonitor?
 
     // MARK: - Initialization
 
@@ -79,7 +79,7 @@ final class UIThemeEngine {
 
     /// Background color for opaque surfaces when Reduce Transparency is on.
     var opaqueBackground: Color {
-        Color(white: isDarkMode ? 0.2 : 0.95)
+        Color(.windowBackgroundColor)
     }
 
     /// Border color that adapts to Increase Contrast.

@@ -1,6 +1,8 @@
 import AVFAudio
 import ApplicationServices
 import Foundation
+import WisprCore
+import os
 
 /// Manages microphone and accessibility permissions for the Wispr application.
 /// This class checks permission status, requests permissions, and monitors changes.
@@ -85,7 +87,11 @@ final class PermissionManager {
                 string:
                     "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         else { return }
-        openURLHandler?(url)
+        guard let handler = openURLHandler else {
+            Log.app.warning("PermissionManager — openURLHandler not wired, cannot open Accessibility settings")
+            return
+        }
+        handler(url)
     }
 
     /// Opens System Settings to the Microphone privacy pane.
@@ -96,7 +102,11 @@ final class PermissionManager {
                 string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
             )
         else { return }
-        openURLHandler?(url)
+        guard let handler = openURLHandler else {
+            Log.app.warning("PermissionManager — openURLHandler not wired, cannot open Microphone settings")
+            return
+        }
+        handler(url)
     }
 
     // MARK: - Permission Monitoring

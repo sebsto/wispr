@@ -18,7 +18,7 @@ import Observation
 /// Extracted from `UIThemeEngine.swift` to keep the main theme file
 /// free of AppKit imports.
 @MainActor
-final class UIThemeEngineMonitor: @unchecked Sendable {
+final class UIThemeEngineMonitor {
 
     private var appearanceTask: Task<Void, Never>?
     private var accessibilityTask: Task<Void, Never>?
