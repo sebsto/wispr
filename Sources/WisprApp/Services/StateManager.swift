@@ -10,7 +10,7 @@
 import WisprCore
 import Foundation
 import Observation
-import AppKit
+import Accessibility
 import os
 
 /// The central coordinator for the Wispr application.
@@ -222,11 +222,8 @@ final class StateManager {
 
                 await self.audioEngine.cancelCapture()
 
-                NSAccessibility.post(
-                    element: NSApp as Any,
-                    notification: .announcementRequested,
-                    userInfo: [.announcement: "Speech ended, processing"]
-                )
+                AccessibilityNotification.Announcement("Speech ended, processing")
+                    .post()
 
                 self.soundFeedback.play(.recordingStopped)
 
@@ -328,16 +325,11 @@ final class StateManager {
 
             applyAutoSendEnter()
 
-            NSAccessibility.post(
-                element: NSApp as Any,
-                notification: .announcementRequested,
-                userInfo: [.announcement: "Text inserted"]
-            )
+            AccessibilityNotification.Announcement("Text inserted")
+                .post()
             await resetToIdle()
         } catch {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(finalText, forType: .string)
+            ClipboardService.copy(finalText)
             await handleError(
                 .textInsertionFailed(
                     "Text insertion failed. The transcribed text has been copied to your clipboard for manual pasting."
@@ -412,11 +404,8 @@ final class StateManager {
         soundFeedback.play(.recordingStarted)
 
         // Requirement 17.3, 17.11: Announce state change to assistive technologies
-        NSAccessibility.post(
-            element: NSApp as Any,
-            notification: .announcementRequested,
-            userInfo: [.announcement: "Recording started"]
-        )
+        AccessibilityNotification.Announcement("Recording started")
+            .post()
 
         do {
             // Requirement 8.2: Use the user's selected input device.
@@ -486,11 +475,8 @@ final class StateManager {
         soundFeedback.play(.recordingStopped)
 
         // Requirement 17.3, 17.11: Announce state change to assistive technologies
-        NSAccessibility.post(
-            element: NSApp as Any,
-            notification: .announcementRequested,
-            userInfo: [.announcement: "Processing speech"]
-        )
+        AccessibilityNotification.Announcement("Processing speech")
+            .post()
 
         // Guard against empty audio
         guard !audioSamples.isEmpty else {
@@ -543,11 +529,8 @@ final class StateManager {
         errorMessage = message
 
         // Requirement 17.3, 17.11: Announce error to assistive technologies
-        NSAccessibility.post(
-            element: NSApp as Any,
-            notification: .announcementRequested,
-            userInfo: [.announcement: "Error: \(message)"]
-        )
+        AccessibilityNotification.Announcement("Error: \(message)")
+            .post()
         
         // For permission errors, open System Settings to help user fix the issue
         // (We only reach here if permission was already denied, since .notDetermined

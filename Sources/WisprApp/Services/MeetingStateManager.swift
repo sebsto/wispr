@@ -6,7 +6,6 @@
 //  Manages audio capture, continuous transcription, and transcript assembly.
 //
 
-import AppKit
 import Foundation
 import Observation
 import WisprCore
@@ -196,9 +195,7 @@ final class MeetingStateManager {
     func copyTranscript() {
         let text = transcript.asPlainText()
         guard !text.isEmpty else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        ClipboardService.copy(text)
     }
 
     // MARK: - Transcription

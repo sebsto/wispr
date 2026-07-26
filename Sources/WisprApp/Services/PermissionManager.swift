@@ -1,5 +1,4 @@
 import AVFAudio
-import AppKit
 import ApplicationServices
 import Foundation
 
@@ -20,6 +19,13 @@ final class PermissionManager {
     var allPermissionsGranted: Bool {
         microphoneStatus == .authorized && accessibilityStatus == .authorized
     }
+
+    // MARK: - Dependencies
+
+    /// Closure that opens a URL using the system handler.
+    /// Injected to avoid importing AppKit in this file.
+    /// Defaults to opening via NSWorkspace when provided by the app delegate.
+    var openURLHandler: (@MainActor (URL) -> Void)?
 
     // MARK: - Initialization
 
@@ -71,28 +77,26 @@ final class PermissionManager {
         return microphoneStatus == .authorized
     }
 
-    /// Opens System Settings to the Accessibility privacy pane
-    /// This is required because accessibility permission cannot be requested programmatically
+    /// Opens System Settings to the Accessibility privacy pane.
+    /// This is required because accessibility permission cannot be requested programmatically.
     func openAccessibilitySettings() {
-        // Open System Settings to Privacy & Security > Accessibility
         guard
             let url = URL(
                 string:
                     "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         else { return }
-        NSWorkspace.shared.open(url)
+        openURLHandler?(url)
     }
 
-    /// Opens System Settings to the Microphone privacy pane
-    /// This allows the user to re-enable microphone access if they previously denied it
+    /// Opens System Settings to the Microphone privacy pane.
+    /// This allows the user to re-enable microphone access if they previously denied it.
     func openMicrophoneSettings() {
-        // Open System Settings to Privacy & Security > Microphone
         guard
             let url = URL(
                 string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
             )
         else { return }
-        NSWorkspace.shared.open(url)
+        openURLHandler?(url)
     }
 
     // MARK: - Permission Monitoring

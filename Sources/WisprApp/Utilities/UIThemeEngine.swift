@@ -1,6 +1,5 @@
 import SwiftUI
 import Observation
-import AppKit
 
 /// Manages visual theming for the Wispr application including Liquid Glass materials,
 /// semantic colors, SF Symbols, system appearance detection, and accessibility adaptations.
@@ -9,6 +8,9 @@ import AppKit
 /// It detects system appearance changes (light/dark mode) and accessibility settings
 /// (Reduce Motion, Reduce Transparency, Increase Contrast), exposing reactive properties
 /// that SwiftUI views can observe to adapt their presentation.
+///
+/// Monitoring of system changes is handled by `UIThemeEngineMonitor` (separate file)
+/// which imports AppKit. This file is AppKit-free.
 @MainActor
 @Observable
 final class UIThemeEngine {
@@ -33,85 +35,14 @@ final class UIThemeEngine {
     /// Whether the user has enabled Increase Contrast in System Settings
     var increaseContrast: Bool = false
 
-    // MARK: - Private State
+    // MARK: - Monitoring Handle
 
-    /// Task monitoring system appearance changes via KVO
-    private var appearanceTask: Task<Void, Never>?
-
-    /// Task monitoring accessibility setting changes via NotificationCenter
-    private var accessibilityTask: Task<Void, Never>?
+    /// Retained handle to the active monitor. Assigned by `UIThemeEngineMonitor.start()`.
+    var monitor: (any Sendable)?
 
     // MARK: - Initialization
 
-    init() {
-        refreshAppearance()
-        refreshAccessibilitySettings()
-    }
-
-    // Note: Call stopMonitoring() explicitly before releasing.
-    // deinit cannot access @MainActor-isolated state in Swift 6.
-
-    // MARK: - Monitoring
-
-    /// Starts observing system appearance and accessibility setting changes.
-    /// Call this once from a structured task context (e.g., `.task` modifier on the root view).
-    func startMonitoring() {
-        guard appearanceTask == nil else { return }
-
-        // Observe dark/light mode changes via KVO on NSApp.effectiveAppearance
-        // Guard against NSApp being nil (e.g. in swift test without a running NSApplication).
-        guard let app = NSApp else { return }
-        appearanceTask = Task { [weak self] in
-            let stream = AsyncStream<Void> { continuation in
-                let observation = app.observe(\.effectiveAppearance) { _, _ in
-                    continuation.yield()
-                }
-                continuation.onTermination = { _ in
-                    _ = observation // prevent the observation from being deallocated
-                }
-            }
-            for await _ in stream {
-                guard let self else { return }
-                self.refreshAppearance()
-            }
-        }
-
-        // Observe accessibility setting changes via system notification
-        accessibilityTask = Task { [weak self] in
-            let notifications = NotificationCenter.default.notifications(
-                named: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
-            )
-            for await _ in notifications {
-                guard let self else { return }
-                self.refreshAccessibilitySettings()
-            }
-        }
-    }
-
-    /// Stops monitoring for system changes.
-    func stopMonitoring() {
-        appearanceTask?.cancel()
-        appearanceTask = nil
-        accessibilityTask?.cancel()
-        accessibilityTask = nil
-    }
-
-    // MARK: - Refresh
-
-    /// Reads the current system appearance (light/dark mode).
-    func refreshAppearance() {
-        guard let app = NSApp else { return }
-        let appearance = app.effectiveAppearance
-        isDarkMode = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-    }
-
-    /// Reads the current accessibility settings from NSWorkspace.
-    func refreshAccessibilitySettings() {
-        let workspace = NSWorkspace.shared
-        reduceMotion = workspace.accessibilityDisplayShouldReduceMotion
-        reduceTransparency = workspace.accessibilityDisplayShouldReduceTransparency
-        increaseContrast = workspace.accessibilityDisplayShouldIncreaseContrast
-    }
+    init() {}
 
     // MARK: - Materials
 
@@ -148,7 +79,7 @@ final class UIThemeEngine {
 
     /// Background color for opaque surfaces when Reduce Transparency is on.
     var opaqueBackground: Color {
-        isDarkMode ? Color(nsColor: .windowBackgroundColor) : Color(nsColor: .windowBackgroundColor)
+        Color(white: isDarkMode ? 0.2 : 0.95)
     }
 
     /// Border color that adapts to Increase Contrast.
@@ -396,5 +327,3 @@ extension View {
         return foregroundStyle(theme.secondaryTextColor)
     }
 }
-
-

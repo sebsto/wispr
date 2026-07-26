@@ -43,8 +43,7 @@ struct CLIInstallDialogView: View {
 
             HStack {
                 Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(installCommand, forType: .string)
+                    ClipboardService.copy(installCommand)
                     copied = true
                 } label: {
                     Label(

@@ -159,6 +159,11 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         Log.app.debug("bootstrap — TextInsertionService created")
         Log.app.debug("bootstrap — HotkeyMonitor created")
 
+        // Inject URL-opening handler so PermissionManager stays AppKit-free
+        permissionManager.openURLHandler = { url in
+            NSWorkspace.shared.open(url)
+        }
+
         // Build the StateManager with all injected dependencies
         let sm = StateManager(
             audioEngine: audioEngine,
@@ -261,7 +266,9 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         }
 
         // Start theme engine monitoring for appearance / accessibility changes
-        themeEngine.startMonitoring()
+        let themeMonitor = UIThemeEngineMonitor(engine: themeEngine)
+        themeMonitor.start()
+        themeEngine.monitor = themeMonitor
 
         // Start observing state to drive overlay visibility (Req 9.1, 9.3, 9.4, 9.5)
         startOverlayObservation(stateManager: sm)

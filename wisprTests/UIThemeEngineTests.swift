@@ -317,19 +317,21 @@ struct UIThemeEngineTests {
 
     // MARK: - Monitoring Tests
 
-    @Test("stopMonitoring cancels monitoring task")
+    @Test("UIThemeEngineMonitor stop cancels monitoring task")
     func testStopMonitoring() {
         let engine = UIThemeEngine()
-        engine.startMonitoring()
-        engine.stopMonitoring()
+        let monitor = UIThemeEngineMonitor(engine: engine)
+        monitor.start()
+        monitor.stop()
         // No crash, monitoring stopped cleanly
     }
 
-    @Test("startMonitoring is idempotent")
+    @Test("UIThemeEngineMonitor start is idempotent")
     func testStartMonitoringIdempotent() {
         let engine = UIThemeEngine()
-        engine.startMonitoring()
-        engine.startMonitoring() // Should not create a second task
-        engine.stopMonitoring()
+        let monitor = UIThemeEngineMonitor(engine: engine)
+        monitor.start()
+        monitor.start() // Should not create a second task
+        monitor.stop()
     }
 }
