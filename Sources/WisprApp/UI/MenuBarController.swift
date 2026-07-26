@@ -94,6 +94,8 @@ final class MenuBarController {
     // MARK: - Menu Items (retained for dynamic updates)
 
     private let recordingMenuItem = NSMenuItem()
+    private let meetingMenuItem = NSMenuItem()
+    private let stopMeetingMenuItem = NSMenuItem()
     private let languageMenuItem = NSMenuItem()
     private let languageSubmenu = NSMenu()
     private let updateMenuItem = NSMenuItem()
@@ -180,16 +182,9 @@ final class MenuBarController {
         menu.addItem(recordingMenuItem)
 
         // Meeting Mode
-        let meetingItem = NSMenuItem(
-            title: "Meeting Transcription…",
-            action: #selector(MenuBarActionHandler.toggleMeetingMode(_:)),
-            keyEquivalent: ""
-        )
-        meetingItem.image = NSImage(
-            systemSymbolName: "person.2.wave.2",
-            accessibilityDescription: "Meeting Transcription"
-        )
-        menu.addItem(meetingItem)
+        updateMeetingMenuItem()
+        menu.addItem(meetingMenuItem)
+        menu.addItem(stopMeetingMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -305,6 +300,35 @@ final class MenuBarController {
 
         // Disable during processing
         recordingMenuItem.isEnabled = stateManager.appState != .processing
+    }
+
+    /// Updates the meeting menu items to reflect whether a meeting is recording.
+    ///
+    /// A meeting keeps running with its window closed, so the menu is the only
+    /// place the user can tell it is live — and the only way to stop it without
+    /// reopening the window.
+    private func updateMeetingMenuItem() {
+        let isMeetingRecording = meetingStateManager.meetingState == .recording
+
+        meetingMenuItem.title = isMeetingRecording
+            ? "Meeting Transcription — \(meetingStateManager.elapsedTime)"
+            : "Meeting Transcription…"
+        meetingMenuItem.action = #selector(MenuBarActionHandler.toggleMeetingMode(_:))
+        meetingMenuItem.target = MenuBarActionHandler.shared
+        meetingMenuItem.image = NSImage(
+            systemSymbolName: isMeetingRecording ? "person.2.wave.2.fill" : "person.2.wave.2",
+            accessibilityDescription: isMeetingRecording
+                ? "Meeting transcription in progress" : "Meeting Transcription"
+        )
+
+        stopMeetingMenuItem.title = "Stop Meeting"
+        stopMeetingMenuItem.action = #selector(MenuBarActionHandler.stopMeeting(_:))
+        stopMeetingMenuItem.target = MenuBarActionHandler.shared
+        stopMeetingMenuItem.image = NSImage(
+            systemSymbolName: SFSymbols.stopFill,
+            accessibilityDescription: "Stop Meeting"
+        )
+        stopMeetingMenuItem.isHidden = !isMeetingRecording
     }
 
     // MARK: - CLI Install Menu Item
@@ -490,6 +514,7 @@ final class MenuBarController {
 
                 self.updateIcon(for: currentState)
                 self.updateRecordingMenuItem()
+                self.updateMeetingMenuItem()
                 self.refreshUpdateMenuItem()
                 self.languageMenuItem.title = self.languageDisplayTitle()
                 self.buildLanguageSubmenu()
@@ -502,6 +527,10 @@ final class MenuBarController {
                         _ = self.settingsStore.hotkeyKeyCode
                         _ = self.settingsStore.hotkeyModifiers
                         _ = self.updateChecker.availableUpdate
+                        // A meeting can run with its window closed; track it so the
+                        // menu reflects the live session and offers "Stop Meeting".
+                        _ = self.meetingStateManager.meetingState
+                        _ = self.meetingStateManager.elapsedTime
                     } onChange: {
                         continuation.resume()
                     }
@@ -683,6 +712,11 @@ final class MenuBarController {
     func toggleMeetingMode() {
         meetingStateManager.isWindowVisible = true
     }
+
+    /// Stops an in-progress meeting from the menu, without needing the window.
+    func stopMeeting() {
+        Task { await meetingStateManager.stopMeeting() }
+    }
 }
 
 // MARK: - Menu Open Delegate
@@ -751,6 +785,11 @@ final class MenuBarActionHandler: NSObject {
     @MainActor
     @objc func toggleMeetingMode(_ sender: NSMenuItem) {
         menuBarController?.toggleMeetingMode()
+    }
+
+    @MainActor
+    @objc func stopMeeting(_ sender: NSMenuItem) {
+        menuBarController?.stopMeeting()
     }
 
     @MainActor

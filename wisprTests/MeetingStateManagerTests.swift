@@ -249,6 +249,55 @@ struct MeetingStateManagerTests {
         #expect(manager.elapsedTime == "0:00")
     }
 
+    // MARK: - Termination Safety
+
+    @Test("finalizeForTermination is a no-op when idle")
+    func testFinalizeForTerminationWhenIdle() {
+        let manager = createTestMeetingStateManager()
+        #expect(manager.meetingState == .idle)
+
+        // Must not throw, must not change state, and must not write a file for a
+        // session that was never recording.
+        manager.finalizeForTermination()
+
+        #expect(manager.meetingState == .idle)
+    }
+
+    @Test("finalizeForTermination persists an in-progress transcript and clears state")
+    func testFinalizeForTerminationSavesInProgress() throws {
+        let manager = createTestMeetingStateManager()
+
+        // Simulate a meeting that is recording with content, as happens when the
+        // user closes the window and keeps talking before quitting the app.
+        manager.meetingState = .recording
+        manager.transcript.entries.append(
+            MeetingTranscriptEntry(speaker: .you, text: "quitting mid meeting")
+        )
+
+        let before = existingTranscriptFilenames()
+        manager.finalizeForTermination()
+        let after = existingTranscriptFilenames()
+
+        // The session is no longer considered live...
+        #expect(manager.meetingState == .idle)
+        // ...and exactly one new transcript landed on disk.
+        let created = after.subtracting(before)
+        #expect(created.count == 1)
+
+        // Clean up the file this test wrote so repeated runs stay hermetic.
+        for name in created {
+            try? FileManager.default.removeItem(
+                at: TranscriptStore.directory.appendingPathComponent(name))
+        }
+    }
+
+    /// Snapshot of the transcripts directory, used to detect files written by a test.
+    private func existingTranscriptFilenames() -> Set<String> {
+        let contents = try? FileManager.default.contentsOfDirectory(
+            atPath: TranscriptStore.directory.path)
+        return Set(contents ?? [])
+    }
+
     // MARK: - Start Meeting
 
     @Test("startMeeting fails without mic permission and sets error state", .disabled("Timing-sensitive: auto-dismiss timer causes flakiness"))

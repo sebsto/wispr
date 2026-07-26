@@ -70,6 +70,13 @@ final class MeetingStateManager {
     /// Whether diarization is active for the current session (set at startMeeting).
     private var diarizationActive = false
 
+    /// Guards against a second save while `stopMeeting()` is suspended.
+    ///
+    /// `stopMeeting()` awaits before it flips `meetingState` to `.idle`, so a quit
+    /// during that window would let `finalizeForTermination()` see a still-recording
+    /// session and write a second file.
+    private var isStopping = false
+
     /// Guards against re-entrant `startMeeting()` while capture is being set up
     /// (the window between the first `await` and `meetingState = .recording`).
     private var isStarting = false
@@ -153,7 +160,9 @@ final class MeetingStateManager {
 
     /// Stops the meeting and finalizes the transcript.
     func stopMeeting() async {
-        guard meetingState == .recording else { return }
+        guard meetingState == .recording, !isStopping else { return }
+        isStopping = true
+        defer { isStopping = false }
 
         Log.stateManager.debug("MeetingStateManager — stopping meeting")
 
@@ -176,6 +185,33 @@ final class MeetingStateManager {
         meetingState = .idle
         micLevel = 0
         systemLevel = 0
+    }
+
+    /// Persists an in-progress meeting synchronously, for use on app termination.
+    ///
+    /// `stopMeeting()` cannot be used from `applicationWillTerminate` because it
+    /// is `async` and the app is torn down before the suspension resumes. This
+    /// writes the transcript first and only then cancels the task group, so a
+    /// meeting left running in the background — the window closed while
+    /// recording continues — is never silently lost.
+    ///
+    /// Saving is silent by design: no prompt, no UI. Empty transcripts are
+    /// skipped by `TranscriptStore.save`.
+    func finalizeForTermination() {
+        // `isStopping` means stopMeeting() is mid-flight and will save itself; it
+        // has not yet flipped `meetingState`, so the state check alone would let
+        // both write a file.
+        guard meetingState == .recording, !isStopping else { return }
+
+        let entryCount = transcript.entries.count
+        Log.stateManager.debug(
+            "MeetingStateManager — finalizing in-progress meeting on termination (\(entryCount) entries)"
+        )
+        TranscriptStore.save(transcript)
+
+        recordingTask?.cancel()
+        recordingTask = nil
+        meetingState = .idle
     }
 
     /// Toggles between recording and stopped states.
