@@ -178,9 +178,12 @@ final class MeetingStateManager {
         await meetingDiarizer?.reset()
         diarizationActive = false
 
-        // Persist the completed session to disk before it can be overwritten
-        // by a subsequent startMeeting() (which resets `transcript`).
-        TranscriptStore.save(transcript)
+        // Persist the completed session to disk before it can be overwritten by a
+        // subsequent startMeeting() (which resets `transcript`). Encoding and
+        // writing happen off the main actor, but are awaited so the save is
+        // guaranteed to complete before `transcript` can be replaced.
+        let completed = transcript
+        await Task.detached { TranscriptStore.save(completed) }.value
 
         meetingState = .idle
         micLevel = 0
@@ -225,6 +228,19 @@ final class MeetingStateManager {
             meetingState = .idle
             errorMessage = nil
         }
+    }
+
+    /// Renames a diarized speaker in the live transcript.
+    ///
+    /// Mutates in place rather than writing back a snapshot: the transcription
+    /// tasks append entries concurrently, so assigning a copy taken before an
+    /// `await` would silently drop everything that arrived in between.
+    ///
+    /// Names resolve at display time, so this relabels all of the speaker's
+    /// existing entries and every future one. Persistence happens at
+    /// `stopMeeting()`, which saves the transcript including its names.
+    func renameSpeaker(index: Int, to name: String?) {
+        transcript.setName(name, forSpeakerIndex: index)
     }
 
     /// Copies the transcript to the clipboard.

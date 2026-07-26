@@ -2,8 +2,8 @@
 //  MeetingTranscriptView.swift
 //  wispr
 //
-//  Scrolling transcript view with speaker labels and timestamps.
-//  Displayed inside the MeetingWindowPanel.
+//  Meeting window content: a history sidebar plus the transcript being viewed
+//  (the live session, or one loaded from disk).
 //
 
 import SwiftUI
@@ -13,39 +13,51 @@ import os
 
 /// The main content view for the meeting transcription window.
 ///
-/// Shows recording controls at the top, a scrolling transcript in the middle,
-/// and export actions at the bottom.
+/// Left: history sidebar with the live session pinned on top.
+/// Right: recording controls, the transcript, and export actions.
+///
+/// The displayed transcript is deliberately decoupled from
+/// `MeetingStateManager.transcript`: starting a meeting resets the live
+/// transcript, which would otherwise wipe an archived one the user was reading.
 struct MeetingTranscriptView: View {
     @Environment(MeetingStateManager.self) private var meetingState: MeetingStateManager
+    @Environment(MeetingHistoryStore.self) private var history: MeetingHistoryStore
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
 
     @State private var isExporting = false
+    /// Speaker index whose name is being edited, and the in-flight text.
+    @State private var editingSpeakerIndex: Int?
+    @State private var editingName = ""
+
+    // MARK: - Displayed transcript
+
+    /// The transcript currently on screen — live session or loaded archive.
+    private var transcript: MeetingTranscript {
+        if history.isShowingArchived {
+            return history.loadedTranscript ?? MeetingTranscript()
+        }
+        return meetingState.transcript
+    }
+
+    /// Archived transcripts have no live controls and no auto-scroll.
+    private var isArchived: Bool { history.isShowingArchived }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with controls
-            headerBar
-
-            Divider()
-
-            // Transcript area
-            if meetingState.transcript.entries.isEmpty {
-                emptyState
-            } else {
-                transcriptList
-            }
-
-            Divider()
-
-            // Footer with export actions
-            footerBar
+        NavigationSplitView {
+            MeetingHistorySidebar()
+                .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 280)
+        } detail: {
+            detailPane
         }
-        .frame(minWidth: 360, minHeight: 400)
+        // Sized for sidebar + transcript: the rows spend ~154pt on the timestamp
+        // and speaker columns before any text, so a narrower window leaves the
+        // transcript unreadable.
+        .frame(minWidth: 620, minHeight: 420)
         .fileExporter(
             isPresented: $isExporting,
-            document: TranscriptDocument(text: meetingState.transcript.asPlainText()),
+            document: TranscriptDocument(text: transcript.asPlainText()),
             contentType: .plainText,
-            defaultFilename: "meeting-transcript"
+            defaultFilename: exportFilename
         ) { result in
             if case .failure(let error) = result {
                 Log.stateManager.error("Export failed: \(error.localizedDescription)")
@@ -53,54 +65,139 @@ struct MeetingTranscriptView: View {
         }
     }
 
+    private var detailPane: some View {
+        VStack(spacing: 0) {
+            headerBar
+
+            if let message = history.errorMessage {
+                errorBanner(message)
+            }
+
+            Divider()
+
+            if transcript.entries.isEmpty {
+                emptyState
+            } else {
+                transcriptList
+            }
+
+            Divider()
+
+            footerBar
+        }
+    }
+
+    private var exportFilename: String {
+        guard isArchived else { return "meeting-transcript" }
+        let stamp = MeetingTranscript.formatTime(transcript.startTime)
+            .replacingOccurrences(of: ":", with: "-")
+        return "meeting-transcript-\(stamp)"
+    }
+
+    // MARK: - Error banner
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: SFSymbols.warning)
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(theme.primaryTextColor)
+            Spacer()
+            Button {
+                history.dismissError()
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss message")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.12))
+    }
+
     // MARK: - Header
 
     private var headerBar: some View {
         HStack(spacing: 12) {
-            // Record/Stop button
-            Button {
-                Task { await meetingState.toggleMeeting() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(
-                        systemName: meetingState.meetingState == .recording
-                            ? SFSymbols.stopFill
-                            : SFSymbols.recordingMicrophone
-                    )
-                    .font(.body)
-
-                    Text(meetingState.meetingState == .recording ? "Stop" : "Start Meeting")
-                        .font(.callout.weight(.medium))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    meetingState.meetingState == .recording
-                        ? Color.red.opacity(0.15)
-                        : theme.accentColor.opacity(0.15)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            // Audio level indicators
-            if meetingState.meetingState == .recording {
-                HStack(spacing: 8) {
-                    audioLevelIndicator(label: "You", level: meetingState.micLevel, color: .blue)
-                    audioLevelIndicator(
-                        label: "Others", level: meetingState.systemLevel, color: .green)
-                }
-
-                // Timer
-                Text(meetingState.elapsedTime)
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
+            if isArchived {
+                archivedHeaderContent
+            } else {
+                liveHeaderContent
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var liveHeaderContent: some View {
+        Button {
+            Task { await meetingState.toggleMeeting() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(
+                    systemName: meetingState.meetingState == .recording
+                        ? SFSymbols.stopFill
+                        : SFSymbols.recordingMicrophone
+                )
+                .font(.body)
+
+                Text(meetingState.meetingState == .recording ? "Stop" : "Start Meeting")
+                    .font(.callout.weight(.medium))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                meetingState.meetingState == .recording
+                    ? Color.red.opacity(0.15)
+                    : theme.accentColor.opacity(0.15)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+
+        Spacer()
+
+        if meetingState.meetingState == .recording {
+            HStack(spacing: 8) {
+                audioLevelIndicator(label: "You", level: meetingState.micLevel, color: .blue)
+                audioLevelIndicator(
+                    label: "Others", level: meetingState.systemLevel, color: .green)
+            }
+
+            Text(meetingState.elapsedTime)
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var archivedHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(transcript.startTime.formatted(date: .abbreviated, time: .shortened))
+                .font(.callout.weight(.medium))
+            // contentDuration, not duration — the latter is now-relative and
+            // would report the time since the meeting started, not its length.
+            Text(transcript.formattedContentDuration)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+
+        Spacer()
+
+        if meetingState.meetingState == .recording {
+            // Reassure the user that browsing history did not stop the meeting.
+            HStack(spacing: 5) {
+                Circle().fill(Color.red).frame(width: 7, height: 7)
+                Text("Recording \(meetingState.elapsedTime)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Button("Back to Live") { history.showLive() }
+                .font(.caption)
+        }
     }
 
     private func audioLevelIndicator(label: String, level: Float, color: Color) -> some View {
@@ -125,7 +222,15 @@ struct MeetingTranscriptView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
 
-            if meetingState.meetingState == .recording {
+            if isArchived {
+                Text("Nothing to show")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                Text("This transcript could not be opened.")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            } else if meetingState.meetingState == .recording {
                 Text("Listening…")
                     .font(.title3)
                     .foregroundStyle(.secondary)
@@ -153,25 +258,116 @@ struct MeetingTranscriptView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Transcript List
+    // MARK: - Speaker roster
 
-    private var transcriptList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(meetingState.transcript.entries) { entry in
-                        transcriptRow(entry)
-                            .id(entry.id)
+    /// Renaming lives here, on the roster, rather than in a per-row context menu:
+    /// the rows auto-scroll during a live meeting, making a 56pt badge a moving
+    /// target, and a speaker name is a property of the roster, not of one line.
+    @ViewBuilder
+    private var speakerRoster: some View {
+        let indices = transcript.presentSpeakerIndices
+        if !indices.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(indices, id: \.self) { index in
+                        speakerChip(index)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
             }
-            .onChange(of: meetingState.transcript.entries.count) { _, _ in
-                // Auto-scroll to latest entry
-                if let lastEntry = meetingState.transcript.entries.last {
+        }
+    }
+
+    @ViewBuilder
+    private func speakerChip(_ index: Int) -> some View {
+        let speaker = MeetingSpeaker.others(speakerIndex: index)
+        let color = speakerColor(speaker)
+
+        if editingSpeakerIndex == index {
+            TextField("Name", text: $editingName)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+                .frame(width: 110)
+                .onSubmit { commitRename(index) }
+                .onExitCommand { cancelRename() }
+                .accessibilityLabel("Name for \(transcript.displayName(for: speaker))")
+        } else {
+            Button {
+                beginRename(index)
+            } label: {
+                HStack(spacing: 4) {
+                    Circle().fill(color).frame(width: 6, height: 6)
+                    Text(transcript.displayName(for: speaker))
+                        .font(.caption.weight(.medium))
+                    Image(systemName: SFSymbols.rename)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(color.opacity(0.12))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Rename this speaker")
+            .accessibilityLabel("Rename \(transcript.displayName(for: speaker))")
+        }
+    }
+
+    private func beginRename(_ index: Int) {
+        // Pre-fill with the assigned name only; the generic "Speaker N"
+        // placeholder would otherwise have to be deleted before typing.
+        editingName = transcript.speakerNames[String(index)] ?? ""
+        editingSpeakerIndex = index
+    }
+
+    private func cancelRename() {
+        editingSpeakerIndex = nil
+        editingName = ""
+    }
+
+    private func commitRename(_ index: Int) {
+        let name = editingName
+        cancelRename()
+
+        if isArchived {
+            Task { await history.renameSpeaker(index: index, to: name) }
+        } else {
+            meetingState.renameSpeaker(index: index, to: name)
+        }
+    }
+
+    // MARK: - Transcript List
+
+    private var transcriptList: some View {
+        VStack(spacing: 0) {
+            speakerRoster
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(transcript.entries) { entry in
+                            transcriptRow(entry)
+                                .id(entry.id)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+                .onChange(of: transcript.entries.count) { _, _ in
+                    // Only follow the live session. Auto-scrolling an archived
+                    // transcript would yank the reader to the bottom whenever
+                    // the selection changed.
+                    guard !isArchived, let lastEntry = transcript.entries.last else { return }
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(lastEntry.id, anchor: .bottom)
+                    }
+                }
+                .onChange(of: history.selection) { _, _ in
+                    // Show a newly opened archive from its beginning.
+                    if let first = transcript.entries.first {
+                        proxy.scrollTo(first.id, anchor: .top)
                     }
                 }
             }
@@ -180,19 +376,18 @@ struct MeetingTranscriptView: View {
 
     private func transcriptRow(_ entry: MeetingTranscriptEntry) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            // Timestamp
-            Text(formatTime(entry.timestamp))
+            Text(MeetingTranscript.formatTime(entry.timestamp))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.tertiary)
                 .frame(width: 50, alignment: .trailing)
 
-            // Speaker badge
-            Text(entry.speaker.displayName)
+            // Resolved through the transcript so a rename relabels every entry.
+            Text(transcript.displayName(for: entry.speaker))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(speakerColor(entry.speaker))
-                .frame(width: 56, alignment: .leading)
+                .frame(width: 70, alignment: .leading)
+                .lineLimit(1)
 
-            // Text
             Text(entry.text)
                 .font(.callout)
                 .foregroundStyle(theme.primaryTextColor)
@@ -200,10 +395,6 @@ struct MeetingTranscriptView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 4)
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        MeetingTranscript.formatTime(date)
     }
 
     /// Color for a speaker badge. "You" is blue; each diarized remote speaker
@@ -225,24 +416,21 @@ struct MeetingTranscriptView: View {
 
     private var footerBar: some View {
         HStack(spacing: 12) {
-            // Entry count
-            Text("\(meetingState.transcript.entries.count) entries")
+            Text("\(transcript.entries.count) entries")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
             Spacer()
 
-            // Copy button
             Button {
-                meetingState.copyTranscript()
+                copyTranscript()
             } label: {
                 Label("Copy", systemImage: SFSymbols.copy)
                     .font(.callout)
             }
             .buttonStyle(.plain)
-            .disabled(meetingState.transcript.entries.isEmpty)
+            .disabled(transcript.entries.isEmpty)
 
-            // Export button
             Button {
                 isExporting = true
             } label: {
@@ -250,9 +438,17 @@ struct MeetingTranscriptView: View {
                     .font(.callout)
             }
             .buttonStyle(.plain)
-            .disabled(meetingState.transcript.entries.isEmpty)
+            .disabled(transcript.entries.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private func copyTranscript() {
+        let text = transcript.asPlainText()
+        guard !text.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
     }
 }

@@ -101,6 +101,9 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     /// Speaker diarization engine for the meeting "Others" track.
     let meetingDiarizer = MeetingDiarizer()
 
+    /// Browsing state for past meeting transcripts (the window's history sidebar).
+    let meetingHistoryStore = MeetingHistoryStore()
+
     /// Central state coordinator — depends on all services above.
     private(set) var stateManager: StateManager?
 
@@ -251,7 +254,8 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         meetingPanel = MeetingWindowPanel(
             meetingStateManager: msm,
             settingsStore: settingsStore,
-            themeEngine: themeEngine
+            themeEngine: themeEngine,
+            historyStore: meetingHistoryStore
         )
 
         // Register the persisted hotkey (Req 1.3)

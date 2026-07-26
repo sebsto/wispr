@@ -55,6 +55,12 @@ enum SFSymbols {
     /// Delete / trash icon.
     static let delete = "trash"
 
+    /// Folder icon, for revealing files in Finder.
+    static let folder = "folder"
+
+    /// Pencil icon, for inline rename affordances.
+    static let rename = "pencil"
+
     /// Stop button icon for meeting transcription.
     static let stopFill = "stop.fill"
 

@@ -22,6 +22,7 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
     private let meetingStateManager: MeetingStateManager
     private let settingsStore: SettingsStore
     private let themeEngine: UIThemeEngine
+    private let historyStore: MeetingHistoryStore
 
     /// Whether the panel is currently visible.
     private(set) var isVisible = false
@@ -50,11 +51,13 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
     init(
         meetingStateManager: MeetingStateManager,
         settingsStore: SettingsStore,
-        themeEngine: UIThemeEngine
+        themeEngine: UIThemeEngine,
+        historyStore: MeetingHistoryStore
     ) {
         self.meetingStateManager = meetingStateManager
         self.settingsStore = settingsStore
         self.themeEngine = themeEngine
+        self.historyStore = historyStore
     }
 
     // MARK: - Panel Lifecycle
@@ -102,11 +105,13 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
             .environment(meetingStateManager)
             .environment(settingsStore)
             .environment(themeEngine)
+            .environment(historyStore)
 
         let hostingView = NSHostingView(rootView: transcriptView)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 520),
+            // Wide enough for the history sidebar plus a readable transcript.
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .utilityWindow],
             backing: .buffered,
             defer: false
@@ -121,10 +126,10 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = hostingView
-        // Match the content's own declared minimum (MeetingTranscriptView uses
-        // .frame(minWidth: 360, minHeight: 400)); a smaller minSize let the window
-        // be dragged below its content size, which clipped the transcript.
-        panel.minSize = NSSize(width: 360, height: 400)
+        // Matches the content's declared minimum. The transcript rows spend
+        // ~154pt on the timestamp and speaker columns before any text, so a
+        // narrower window leaves nothing readable beside the sidebar.
+        panel.minSize = NSSize(width: 620, height: 420)
         panel.isReleasedWhenClosed = false
         panel.delegate = self
         // Persist position and size across close/reopen and across launches.
