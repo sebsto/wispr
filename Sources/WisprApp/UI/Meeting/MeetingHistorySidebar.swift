@@ -21,6 +21,9 @@ struct MeetingHistorySidebar: View {
     /// Session being retitled, and the in-flight text.
     @State private var editingTitleURL: URL?
     @State private var editingTitle = ""
+    /// Focuses the retitle field as soon as it appears so the user can type
+    /// straight away rather than having to click into the visible box.
+    @FocusState private var titleFieldFocused: Bool
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -73,10 +76,18 @@ struct MeetingHistorySidebar: View {
         .listStyle(.sidebar)
         .task { await history.refresh() }
         // A finished meeting becomes a new file on disk; pick it up so the user
-        // does not have to reopen the window to see it.
+        // does not have to reopen the window to see it, then jump straight to it
+        // so "Current Session" is not left showing the now-archived transcript.
         .onChange(of: meetingState.meetingState) { old, new in
             if old == .recording, new != .recording {
-                Task { await history.refresh() }
+                Task {
+                    await history.refresh()
+                    if let url = meetingState.lastSavedURL,
+                        let summary = history.summaries.first(where: { $0.url == url })
+                    {
+                        await history.show(summary)
+                    }
+                }
             }
         }
         .confirmationDialog(
@@ -131,6 +142,8 @@ struct MeetingHistorySidebar: View {
                 TextField("Session name", text: $editingTitle)
                     .textFieldStyle(.roundedBorder)
                     .font(.callout)
+                    .focused($titleFieldFocused)
+                    .onAppear { titleFieldFocused = true }
                     .onSubmit { commitRetitle(summary) }
                     .onExitCommand { cancelRetitle() }
                     .accessibilityLabel("Name for this session")

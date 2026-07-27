@@ -28,6 +28,9 @@ struct MeetingTranscriptView: View {
     /// Speaker index whose name is being edited, and the in-flight text.
     @State private var editingSpeakerIndex: Int?
     @State private var editingName = ""
+    /// Drives keyboard focus into the rename field the moment it appears, so the
+    /// user can type immediately instead of having to click the field first.
+    @FocusState private var speakerFieldFocused: Bool
 
     // MARK: - Displayed transcript
 
@@ -49,6 +52,27 @@ struct MeetingTranscriptView: View {
         } detail: {
             detailPane
         }
+        // Start/Stop lives in the toolbar, next to the sidebar-collapse button,
+        // so it stays reachable from anywhere (live or archived) at the very top.
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    Task { await meetingState.toggleMeeting() }
+                } label: {
+                    Label(
+                        meetingState.meetingState == .recording ? "Stop" : "Start Meeting",
+                        systemImage: meetingState.meetingState == .recording
+                            ? SFSymbols.stopFill
+                            : SFSymbols.recordingMicrophone
+                    )
+                    .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(meetingState.meetingState == .recording ? .red : theme.accentColor)
+                .accessibilityLabel(
+                    meetingState.meetingState == .recording ? "Stop meeting" : "Start meeting")
+            }
+        }
         // Sized for sidebar + transcript: the rows spend ~154pt on the timestamp
         // and speaker columns before any text, so a narrower window leaves the
         // transcript unreadable.
@@ -67,13 +91,20 @@ struct MeetingTranscriptView: View {
 
     private var detailPane: some View {
         VStack(spacing: 0) {
-            headerBar
+            if showsHeader {
+                headerBar
+            }
 
             if let message = history.errorMessage {
                 errorBanner(message)
             }
 
-            Divider()
+            // Only draw the top divider when something sits above it; otherwise
+            // an idle "Current Session" would show an empty bar and stray rule
+            // now that Start/Stop lives in the toolbar.
+            if showsHeader || history.errorMessage != nil {
+                Divider()
+            }
 
             if transcript.entries.isEmpty {
                 emptyState
@@ -85,6 +116,13 @@ struct MeetingTranscriptView: View {
 
             footerBar
         }
+    }
+
+    /// The header shows the archived session's title or the live recording
+    /// indicators; when the live session is idle it has nothing to show, so it
+    /// (and its divider) are hidden rather than left as an empty bar.
+    private var showsHeader: Bool {
+        isArchived || meetingState.meetingState == .recording
     }
 
     private var exportFilename: String {
@@ -133,31 +171,6 @@ struct MeetingTranscriptView: View {
 
     @ViewBuilder
     private var liveHeaderContent: some View {
-        Button {
-            Task { await meetingState.toggleMeeting() }
-        } label: {
-            HStack(spacing: 6) {
-                Image(
-                    systemName: meetingState.meetingState == .recording
-                        ? SFSymbols.stopFill
-                        : SFSymbols.recordingMicrophone
-                )
-                .font(.body)
-
-                Text(meetingState.meetingState == .recording ? "Stop" : "Start Meeting")
-                    .font(.callout.weight(.medium))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                meetingState.meetingState == .recording
-                    ? Color.red.opacity(0.15)
-                    : theme.accentColor.opacity(0.15)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-
         Spacer()
 
         if meetingState.meetingState == .recording {
@@ -292,6 +305,8 @@ struct MeetingTranscriptView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.caption)
                 .frame(width: 110)
+                .focused($speakerFieldFocused)
+                .onAppear { speakerFieldFocused = true }
                 .onSubmit { commitRename(index) }
                 .onExitCommand { cancelRename() }
                 .accessibilityLabel("Name for \(transcript.displayName(for: speaker))")

@@ -39,6 +39,12 @@ final class MeetingStateManager {
     /// The live transcript being built.
     var transcript: MeetingTranscript = MeetingTranscript()
 
+    /// URL of the session saved by the most recent `stopMeeting()`, or `nil`
+    /// when the last meeting was empty (nothing written). The window reads this
+    /// to jump to the freshly archived transcript instead of leaving the user on
+    /// an empty "Current Session".
+    var lastSavedURL: URL?
+
     /// Audio level from microphone (0.0–1.0) for UI visualization.
     var micLevel: Float = 0
 
@@ -183,7 +189,13 @@ final class MeetingStateManager {
         // writing happen off the main actor, but are awaited so the save is
         // guaranteed to complete before `transcript` can be replaced.
         let completed = transcript
-        await Task.detached { TranscriptStore.save(completed) }.value
+        let savedURL = await Task.detached { TranscriptStore.save(completed) }.value
+
+        // Return "Current Session" to an empty slate: the finished meeting is now
+        // on disk and shown from history, so keeping its text in the live view
+        // only duplicates the freshly archived row and confuses "what's live".
+        transcript = MeetingTranscript()
+        lastSavedURL = savedURL
 
         meetingState = .idle
         micLevel = 0
