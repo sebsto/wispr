@@ -69,6 +69,12 @@ nonisolated struct MeetingTranscript: Sendable, Equatable, Codable {
     var entries: [MeetingTranscriptEntry] = []
     let startTime: Date
 
+    /// User-assigned title for the session, or `nil` to fall back to its date.
+    ///
+    /// A meeting's date is a poor handle once there are more than a handful of
+    /// them; "Sprint review" is what makes a transcript findable again.
+    var title: String?
+
     /// User-assigned names for diarized speakers, keyed by the **string form of
     /// the 0-based speaker index** (`"0"`, `"1"`, …).
     ///
@@ -85,10 +91,11 @@ nonisolated struct MeetingTranscript: Sendable, Equatable, Codable {
     // MARK: - Codable
 
     private enum CodingKeys: String, CodingKey {
-        case entries, startTime, speakerNames
+        case entries, startTime, speakerNames, title
     }
 
-    /// Decodes a transcript, tolerating files written before `speakerNames` existed.
+    /// Decodes a transcript, tolerating files written before `speakerNames` and
+    /// `title` existed.
     ///
     /// This initializer is not optional politeness: the compiler-synthesized
     /// `init(from:)` calls `decode(_:forKey:)` for every non-optional stored
@@ -101,6 +108,15 @@ nonisolated struct MeetingTranscript: Sendable, Equatable, Codable {
         self.startTime = try container.decode(Date.self, forKey: .startTime)
         self.speakerNames =
             try container.decodeIfPresent([String: String].self, forKey: .speakerNames) ?? [:]
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)
+    }
+
+    // MARK: - Title
+
+    /// Assigns (or clears, when `title` is nil or blank) the session's title.
+    mutating func setTitle(_ title: String?) {
+        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.title = (trimmed?.isEmpty ?? true) ? nil : trimmed
     }
 
     // MARK: - Speaker Names

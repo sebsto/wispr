@@ -119,6 +119,38 @@ final class MeetingHistoryStore {
 
     // MARK: - Editing
 
+    /// Retitles an archived session and writes it back.
+    ///
+    /// Pass `nil` or a blank string to clear the title and fall back to the
+    /// session's date.
+    func retitle(_ summary: TranscriptSummary, to title: String?) async {
+        let url = summary.url
+
+        // Edit the file rather than `loadedTranscript`: a session can be renamed
+        // from the sidebar without being opened first.
+        let outcome = await Task.detached { () -> Result<MeetingTranscript, any Error> in
+            do {
+                var transcript = try TranscriptStore.load(url)
+                transcript.setTitle(title)
+                try TranscriptStore.save(transcript, to: url)
+                return .success(transcript)
+            } catch {
+                return .failure(error)
+            }
+        }.value
+
+        switch outcome {
+        case .success(let transcript):
+            // Keep the open transcript in step when it is the one being renamed.
+            if loadedURL == url { loadedTranscript = transcript }
+            await refresh()
+        case .failure(let error):
+            Log.stateManager.error(
+                "MeetingHistoryStore — retitle failed: \(error.localizedDescription)")
+            errorMessage = "Could not rename this session: \(error.localizedDescription)"
+        }
+    }
+
     /// Renames a speaker in the loaded archived transcript and writes it back.
     ///
     /// Persisting immediately (rather than on window close) matches how the live

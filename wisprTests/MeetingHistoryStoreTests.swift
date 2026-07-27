@@ -235,6 +235,97 @@ struct MeetingHistoryStoreTests {
         }
     }
 
+    // MARK: - Session title
+
+    @Test("Retitling a session persists and shows up in the sidebar")
+    func testRetitlePersists() async throws {
+        try await withCleanup { created in
+            let url = try saveTranscript(texts: ["bonjour"])
+            created.append(url)
+
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            let summary = try #require(store.summaries.first { $0.url == url })
+            #expect(summary.title == nil)
+
+            await store.retitle(summary, to: "Sprint review")
+
+            #expect(store.errorMessage == nil)
+            #expect(store.summaries.first { $0.url == url }?.title == "Sprint review")
+            // Written through, not just held in memory.
+            #expect(try TranscriptStore.load(url).title == "Sprint review")
+        }
+    }
+
+    @Test("A session can be retitled without being opened first")
+    func testRetitleWithoutOpening() async throws {
+        try await withCleanup { created in
+            let url = try saveTranscript()
+            created.append(url)
+
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            // Never selected — renaming happens from the sidebar's context menu.
+            #expect(store.isShowingArchived == false)
+
+            await store.retitle(try #require(store.summaries.first { $0.url == url }), to: "Standup")
+
+            #expect(try TranscriptStore.load(url).title == "Standup")
+            #expect(store.isShowingArchived == false)
+        }
+    }
+
+    @Test("Retitling the open session updates what is on screen")
+    func testRetitleUpdatesLoadedTranscript() async throws {
+        try await withCleanup { created in
+            let url = try saveTranscript()
+            created.append(url)
+
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            let summary = try #require(store.summaries.first { $0.url == url })
+            await store.show(summary)
+
+            await store.retitle(summary, to: "Retro")
+
+            #expect(store.loadedTranscript?.title == "Retro")
+        }
+    }
+
+    @Test("Clearing a title falls back to the session's date")
+    func testClearTitle() async throws {
+        try await withCleanup { created in
+            let url = try saveTranscript()
+            created.append(url)
+
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            var summary = try #require(store.summaries.first { $0.url == url })
+            await store.retitle(summary, to: "Temporaire")
+
+            summary = try #require(store.summaries.first { $0.url == url })
+            await store.retitle(summary, to: nil)
+
+            #expect(store.summaries.first { $0.url == url }?.title == nil)
+            #expect(store.summaries.first { $0.url == url }?.hasTitle == false)
+        }
+    }
+
+    @Test("Retitling a missing file surfaces an error")
+    func testRetitleFailureSurfaces() async {
+        let missing = TranscriptStore.directory
+            .appendingPathComponent("meeting-1970-01-01_00-00-03.json")
+        let store = MeetingHistoryStore()
+
+        await store.retitle(
+            TranscriptSummary(
+                url: missing, startTime: Date(), title: nil, duration: 0, entryCount: 0,
+                speakerNames: [], preview: "", isUnreadable: false),
+            to: "Fantôme")
+
+        #expect(store.errorMessage != nil)
+    }
+
     // MARK: - Delete
 
     @Test("Deleting removes the file and drops it from the list")
@@ -273,7 +364,7 @@ struct MeetingHistoryStoreTests {
         let missing = TranscriptStore.directory
             .appendingPathComponent("meeting-1970-01-01_00-00-01.json")
         let summary = TranscriptSummary(
-            url: missing, startTime: Date(), duration: 0, entryCount: 0,
+            url: missing, startTime: Date(), title: nil, duration: 0, entryCount: 0,
             speakerNames: [], preview: "", isUnreadable: false)
 
         let store = MeetingHistoryStore()
@@ -289,7 +380,7 @@ struct MeetingHistoryStoreTests {
             .appendingPathComponent("meeting-1970-01-01_00-00-02.json")
         await store.delete(
             TranscriptSummary(
-                url: missing, startTime: Date(), duration: 0, entryCount: 0,
+                url: missing, startTime: Date(), title: nil, duration: 0, entryCount: 0,
                 speakerNames: [], preview: "", isUnreadable: false))
         #expect(store.errorMessage != nil)
 

@@ -18,6 +18,10 @@ struct MeetingHistorySidebar: View {
     /// no audio to re-transcribe from — so it is always confirmed.
     @State private var pendingDeletion: TranscriptSummary?
 
+    /// Session being retitled, and the in-flight text.
+    @State private var editingTitleURL: URL?
+    @State private var editingTitle = ""
+
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -38,6 +42,19 @@ struct MeetingHistorySidebar: View {
                         historyRow(summary)
                             .tag(TranscriptSelection.archived(summary.url))
                             .contextMenu {
+                                Button {
+                                    beginRetitle(summary)
+                                } label: {
+                                    Label("Rename…", systemImage: SFSymbols.rename)
+                                }
+                                if summary.hasTitle {
+                                    Button {
+                                        Task { await history.retitle(summary, to: nil) }
+                                    } label: {
+                                        Label("Use Date as Name", systemImage: SFSymbols.rename)
+                                    }
+                                }
+                                Divider()
                                 Button {
                                     revealInFinder(summary.url)
                                 } label: {
@@ -110,9 +127,26 @@ struct MeetingHistorySidebar: View {
 
     private func historyRow(_ summary: TranscriptSummary) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(Self.dateFormatter.string(from: summary.startTime))
-                .font(.callout.weight(.medium))
-                .lineLimit(1)
+            if editingTitleURL == summary.url {
+                TextField("Session name", text: $editingTitle)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.callout)
+                    .onSubmit { commitRetitle(summary) }
+                    .onExitCommand { cancelRetitle() }
+                    .accessibilityLabel("Name for this session")
+            } else {
+                Text(displayTitle(for: summary))
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+            }
+
+            // Keep the date visible once a title replaces it in the headline.
+            if summary.hasTitle, editingTitleURL != summary.url {
+                Text(Self.dateFormatter.string(from: summary.startTime))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
 
             if summary.isUnreadable {
                 // Shown rather than hidden, so a corrupt file can be deleted
@@ -139,6 +173,30 @@ struct MeetingHistorySidebar: View {
         .accessibilityLabel(accessibilityLabel(for: summary))
     }
 
+    /// Headline for a session: its name if it has one, otherwise its date.
+    private func displayTitle(for summary: TranscriptSummary) -> String {
+        if let title = summary.title, !title.isEmpty { return title }
+        return Self.dateFormatter.string(from: summary.startTime)
+    }
+
+    private func beginRetitle(_ summary: TranscriptSummary) {
+        // Pre-fill with the assigned title only; the date placeholder would
+        // otherwise have to be deleted before typing.
+        editingTitle = summary.title ?? ""
+        editingTitleURL = summary.url
+    }
+
+    private func cancelRetitle() {
+        editingTitleURL = nil
+        editingTitle = ""
+    }
+
+    private func commitRetitle(_ summary: TranscriptSummary) {
+        let title = editingTitle
+        cancelRetitle()
+        Task { await history.retitle(summary, to: title) }
+    }
+
     private func subtitle(for summary: TranscriptSummary) -> String {
         var parts = [summary.formattedDuration, "\(summary.entryCount) entries"]
         if !summary.speakerNames.isEmpty {
@@ -148,9 +206,9 @@ struct MeetingHistorySidebar: View {
     }
 
     private func accessibilityLabel(for summary: TranscriptSummary) -> String {
-        let date = Self.dateFormatter.string(from: summary.startTime)
-        guard !summary.isUnreadable else { return "\(date), unreadable file" }
-        return "\(date), \(summary.formattedDuration), \(summary.entryCount) entries"
+        let name = displayTitle(for: summary)
+        guard !summary.isUnreadable else { return "\(name), unreadable file" }
+        return "\(name), \(summary.formattedDuration), \(summary.entryCount) entries"
     }
 
     // MARK: - Selection plumbing

@@ -20,6 +20,8 @@ nonisolated struct TranscriptSummary: Identifiable, Sendable, Equatable {
     let url: URL
     /// When the meeting started, or the file's creation date if unreadable.
     let startTime: Date
+    /// User-assigned session title, or `nil` when the session was never named.
+    let title: String?
     /// Length of the meeting, derived from its entries.
     let duration: TimeInterval
     let entryCount: Int
@@ -35,6 +37,9 @@ nonisolated struct TranscriptSummary: Identifiable, Sendable, Equatable {
     var id: URL { url }
 
     var formattedDuration: String { MeetingTranscript.formatDuration(duration) }
+
+    /// Whether the user gave this session a name of their own.
+    var hasTitle: Bool { title?.isEmpty == false }
 }
 
 /// Persists meeting transcripts to disk.
@@ -204,6 +209,7 @@ nonisolated enum TranscriptStore {
             return TranscriptSummary(
                 url: url,
                 startTime: fileCreationDate(url) ?? .distantPast,
+                title: nil,
                 duration: 0,
                 entryCount: 0,
                 speakerNames: [],
@@ -219,6 +225,7 @@ nonisolated enum TranscriptStore {
         return TranscriptSummary(
             url: url,
             startTime: transcript.startTime,
+            title: transcript.title,
             duration: transcript.contentDuration,
             entryCount: transcript.entries.count,
             speakerNames: names,

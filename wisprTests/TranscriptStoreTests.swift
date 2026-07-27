@@ -72,6 +72,48 @@ struct MeetingTranscriptCodableTests {
         #expect(restored.displayName(for: .others(speakerIndex: 0)) == "Alice")
     }
 
+    @Test("Legacy JSON without title decodes with no title")
+    func testLegacyDecodeWithoutTitle() throws {
+        // Same guard as speakerNames: the synthesized init(from:) would reject a
+        // file that predates the field, making every saved transcript unreadable.
+        let legacy = """
+            {
+              "entries": [],
+              "startTime": "2026-07-20T09:05:00Z"
+            }
+            """
+
+        let transcript = try decoder.decode(MeetingTranscript.self, from: Data(legacy.utf8))
+
+        #expect(transcript.title == nil)
+    }
+
+    @Test("A session title survives an encode/decode round-trip")
+    func testTitleRoundTrip() throws {
+        var transcript = MeetingTranscript(startTime: Date(timeIntervalSince1970: 1_000))
+        transcript.setTitle("Sprint review")
+
+        let restored = try decoder.decode(
+            MeetingTranscript.self, from: encoder.encode(transcript))
+
+        #expect(restored.title == "Sprint review")
+    }
+
+    @Test("Blank titles clear back to nil rather than storing whitespace")
+    func testTitleTrimmingAndClearing() {
+        var transcript = MeetingTranscript()
+
+        transcript.setTitle("  Sprint review \n")
+        #expect(transcript.title == "Sprint review")
+
+        transcript.setTitle("   ")
+        #expect(transcript.title == nil)
+
+        transcript.setTitle("Sprint review")
+        transcript.setTitle(nil)
+        #expect(transcript.title == nil)
+    }
+
     @Test("Malformed JSON throws rather than producing a partial transcript")
     func testMalformedDecodeThrows() {
         let broken = Data("{ \"entries\": [ ".utf8)
@@ -314,6 +356,28 @@ struct TranscriptStoreTests {
             #expect(recent.speakerNames == ["Alice"])
             #expect(recent.duration == 30)
             #expect(recent.isUnreadable == false)
+        }
+    }
+
+    @Test("list() reports a session's title, and its absence")
+    func testListReportsTitle() throws {
+        try withCleanup { created in
+            let untitled = try #require(TranscriptStore.save(makeTranscript(texts: ["sans titre"])))
+            created.append(untitled)
+
+            var named = makeTranscript(start: Date().addingTimeInterval(-60), texts: ["nommé"])
+            named.setTitle("Sprint review")
+            let titled = try #require(TranscriptStore.save(named))
+            created.append(titled)
+
+            let listed = TranscriptStore.list()
+            let untitledRow = try #require(listed.first { $0.url == untitled })
+            let titledRow = try #require(listed.first { $0.url == titled })
+
+            #expect(untitledRow.title == nil)
+            #expect(untitledRow.hasTitle == false)
+            #expect(titledRow.title == "Sprint review")
+            #expect(titledRow.hasTitle)
         }
     }
 

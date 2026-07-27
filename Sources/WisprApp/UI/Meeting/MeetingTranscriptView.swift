@@ -176,8 +176,11 @@ struct MeetingTranscriptView: View {
     @ViewBuilder
     private var archivedHeaderContent: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(transcript.startTime.formatted(date: .abbreviated, time: .shortened))
-                .font(.callout.weight(.medium))
+            Text(
+                transcript.title
+                    ?? transcript.startTime.formatted(date: .abbreviated, time: .shortened)
+            )
+            .font(.callout.weight(.medium))
             // contentDuration, not duration — the latter is now-relative and
             // would report the time since the meeting started, not its length.
             Text(transcript.formattedContentDuration)
