@@ -40,6 +40,33 @@ nonisolated enum TranscriptLocation {
     /// `nil` means "no custom folder" — transcripts go to the app container.
     private static let scope = Mutex<Scope?>(nil)
 
+    /// Live listeners for folder changes, keyed so each can remove itself.
+    private static let observers = Mutex<[UUID: AsyncStream<URL>.Continuation]>([:])
+
+    // MARK: - Change notification
+
+    /// Emits the new folder each time the location changes.
+    ///
+    /// Anything listing transcripts has to rescan on a change: summaries are keyed
+    /// by file URL, so a stale list points every action — opening, revealing in
+    /// Finder, deleting — at the previous folder.
+    static func changes() -> AsyncStream<URL> {
+        AsyncStream { continuation in
+            let id = UUID()
+            observers.withLock { $0[id] = continuation }
+            continuation.onTermination = { _ in
+                observers.withLock { $0[id] = nil }
+            }
+        }
+    }
+
+    private static func broadcast(_ directory: URL) {
+        let continuations = observers.withLock { Array($0.values) }
+        for continuation in continuations {
+            continuation.yield(directory)
+        }
+    }
+
     // MARK: - Resolution
 
     /// The folder transcripts are stored in right now.
@@ -170,9 +197,19 @@ nonisolated enum TranscriptLocation {
             return old
         }
 
+        // Compare effective folders, not the stored scopes: dropping a custom
+        // folder moves transcripts back to the container, which is a change even
+        // though the new scope is nil.
+        let previousDirectory = previous?.url ?? defaultDirectory
+        let newDirectory = new?.url ?? defaultDirectory
+
         // Skip when the same folder is being re-activated: the access counter was
         // just incremented for it, and closing here would undo that.
-        guard let previous, previous.holdsSecurityScope, previous.url != new?.url else { return }
-        previous.url.stopAccessingSecurityScopedResource()
+        if let previous, previous.holdsSecurityScope, previous.url != new?.url {
+            previous.url.stopAccessingSecurityScopedResource()
+        }
+
+        guard previousDirectory != newDirectory else { return }
+        broadcast(newDirectory)
     }
 }

@@ -231,3 +231,179 @@ struct TranscriptRenameTests {
         }
     }
 }
+
+@Suite("Finder rename adoption Tests", .serialized)
+struct TranscriptFilenameAdoptionTests {
+
+    private func withCleanup(_ body: (inout [URL]) throws -> Void) throws {
+        let before = Self.directorySnapshot()
+        var created: [URL] = []
+        defer { Self.removeFilesAdded(since: before) }
+        try body(&created)
+    }
+
+    private static func directorySnapshot() -> Set<String> {
+        let contents = try? FileManager.default.contentsOfDirectory(
+            atPath: TranscriptStore.directory.path)
+        return Set(contents ?? [])
+    }
+
+    private static func removeFilesAdded(since snapshot: Set<String>) {
+        for name in directorySnapshot().subtracting(snapshot) {
+            try? FileManager.default.removeItem(
+                at: TranscriptStore.directory.appendingPathComponent(name))
+        }
+    }
+
+    private func makeTranscript(start: Date = Date()) -> MeetingTranscript {
+        var transcript = MeetingTranscript(startTime: start)
+        transcript.entries.append(
+            MeetingTranscriptEntry(speaker: .you, text: "bonjour", timestamp: start))
+        return transcript
+    }
+
+    // MARK: - Fragment extraction
+
+    @Test("The title fragment is read from past the timestamp, which is full of dashes")
+    func testFragmentExtraction() {
+        let dir = TranscriptStore.directory
+        #expect(
+            TranscriptStore.titleFragment(
+                in: dir.appendingPathComponent("meeting-2026-07-31_11-12-57-ALLO.json")) == "ALLO")
+        #expect(
+            TranscriptStore.titleFragment(
+                in: dir.appendingPathComponent("meeting-2026-07-31_11-12-57.json")) == "")
+        #expect(
+            TranscriptStore.titleFragment(
+                in: dir.appendingPathComponent("meeting-2026-07-31_11-12-57-Sprint-review.json"))
+                == "Sprint-review")
+    }
+
+    @Test("A name typed in Finder becomes the session name")
+    func testTitleFromFilename() {
+        let dir = TranscriptStore.directory
+        #expect(
+            TranscriptStore.titleFromFilename(
+                dir.appendingPathComponent("meeting-2026-07-31_11-12-57-ALLO.json")) == "ALLO")
+        #expect(
+            TranscriptStore.titleFromFilename(
+                dir.appendingPathComponent("meeting-2026-07-31_11-12-57-Sprint-review.json"))
+                == "Sprint review")
+        #expect(
+            TranscriptStore.titleFromFilename(
+                dir.appendingPathComponent("meeting-2026-07-31_11-12-57.json")) == nil)
+    }
+
+    @Test("A collision suffix is not mistaken for a name")
+    func testCollisionSuffixIsNotAName() {
+        // `fileURL` appends `-2` when two meetings start in the same second. Reading
+        // that back as a title would name an untitled session "2".
+        let dir = TranscriptStore.directory
+        #expect(
+            TranscriptStore.titleFromFilename(
+                dir.appendingPathComponent("meeting-2026-07-31_11-12-57-2.json")) == nil)
+
+        let reconciled = TranscriptStore.reconciledTitle(
+            for: dir.appendingPathComponent("meeting-2026-07-31_11-12-57-2.json"),
+            storedTitle: nil)
+        #expect(reconciled.title == nil)
+        #expect(reconciled.changed == false)
+    }
+
+    // MARK: - Reconciliation
+
+    @Test("A title whose punctuation the filename cannot carry is left alone")
+    func testLossyTitleIsPreserved() {
+        // "Q3: roadmap" slugs to "Q3-roadmap". Naively reading the filename back
+        // would rewrite the title as "Q3 roadmap" on every single scan.
+        let url = TranscriptStore.directory
+            .appendingPathComponent("meeting-2026-07-31_11-12-57-Q3-roadmap.json")
+
+        let reconciled = TranscriptStore.reconciledTitle(for: url, storedTitle: "Q3: roadmap")
+
+        #expect(reconciled.title == "Q3: roadmap")
+        #expect(reconciled.changed == false)
+    }
+
+    @Test("A filename that genuinely disagrees wins")
+    func testExternalRenameWins() {
+        let url = TranscriptStore.directory
+            .appendingPathComponent("meeting-2026-07-31_11-12-57-ALLO.json")
+
+        let reconciled = TranscriptStore.reconciledTitle(for: url, storedTitle: "Sprint review")
+
+        #expect(reconciled.title == "ALLO")
+        #expect(reconciled.changed)
+    }
+
+    @Test("Renaming back to the bare timestamp clears the name")
+    func testStrippingFragmentClearsTitle() {
+        // Symmetric with clearing the title in the app, which removes the fragment.
+        let url = TranscriptStore.directory
+            .appendingPathComponent("meeting-2026-07-31_11-12-57.json")
+
+        let reconciled = TranscriptStore.reconciledTitle(for: url, storedTitle: "Sprint review")
+
+        #expect(reconciled.title == nil)
+        #expect(reconciled.changed)
+    }
+
+    @Test("Reconciliation is idempotent — a scan does not keep rewriting files")
+    func testIdempotent() throws {
+        try withCleanup { created in
+            let start = Date()
+            var transcript = makeTranscript(start: start)
+            transcript.setTitle("Sprint review")
+            let url = try #require(TranscriptStore.save(transcript))
+            created.append(url)
+
+            TranscriptStore.reconcileTitleWithFilename(at: url)
+            let firstPass = try TranscriptStore.load(url).title
+            let stamp = try #require(
+                FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date)
+
+            TranscriptStore.reconcileTitleWithFilename(at: url)
+            let secondPass = try TranscriptStore.load(url).title
+            let stampAfter = try #require(
+                FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date)
+
+            #expect(firstPass == "Sprint review")
+            #expect(secondPass == "Sprint review")
+            // No rewrite on the second pass.
+            #expect(stamp == stampAfter)
+        }
+    }
+
+    // MARK: - End to end
+
+    @Test("Renaming the file in Finder renames the session in the app")
+    func testFinderRenamePropagatesToApp() throws {
+        try withCleanup { created in
+            let start = Date()
+            var transcript = makeTranscript(start: start)
+            transcript.setTitle("Sprint review")
+            let original = try #require(TranscriptStore.save(transcript))
+            created.append(original)
+
+            // What Finder does: move the file, leaving the JSON untouched.
+            let renamed = original.deletingLastPathComponent()
+                .appendingPathComponent(
+                    "meeting-\(Self.stamp(start))-ALLO.json")
+            try FileManager.default.moveItem(at: original, to: renamed)
+            created.append(renamed)
+
+            let listed = try #require(TranscriptStore.list().first { $0.url == renamed })
+
+            #expect(listed.title == "ALLO")
+            // Persisted, so an export does not disagree with the sidebar.
+            #expect(try TranscriptStore.load(renamed).title == "ALLO")
+        }
+    }
+
+    private static func stamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return formatter.string(from: date)
+    }
+}

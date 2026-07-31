@@ -233,6 +233,26 @@ final class MeetingHistoryStore {
 
     // MARK: - External Changes
 
+    /// The folder currently being listed.
+    ///
+    /// Observable so the view can re-arm its folder watch when the user picks a
+    /// different location in Settings.
+    private(set) var directory: URL = TranscriptStore.directory
+
+    /// Rescans when the user changes the transcripts folder in Settings.
+    ///
+    /// Summaries are keyed by file URL, so without this the list keeps the previous
+    /// folder's URLs and every action — opening, revealing in Finder, deleting —
+    /// operates on the old location.
+    func followLocationChanges() async {
+        for await newDirectory in TranscriptLocation.changes() {
+            guard !Task.isCancelled else { return }
+            directory = newDirectory
+            showLive()
+            await refresh()
+        }
+    }
+
     /// Keeps the history list in step with the transcripts folder on disk.
     ///
     /// Transcripts deleted or renamed in Finder would otherwise leave stale rows

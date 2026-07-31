@@ -64,7 +64,10 @@ struct MeetingHistorySidebar: View {
             pendingDeletion = targets
         }
         .task { await history.refresh() }
-        .task { await history.watchForExternalChanges() }
+        .task { await history.followLocationChanges() }
+        // Keyed on the folder so changing it in Settings re-arms the watch on the
+        // new location instead of leaving it on the old one.
+        .task(id: history.directory) { await history.watchForExternalChanges() }
         .onChange(of: selectedRows) { _, rows in
             syncDisplay(to: rows)
         }

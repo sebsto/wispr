@@ -178,4 +178,86 @@ struct TranscriptLocationTests {
             #expect(reloaded.transcriptsFolderBookmark == bookmark)
         }
     }
+
+    // MARK: - Change notification
+
+    @Test("Changing the folder is broadcast to listeners")
+    func testChangeIsBroadcast() async throws {
+        // Summaries are keyed by file URL, so a listener that misses this keeps
+        // pointing every action — open, reveal in Finder, delete — at the old folder.
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wispr-broadcast-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            TranscriptLocation.useDefault()
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        let bookmark = try TranscriptLocation.makeBookmark(for: folder)
+
+        let received = await withTaskGroup(of: URL?.self) { group in
+            group.addTask {
+                for await directory in TranscriptLocation.changes() { return directory }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: .milliseconds(200))
+                _ = TranscriptLocation.activate(bookmark: bookmark)
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(5))
+                return nil
+            }
+
+            for await value in group where value != nil {
+                group.cancelAll()
+                return value
+            }
+            return nil
+        }
+
+        let directory = try #require(received)
+        #expect(directory.resolvingSymlinksInPath() == folder.resolvingSymlinksInPath())
+    }
+
+    @Test("Returning to the default folder is broadcast too")
+    func testReturnToDefaultIsBroadcast() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wispr-broadcast-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            TranscriptLocation.useDefault()
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        let bookmark = try TranscriptLocation.makeBookmark(for: folder)
+        _ = TranscriptLocation.activate(bookmark: bookmark)
+
+        let received = await withTaskGroup(of: URL?.self) { group in
+            group.addTask {
+                for await directory in TranscriptLocation.changes() { return directory }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: .milliseconds(200))
+                // Dropping a custom folder moves transcripts back to the container,
+                // which is a change even though the new scope is nil.
+                TranscriptLocation.useDefault()
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(5))
+                return nil
+            }
+
+            for await value in group where value != nil {
+                group.cancelAll()
+                return value
+            }
+            return nil
+        }
+
+        #expect(try #require(received) == TranscriptLocation.defaultDirectory)
+    }
 }
