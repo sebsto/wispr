@@ -177,11 +177,12 @@ _prune-registrations:
 			$(LSREGISTER) -u "$$stale" 2>/dev/null || true; \
 		done
 
-which-app: ## Show which Wispr bundle is running, and its version
+which-app: ## Show which Wispr bundle is running, and what it was built from
 	@running=$$(pgrep -f "Wispr.app/Contents/MacOS" | head -1); \
 	if [ -z "$$running" ]; then echo "Not running."; else \
-		echo "Running : $$(ps -o comm= -p $$running)"; fi
-	@echo "Version : $$(defaults read "$(DEV_APP)/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null) (build $$(defaults read "$(DEV_APP)/Contents/Info.plist" CFBundleVersion 2>/dev/null))"
+		echo "Running  : $$(ps -o comm= -p $$running)"; fi
+	@echo "Built    : $$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$(DEV_APP)/Contents/MacOS/Wispr" 2>/dev/null || echo 'no build yet')"
+	@echo "Worktree : $$(git log --oneline -1 2>/dev/null)$$(git diff --quiet 2>/dev/null || echo ' (uncommitted changes)')"
 	@echo "Bundles registered under $(BUNDLE_ID):"
 	@$(LSREGISTER) -dump 2>/dev/null \
 		| awk '/^bundle[ \t]/{p=""} /path:/{p=$$2} /$(BUNDLE_ID)/{if(p!="")print "  "p}' | sort -u
