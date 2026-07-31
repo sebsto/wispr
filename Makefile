@@ -12,6 +12,16 @@ XCODEPROJ    := wispr.xcodeproj
 ARCHIVE_PATH := $(CURDIR)/build/wispr.xcarchive
 EXPORT_DIR   := $(CURDIR)/build/export
 
+# Local dev loop (see the `run` target). Kept out of build/ so it is not confused
+# with release artefacts.
+DERIVED_DATA := $(CURDIR)/.xcbuild
+DEV_APP      := $(DERIVED_DATA)/Build/Products/Release/Wispr.app
+LSREGISTER   := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister
+
+# Ad-hoc signing for machines with no Developer ID in the keychain. Override with
+# DEV_SIGN= to use whatever automatic signing the project is configured for.
+DEV_SIGN     ?= CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=""
+
 # App Store Connect API key (read from secrets/asc-api-key.json)
 SECRETS_JSON   := $(CURDIR)/secrets/asc-api-key.json
 API_KEYS_DIR   := $(CURDIR)/secrets
@@ -136,8 +146,47 @@ archive: bump-build ## Bump build number and create Release archive (version is 
 	set -o pipefail && xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Release \
 		-archivePath $(ARCHIVE_PATH) clean archive | xcbeautify
 
-test: ## Run unit tests with xcodebuild (not SPM)
-	set -o pipefail && xcodebuild test \
+run: ## Build Release and launch that exact bundle (dev loop)
+	@$(MAKE) -s _build-dev
+	@$(MAKE) -s _prune-registrations
+	@echo "Restarting …"
+	@pkill -f "$(DEV_APP)/Contents/MacOS" 2>/dev/null || true
+	@sleep 2
+	@open "$(DEV_APP)"
+	@sleep 2
+	@$(MAKE) -s which-app
+
+_build-dev:
+	@echo "Building Release …"
+	@set -o pipefail && xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) \
+		-configuration Release -derivedDataPath $(DERIVED_DATA) $(DEV_SIGN) build \
+		> /tmp/wispr-dev-build.log 2>&1 \
+		|| { echo "BUILD FAILED — last errors:"; grep -E "error:" /tmp/wispr-dev-build.log | head -20; exit 1; }
+
+# Several bundles can end up registered under one bundle identifier — a Debug build
+# alongside the Release one, or copies left in temporary directories by earlier
+# builds. Anything that launches the app by identifier rather than by path (Spotlight,
+# `open -a`, `open -b`) then picks whichever LaunchServices prefers, which is how a
+# stale build gets run without noticing. Keep only the bundle we just built.
+_prune-registrations:
+	@$(LSREGISTER) -dump 2>/dev/null \
+		| awk '/^bundle[ \t]/{p=""} /path:/{p=$$2} /$(BUNDLE_ID)/{if(p!="")print p}' \
+		| sort -u | grep -v "^$(DEV_APP)$$" \
+		| while read -r stale; do \
+			echo "Unregistering stale bundle: $$stale"; \
+			$(LSREGISTER) -u "$$stale" 2>/dev/null || true; \
+		done
+
+which-app: ## Show which Wispr bundle is running, and its version
+	@running=$$(pgrep -f "Wispr.app/Contents/MacOS" | head -1); \
+	if [ -z "$$running" ]; then echo "Not running."; else \
+		echo "Running : $$(ps -o comm= -p $$running)"; fi
+	@echo "Version : $$(defaults read "$(DEV_APP)/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null) (build $$(defaults read "$(DEV_APP)/Contents/Info.plist" CFBundleVersion 2>/dev/null))"
+	@echo "Bundles registered under $(BUNDLE_ID):"
+	@$(LSREGISTER) -dump 2>/dev/null \
+		| awk '/^bundle[ \t]/{p=""} /path:/{p=$$2} /$(BUNDLE_ID)/{if(p!="")print "  "p}' | sort -u
+
+test: ## Run unit tests with xcodebuild (not SPM)	set -o pipefail && xcodebuild test \
 		-project $(XCODEPROJ) \
 		-scheme $(SCHEME) \
 		-configuration Debug \
