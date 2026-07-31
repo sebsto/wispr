@@ -16,17 +16,34 @@ import Testing
 @Suite("MeetingHistoryStore Tests", .serialized)
 struct MeetingHistoryStoreTests {
 
-    /// Runs `body` and deletes every transcript it created, so the suite leaves
+    /// Runs `body` and removes every transcript file it added, so the suite leaves
     /// the real transcripts directory as it found it.
+    ///
+    /// Works off a before/after directory diff rather than a list of URLs the test
+    /// collected: these tests rename files, so a tracked URL goes stale the moment
+    /// a rename happens, and a test failing mid-way would leak the renamed file
+    /// into the user's real transcripts folder.
     private func withCleanup(_ body: (inout [URL]) async throws -> Void) async throws {
+        let before = Self.directorySnapshot()
         var created: [URL] = []
-        do {
-            try await body(&created)
-        } catch {
-            for url in created { try? TranscriptStore.delete(url) }
-            throw error
+        defer { Self.removeFilesAdded(since: before) }
+        try await body(&created)
+    }
+
+    /// Names of the files currently in the transcripts directory.
+    fileprivate static func directorySnapshot() -> Set<String> {
+        let contents = try? FileManager.default.contentsOfDirectory(
+            atPath: TranscriptStore.directory.path)
+        return Set(contents ?? [])
+    }
+
+    /// Deletes every file that appeared in the transcripts directory since `snapshot`.
+    fileprivate static func removeFilesAdded(since snapshot: Set<String>) {
+        let now = directorySnapshot()
+        for name in now.subtracting(snapshot) {
+            try? FileManager.default.removeItem(
+                at: TranscriptStore.directory.appendingPathComponent(name))
         }
-        for url in created { try? TranscriptStore.delete(url) }
     }
 
     private func saveTranscript(
@@ -395,80 +412,89 @@ struct MeetingHistoryStoreTests {
 
     @Test("Deleting several transcripts removes all of them")
     func testDeleteMany() async throws {
-        let urls = [
-            try saveTranscript(texts: ["un"]),
-            try saveTranscript(texts: ["deux"]),
-            try saveTranscript(texts: ["trois"]),
-        ]
+        try await withCleanup { _ in
+            let urls = [
+                try saveTranscript(texts: ["un"]),
+                try saveTranscript(texts: ["deux"]),
+                try saveTranscript(texts: ["trois"]),
+            ]
 
-        let store = MeetingHistoryStore()
-        await store.refresh()
-        let targets = urls.compactMap { url in store.summaries.first { $0.url == url } }
-        #expect(targets.count == 3)
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            let targets = urls.compactMap { url in store.summaries.first { $0.url == url } }
+            #expect(targets.count == 3)
 
-        await store.delete(targets)
+            await store.delete(targets)
 
-        #expect(store.errorMessage == nil)
-        for url in urls {
-            #expect(!FileManager.default.fileExists(atPath: url.path))
-            #expect(!store.summaries.contains { $0.url == url })
+            #expect(store.errorMessage == nil)
+            for url in urls {
+                #expect(!FileManager.default.fileExists(atPath: url.path))
+                #expect(!store.summaries.contains { $0.url == url })
+            }
         }
     }
 
     @Test("One unreachable file does not stop the rest of a batch")
     func testDeleteManyContinuesPastFailure() async throws {
-        // Aborting halfway would leave the user unable to tell which transcripts
-        // actually went, so the batch runs to completion and reports afterwards.
-        let real = try saveTranscript(texts: ["réel"])
-        let missing = TranscriptStore.directory
-            .appendingPathComponent("meeting-1970-01-01_00-00-09.json")
+        try await withCleanup { _ in
+            // Aborting halfway would leave the user unable to tell which transcripts
+            // actually went, so the batch runs to completion and reports afterwards.
+            let real = try saveTranscript(texts: ["réel"])
+            let missing = TranscriptStore.directory
+                .appendingPathComponent("meeting-1970-01-01_00-00-09.json")
 
-        let store = MeetingHistoryStore()
-        await store.refresh()
-        let realSummary = try #require(store.summaries.first { $0.url == real })
-        let ghost = TranscriptSummary(
-            url: missing, startTime: Date(), title: nil, duration: 0, entryCount: 0,
-            speakerNames: [], preview: "", isUnreadable: false)
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            let realSummary = try #require(store.summaries.first { $0.url == real })
+            let ghost = TranscriptSummary(
+                url: missing, startTime: Date(), title: nil, duration: 0, entryCount: 0,
+                speakerNames: [], preview: "", isUnreadable: false)
 
-        await store.delete([ghost, realSummary])
+            await store.delete([ghost, realSummary])
 
-        #expect(!FileManager.default.fileExists(atPath: real.path))
-        #expect(!store.summaries.contains { $0.url == real })
-        #expect(store.errorMessage != nil)
+            #expect(!FileManager.default.fileExists(atPath: real.path))
+            #expect(!store.summaries.contains { $0.url == real })
+            #expect(store.errorMessage != nil)
+        }
     }
 
     @Test("Deleting a batch containing the open transcript returns the view to live")
     func testDeleteManyIncludingOpenReturnsToLive() async throws {
-        let first = try saveTranscript(texts: ["un"])
-        let second = try saveTranscript(texts: ["deux"])
+        try await withCleanup { _ in
+            let first = try saveTranscript(texts: ["un"])
+            let second = try saveTranscript(texts: ["deux"])
 
-        let store = MeetingHistoryStore()
-        await store.refresh()
-        let openSummary = try #require(store.summaries.first { $0.url == second })
-        await store.show(openSummary)
-        #expect(store.isShowingArchived)
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            let openSummary = try #require(store.summaries.first { $0.url == second })
+            await store.show(openSummary)
+            #expect(store.isShowingArchived)
 
-        let targets = [first, second].compactMap { url in store.summaries.first { $0.url == url } }
-        await store.delete(targets)
+            let targets = [first, second].compactMap { url in
+                store.summaries.first { $0.url == url }
+            }
+            await store.delete(targets)
 
-        #expect(store.selection == .live)
-        #expect(store.loadedTranscript == nil)
+            #expect(store.selection == .live)
+            #expect(store.loadedTranscript == nil)
+        }
     }
 
     @Test("Deleting an empty batch does nothing")
     func testDeleteEmptyBatch() async throws {
-        let url = try saveTranscript()
-        defer { try? TranscriptStore.delete(url) }
+        try await withCleanup { _ in
+            let url = try saveTranscript()
 
-        let store = MeetingHistoryStore()
-        await store.refresh()
-        let before = store.summaries.count
+            let store = MeetingHistoryStore()
+            await store.refresh()
+            let before = store.summaries.count
 
-        await store.delete([])
+            await store.delete([])
 
-        #expect(store.errorMessage == nil)
-        #expect(store.summaries.count == before)
-        #expect(FileManager.default.fileExists(atPath: url.path))
+            #expect(store.errorMessage == nil)
+            #expect(store.summaries.count == before)
+            #expect(FileManager.default.fileExists(atPath: url.path))
+        }
     }
 
     @Test("dismissError clears a surfaced message")

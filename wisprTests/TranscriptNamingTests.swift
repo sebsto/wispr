@@ -69,10 +69,30 @@ struct TranscriptSlugTests {
 @Suite("TranscriptStore rename Tests", .serialized)
 struct TranscriptRenameTests {
 
+    /// Runs `body` and removes every transcript file it added.
+    ///
+    /// A before/after directory diff rather than a tracked URL list: this suite
+    /// renames files, so a tracked URL is stale as soon as a rename runs, and a
+    /// failure part-way through would leave the renamed file behind in the user's
+    /// real transcripts folder.
     private func withCleanup(_ body: (inout [URL]) throws -> Void) throws {
+        let before = Self.directorySnapshot()
         var created: [URL] = []
-        defer { for url in created { try? TranscriptStore.delete(url) } }
+        defer { Self.removeFilesAdded(since: before) }
         try body(&created)
+    }
+
+    private static func directorySnapshot() -> Set<String> {
+        let contents = try? FileManager.default.contentsOfDirectory(
+            atPath: TranscriptStore.directory.path)
+        return Set(contents ?? [])
+    }
+
+    private static func removeFilesAdded(since snapshot: Set<String>) {
+        for name in directorySnapshot().subtracting(snapshot) {
+            try? FileManager.default.removeItem(
+                at: TranscriptStore.directory.appendingPathComponent(name))
+        }
     }
 
     private func makeTranscript(start: Date = Date()) -> MeetingTranscript {
