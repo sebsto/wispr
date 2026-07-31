@@ -167,6 +167,11 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
             NSWorkspace.shared.open(url)
         }
 
+        // Open the sandbox scope for a user-chosen transcripts folder before
+        // anything can read or write transcripts. Must happen before the meeting
+        // services below, which resolve `TranscriptStore.directory`.
+        TranscriptLocation.applyStoredFolder(from: settingsStore)
+
         // Build the StateManager with all injected dependencies
         let sm = StateManager(
             audioEngine: audioEngine,

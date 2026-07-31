@@ -7,6 +7,7 @@
 # Xcode build artifacts
 build/
 DerivedData/
+.xcbuild/
 *.profraw
 
 # Swift Package Manager

@@ -121,28 +121,39 @@ final class MeetingHistoryStore {
 
     /// Retitles an archived session and writes it back.
     ///
-    /// Pass `nil` or a blank string to clear the title and fall back to the
-    /// session's date.
+    /// The file on disk is renamed to match, so the name given here is the name
+    /// the user sees in Finder. Pass `nil` or a blank string to clear the title,
+    /// which falls the session — and its filename — back to the session's date.
     func retitle(_ summary: TranscriptSummary, to title: String?) async {
         let url = summary.url
 
         // Edit the file rather than `loadedTranscript`: a session can be renamed
         // from the sidebar without being opened first.
-        let outcome = await Task.detached { () -> Result<MeetingTranscript, any Error> in
+        let outcome = await Task.detached { () -> Result<(MeetingTranscript, URL), any Error> in
             do {
                 var transcript = try TranscriptStore.load(url)
                 transcript.setTitle(title)
                 try TranscriptStore.save(transcript, to: url)
-                return .success(transcript)
+                // Rename only after the content is safely written: a failed rename
+                // then leaves a correctly-titled file under its old name, rather
+                // than a renamed file holding a stale title.
+                let renamed = try TranscriptStore.rename(
+                    at: url, startTime: transcript.startTime, title: transcript.title)
+                return .success((transcript, renamed))
             } catch {
                 return .failure(error)
             }
         }.value
 
         switch outcome {
-        case .success(let transcript):
-            // Keep the open transcript in step when it is the one being renamed.
-            if loadedURL == url { loadedTranscript = transcript }
+        case .success(let (transcript, renamedURL)):
+            // The URL is a row's identity, so the rename has to be reflected in the
+            // selection — otherwise the transcript the user is reading would look
+            // as though it had been deleted.
+            if loadedURL == url {
+                selection = .archived(renamedURL)
+                loadedTranscript = transcript
+            }
             await refresh()
         case .failure(let error):
             Log.stateManager.error(
@@ -184,25 +195,66 @@ final class MeetingHistoryStore {
 
     /// Deletes an archived transcript.
     func delete(_ summary: TranscriptSummary) async {
-        let url = summary.url
-        let failure = await Task.detached { () -> (any Error)? in
-            do {
-                try TranscriptStore.delete(url)
-                return nil
-            } catch {
-                return error
+        await delete([summary])
+    }
+
+    /// Deletes several archived transcripts in one pass.
+    ///
+    /// A failure on one file does not abort the rest: stopping halfway would leave
+    /// the user unsure which transcripts actually went. Every failure is collected
+    /// and reported together.
+    func delete(_ summaries: [TranscriptSummary]) async {
+        guard !summaries.isEmpty else { return }
+        let urls = summaries.map(\.url)
+
+        let failures = await Task.detached { () -> [String] in
+            var failures: [String] = []
+            for url in urls {
+                do {
+                    try TranscriptStore.delete(url)
+                } catch {
+                    failures.append("\(url.lastPathComponent) (\(error.localizedDescription))")
+                }
             }
+            return failures
         }.value
 
-        if let failure {
-            Log.stateManager.error(
-                "MeetingHistoryStore — delete failed: \(failure.localizedDescription)")
-            errorMessage = "Could not delete this transcript: \(failure.localizedDescription)"
-            return
-        }
-
-        if loadedURL == url { showLive() }
+        // Drop the viewer off a transcript that no longer exists before rescanning.
+        if let loaded = loadedURL, urls.contains(loaded) { showLive() }
         await refresh()
+
+        guard !failures.isEmpty else { return }
+        Log.stateManager.error(
+            "MeetingHistoryStore — delete failed for \(failures.count) of \(urls.count) files")
+        errorMessage = failures.count == 1
+            ? "Could not delete \(failures[0])."
+            : "Could not delete \(failures.count) transcripts: \(failures.joined(separator: ", "))."
+    }
+
+    // MARK: - External Changes
+
+    /// Keeps the history list in step with the transcripts folder on disk.
+    ///
+    /// Transcripts deleted or renamed in Finder would otherwise leave stale rows
+    /// in the sidebar. Runs for as long as the calling task lives — the meeting
+    /// window's lifetime — so nothing is watched while the window is closed; the
+    /// window's own `refresh()` on appear covers anything missed in between.
+    func watchForExternalChanges() async {
+        while !Task.isCancelled {
+            for await _ in TranscriptDirectoryWatcher.changes(for: TranscriptStore.directory) {
+                // A single Finder action emits several vnode events. Pausing lets
+                // them collapse into one rescan, since the stream keeps only the
+                // newest pending element.
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                await refresh()
+            }
+
+            guard !Task.isCancelled else { return }
+            // The stream ended because the folder itself was moved or deleted.
+            // Pause before re-watching so a missing folder cannot spin the loop.
+            try? await Task.sleep(for: .seconds(1))
+        }
     }
 
     /// Clears a surfaced error once the user has seen it.

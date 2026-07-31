@@ -56,11 +56,19 @@ nonisolated struct TranscriptSummary: Identifiable, Sendable, Equatable {
 nonisolated enum TranscriptStore {
 
     /// Directory where transcript JSON files are stored.
-    static var directory: URL { ModelPaths.transcripts }
+    ///
+    /// Resolved on every access rather than cached, so a folder change in Settings
+    /// takes effect immediately for both reads and writes.
+    static var directory: URL { TranscriptLocation.current }
 
     /// Prefix and extension identifying transcript files in the directory.
     private static let filePrefix = "meeting-"
     private static let fileExtension = "json"
+
+    /// Upper bound on the title fragment appended to a filename. Long enough to
+    /// stay recognisable in Finder, short enough to leave room for the timestamp
+    /// and a collision suffix within the filesystem's per-component limit.
+    private static let slugMaxLength = 60
 
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
@@ -102,7 +110,7 @@ nonisolated enum TranscriptStore {
         }
 
         do {
-            let url = try fileURL(for: transcript.startTime)
+            let url = try fileURL(for: transcript.startTime, title: transcript.title)
             try write(transcript, to: url)
             Log.stateManager.debug(
                 "TranscriptStore — saved transcript (\(transcript.entries.count) entries) to \(url.lastPathComponent)"
@@ -166,6 +174,62 @@ nonisolated enum TranscriptStore {
         Log.stateManager.debug("TranscriptStore — deleted \(url.lastPathComponent)")
     }
 
+    // MARK: - Renaming
+
+    /// Renames a transcript file so its name reflects the session title.
+    ///
+    /// The `meeting-<timestamp>` head is preserved and the sanitised title
+    /// appended: `list()` keys off that prefix, so a free-form filename would make
+    /// the transcript invisible in the history sidebar. Clearing the title returns
+    /// the file to its timestamp-only name.
+    ///
+    /// - Returns: The resulting URL, which equals `url` when no rename was needed.
+    static func rename(at url: URL, startTime: Date, title: String?) throws -> URL {
+        let target = try fileURL(for: startTime, title: title, ignoring: url)
+        guard target != url else { return url }
+
+        try FileManager.default.moveItem(at: url, to: target)
+        Log.stateManager.debug(
+            "TranscriptStore — renamed \(url.lastPathComponent) to \(target.lastPathComponent)")
+        return target
+    }
+
+    /// Converts a session title into a filename-safe fragment.
+    ///
+    /// Letters and digits are kept (accents included — APFS handles them fine);
+    /// every other run of characters collapses to a single dash. Separators are
+    /// only emitted *before* a subsequent alphanumeric, so the result can never
+    /// carry a leading or trailing dash, and truncation always lands on a
+    /// character rather than mid-separator.
+    ///
+    /// Returns an empty string when nothing usable survives — a title made only of
+    /// punctuation or emoji — in which case callers fall back to the
+    /// timestamp-only name.
+    static func slug(from title: String?) -> String {
+        guard let title else { return "" }
+
+        var slug = ""
+        var pendingSeparator = false
+
+        for character in title {
+            guard character.isLetter || character.isNumber else {
+                pendingSeparator = true
+                continue
+            }
+
+            // Account for the separator before appending anything, otherwise a
+            // separator plus a character can carry the slug one past the cap.
+            let needsSeparator = pendingSeparator && !slug.isEmpty
+            guard slug.count + (needsSeparator ? 2 : 1) <= slugMaxLength else { break }
+
+            if needsSeparator { slug.append("-") }
+            pendingSeparator = false
+            slug.append(character)
+        }
+
+        return slug
+    }
+
     // MARK: - Private
 
     private static func write(_ transcript: MeetingTranscript, to url: URL) throws {
@@ -175,27 +239,48 @@ nonisolated enum TranscriptStore {
         try data.write(to: url, options: .atomic)
     }
 
-    /// Builds a unique file URL for a session start time.
+    /// Builds a unique file URL for a session start time and optional title.
     ///
     /// Two meetings can start within the same second (a mistaken stop followed
     /// by an immediate restart), which the timestamp alone cannot distinguish —
     /// the second would silently overwrite the first. A numeric suffix is added
     /// when needed.
-    private static func fileURL(for startTime: Date) throws -> URL {
+    ///
+    /// - Parameter ignoring: A file to treat as available. Renaming passes the file
+    ///   being renamed, so re-applying the same title is a no-op instead of
+    ///   colliding with itself and bumping to `-2`.
+    private static func fileURL(
+        for startTime: Date,
+        title: String? = nil,
+        ignoring existing: URL? = nil
+    ) throws -> URL {
         let fileManager = FileManager.default
         let dir = directory
         try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let stamp = filenameFormatter.string(from: startTime)
-        let base = dir.appendingPathComponent(
-            "\(filePrefix)\(stamp).\(fileExtension)", isDirectory: false)
-        guard fileManager.fileExists(atPath: base.path) else { return base }
+        let titleSlug = slug(from: title)
+        let stem = titleSlug.isEmpty
+            ? "\(filePrefix)\(stamp)"
+            : "\(filePrefix)\(stamp)-\(titleSlug)"
+
+        func candidate(suffix: Int?) -> URL {
+            let name = suffix.map { "\(stem)-\($0).\(fileExtension)" } ?? "\(stem).\(fileExtension)"
+            return dir.appendingPathComponent(name, isDirectory: false)
+        }
+
+        func isAvailable(_ url: URL) -> Bool {
+            url == existing || !fileManager.fileExists(atPath: url.path)
+        }
+
+        let base = candidate(suffix: nil)
+        if isAvailable(base) { return base }
 
         for suffix in 2...99 {
-            let candidate = dir.appendingPathComponent(
-                "\(filePrefix)\(stamp)-\(suffix).\(fileExtension)", isDirectory: false)
-            if !fileManager.fileExists(atPath: candidate.path) { return candidate }
+            let candidate = candidate(suffix: suffix)
+            if isAvailable(candidate) { return candidate }
         }
+
         // Astronomically unlikely; fall back to overwriting rather than failing
         // to persist a real meeting.
         return base

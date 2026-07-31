@@ -237,7 +237,7 @@ struct MeetingHistoryStoreTests {
 
     // MARK: - Session title
 
-    @Test("Retitling a session persists and shows up in the sidebar")
+    @Test("Retitling a session persists and renames the file on disk")
     func testRetitlePersists() async throws {
         try await withCleanup { created in
             let url = try saveTranscript(texts: ["bonjour"])
@@ -251,9 +251,16 @@ struct MeetingHistoryStoreTests {
             await store.retitle(summary, to: "Sprint review")
 
             #expect(store.errorMessage == nil)
-            #expect(store.summaries.first { $0.url == url }?.title == "Sprint review")
+
+            // The title is the name the user sees in Finder too, so the row is now
+            // keyed by a new URL carrying the title.
+            let renamed = try #require(store.summaries.first { $0.title == "Sprint review" })
+            created.append(renamed.url)
+            #expect(renamed.url != url)
+            #expect(renamed.url.lastPathComponent.contains("Sprint-review"))
+            #expect(!FileManager.default.fileExists(atPath: url.path))
             // Written through, not just held in memory.
-            #expect(try TranscriptStore.load(url).title == "Sprint review")
+            #expect(try TranscriptStore.load(renamed.url).title == "Sprint review")
         }
     }
 
@@ -270,12 +277,14 @@ struct MeetingHistoryStoreTests {
 
             await store.retitle(try #require(store.summaries.first { $0.url == url }), to: "Standup")
 
-            #expect(try TranscriptStore.load(url).title == "Standup")
+            let renamed = try #require(store.summaries.first { $0.title == "Standup" })
+            created.append(renamed.url)
+            #expect(try TranscriptStore.load(renamed.url).title == "Standup")
             #expect(store.isShowingArchived == false)
         }
     }
 
-    @Test("Retitling the open session updates what is on screen")
+    @Test("Retitling the open session keeps it open under its new filename")
     func testRetitleUpdatesLoadedTranscript() async throws {
         try await withCleanup { created in
             let url = try saveTranscript()
@@ -288,7 +297,13 @@ struct MeetingHistoryStoreTests {
 
             await store.retitle(summary, to: "Retro")
 
+            // The URL is the row's identity; without remapping the selection, the
+            // transcript on screen would look as though it had been deleted.
+            let renamed = try #require(store.summaries.first { $0.title == "Retro" })
+            created.append(renamed.url)
             #expect(store.loadedTranscript?.title == "Retro")
+            #expect(store.selection == .archived(renamed.url))
+            #expect(store.isShowingArchived)
         }
     }
 
@@ -300,14 +315,17 @@ struct MeetingHistoryStoreTests {
 
             let store = MeetingHistoryStore()
             await store.refresh()
-            var summary = try #require(store.summaries.first { $0.url == url })
-            await store.retitle(summary, to: "Temporaire")
+            await store.retitle(try #require(store.summaries.first { $0.url == url }), to: "Temporaire")
 
-            summary = try #require(store.summaries.first { $0.url == url })
-            await store.retitle(summary, to: nil)
+            let titled = try #require(store.summaries.first { $0.title == "Temporaire" })
+            created.append(titled.url)
 
-            #expect(store.summaries.first { $0.url == url }?.title == nil)
-            #expect(store.summaries.first { $0.url == url }?.hasTitle == false)
+            await store.retitle(titled, to: nil)
+
+            // Clearing the title also takes it back out of the filename.
+            let cleared = try #require(store.summaries.first { $0.url == url })
+            #expect(cleared.title == nil)
+            #expect(cleared.hasTitle == false)
         }
     }
 
@@ -371,6 +389,86 @@ struct MeetingHistoryStoreTests {
         await store.delete(summary)
 
         #expect(store.errorMessage != nil)
+    }
+
+    // MARK: - Batch delete
+
+    @Test("Deleting several transcripts removes all of them")
+    func testDeleteMany() async throws {
+        let urls = [
+            try saveTranscript(texts: ["un"]),
+            try saveTranscript(texts: ["deux"]),
+            try saveTranscript(texts: ["trois"]),
+        ]
+
+        let store = MeetingHistoryStore()
+        await store.refresh()
+        let targets = urls.compactMap { url in store.summaries.first { $0.url == url } }
+        #expect(targets.count == 3)
+
+        await store.delete(targets)
+
+        #expect(store.errorMessage == nil)
+        for url in urls {
+            #expect(!FileManager.default.fileExists(atPath: url.path))
+            #expect(!store.summaries.contains { $0.url == url })
+        }
+    }
+
+    @Test("One unreachable file does not stop the rest of a batch")
+    func testDeleteManyContinuesPastFailure() async throws {
+        // Aborting halfway would leave the user unable to tell which transcripts
+        // actually went, so the batch runs to completion and reports afterwards.
+        let real = try saveTranscript(texts: ["réel"])
+        let missing = TranscriptStore.directory
+            .appendingPathComponent("meeting-1970-01-01_00-00-09.json")
+
+        let store = MeetingHistoryStore()
+        await store.refresh()
+        let realSummary = try #require(store.summaries.first { $0.url == real })
+        let ghost = TranscriptSummary(
+            url: missing, startTime: Date(), title: nil, duration: 0, entryCount: 0,
+            speakerNames: [], preview: "", isUnreadable: false)
+
+        await store.delete([ghost, realSummary])
+
+        #expect(!FileManager.default.fileExists(atPath: real.path))
+        #expect(!store.summaries.contains { $0.url == real })
+        #expect(store.errorMessage != nil)
+    }
+
+    @Test("Deleting a batch containing the open transcript returns the view to live")
+    func testDeleteManyIncludingOpenReturnsToLive() async throws {
+        let first = try saveTranscript(texts: ["un"])
+        let second = try saveTranscript(texts: ["deux"])
+
+        let store = MeetingHistoryStore()
+        await store.refresh()
+        let openSummary = try #require(store.summaries.first { $0.url == second })
+        await store.show(openSummary)
+        #expect(store.isShowingArchived)
+
+        let targets = [first, second].compactMap { url in store.summaries.first { $0.url == url } }
+        await store.delete(targets)
+
+        #expect(store.selection == .live)
+        #expect(store.loadedTranscript == nil)
+    }
+
+    @Test("Deleting an empty batch does nothing")
+    func testDeleteEmptyBatch() async throws {
+        let url = try saveTranscript()
+        defer { try? TranscriptStore.delete(url) }
+
+        let store = MeetingHistoryStore()
+        await store.refresh()
+        let before = store.summaries.count
+
+        await store.delete([])
+
+        #expect(store.errorMessage == nil)
+        #expect(store.summaries.count == before)
+        #expect(FileManager.default.fileExists(atPath: url.path))
     }
 
     @Test("dismissError clears a surfaced message")

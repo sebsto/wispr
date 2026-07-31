@@ -76,6 +76,10 @@ struct SettingsView: View {
             "When enabled, speech from remote participants that leaks into your microphone is not transcribed a second time as your own speech"
         static let openTranscriptsFolder =
             "Opens the folder where saved meeting transcripts are stored in Finder"
+        static let changeTranscriptsFolder =
+            "Choose a different folder for Wispr to save new meeting transcripts in"
+        static let resetTranscriptsFolder =
+            "Saves new meeting transcripts inside Wispr's own folder again"
 
         // General section
         static let launchAtLogin = "When enabled, Wispr starts automatically when you log in"
@@ -95,6 +99,11 @@ struct SettingsView: View {
     @State private var isRecordingHotkey = false
     @State private var hotkeyError: String?
     @State private var showRestoreDefaultsAlert = false
+
+    /// Surfaced when a chosen transcripts folder could not be used, so the app
+    /// silently falling back to the default location is visible rather than
+    /// looking like the setting was ignored.
+    @State private var transcriptsFolderError: String?
 
     /// The model ID currently being activated from the Settings picker.
     @State private var activatingModelId: String?
@@ -413,6 +422,16 @@ struct SettingsView: View {
                 Text("Saved Transcripts")
                     .foregroundStyle(theme.primaryTextColor)
                 Spacer()
+                Button("Change…") {
+                    chooseTranscriptsFolder()
+                }
+                .accessibilityHint(AccessibilityHints.changeTranscriptsFolder)
+                if hasCustomTranscriptsFolder {
+                    Button("Use Default") {
+                        resetTranscriptsFolder()
+                    }
+                    .accessibilityHint(AccessibilityHints.resetTranscriptsFolder)
+                }
                 Button("Open Folder") {
                     openTranscriptsFolder()
                 }
@@ -424,6 +443,19 @@ struct SettingsView: View {
                 .foregroundStyle(theme.secondaryTextColor)
                 .textSelection(.enabled)
                 .accessibilityLabel("Transcripts are saved to \(transcriptsFolderPath)")
+
+            Text(
+                "New transcripts are saved here. Changing the folder leaves transcripts already saved elsewhere where they are, so they no longer appear in the meeting history."
+            )
+            .font(.caption)
+            .foregroundStyle(theme.secondaryTextColor)
+
+            if let transcriptsFolderError {
+                Label(transcriptsFolderError, systemImage: SFSymbols.warning)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Transcripts folder problem: \(transcriptsFolderError)")
+            }
         } header: {
             SectionHeader(
                 title: "Meeting",
@@ -434,6 +466,16 @@ struct SettingsView: View {
     }
 
     // MARK: - Transcripts Folder
+
+    /// Whether a user-chosen folder is in force.
+    ///
+    /// Derived from the stored bookmark rather than `TranscriptLocation.isCustom`
+    /// so that reading it in the body registers an Observation dependency on
+    /// `settingsStore`. The resolved location itself is a plain static, so without
+    /// this the section would keep showing the previous folder after a change.
+    private var hasCustomTranscriptsFolder: Bool {
+        settingsStore.transcriptsFolderBookmark != nil
+    }
 
     /// Home-abbreviated path to the folder where meeting transcripts are saved.
     private var transcriptsFolderPath: String {
@@ -449,6 +491,44 @@ struct SettingsView: View {
         let dir = TranscriptStore.directory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         openURL(dir)
+    }
+
+    /// Asks the user for a folder and saves new transcripts there.
+    ///
+    /// The panel is what grants sandbox access to the chosen folder, so the
+    /// bookmark has to be minted from the URL it returns — a path typed or
+    /// constructed by hand would not be readable.
+    private func chooseTranscriptsFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Choose where Wispr saves meeting transcripts."
+        panel.directoryURL = TranscriptStore.directory
+
+        guard panel.runModal() == .OK, let chosen = panel.url else { return }
+
+        do {
+            settingsStore.transcriptsFolderBookmark = try TranscriptLocation.makeBookmark(
+                for: chosen)
+        } catch {
+            transcriptsFolderError =
+                "Could not save that folder choice: \(error.localizedDescription)"
+            return
+        }
+
+        // Activating through the same path used at launch keeps stale-bookmark and
+        // permission handling in one place.
+        transcriptsFolderError = TranscriptLocation.applyStoredFolder(from: settingsStore)
+    }
+
+    /// Returns to storing transcripts inside the app's own container.
+    private func resetTranscriptsFolder() {
+        settingsStore.transcriptsFolderBookmark = nil
+        TranscriptLocation.useDefault()
+        transcriptsFolderError = nil
     }
 
     // MARK: - General Section

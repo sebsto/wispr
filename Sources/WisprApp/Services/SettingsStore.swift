@@ -126,6 +126,23 @@ final class SettingsStore {
 
     // MARK: - Meeting Detection
 
+    /// Security-scoped bookmark for the folder meeting transcripts are saved to,
+    /// or `nil` to use the app's own container.
+    ///
+    /// A bookmark rather than a path: the app is sandboxed, so a stored path would
+    /// resolve after relaunch to a folder it is no longer allowed to open.
+    /// `TranscriptLocation` owns resolving this and holding the sandbox scope.
+    var transcriptsFolderBookmark: Data? {
+        didSet {
+            guard !isLoading else { return }
+            if let transcriptsFolderBookmark {
+                defaults.set(transcriptsFolderBookmark, forKey: Keys.transcriptsFolderBookmark)
+            } else {
+                defaults.removeObject(forKey: Keys.transcriptsFolderBookmark)
+            }
+        }
+    }
+
     /// When true, Wispr watches for another app using the microphone and posts a
     /// notification inviting the user to start meeting transcription.
     var meetingDetectionEnabled: Bool {
@@ -206,6 +223,7 @@ final class SettingsStore {
         static let meetingEchoSuppressionEnabled = "meetingEchoSuppressionEnabled"
         static let soundFeedbackEnabled = "soundFeedbackEnabled"
         static let meetingDetectionEnabled = "meetingDetectionEnabled"
+        static let transcriptsFolderBookmark = "transcriptsFolderBookmark"
         static let autoSuffixEnabled = "autoSuffixEnabled"
         static let autoSuffixText = "autoSuffixText"
         static let removeFillerWords = "removeFillerWords"
@@ -233,6 +251,7 @@ final class SettingsStore {
         static let meetingEchoSuppressionEnabled: Bool = true
         static let soundFeedbackEnabled: Bool = false
         static let meetingDetectionEnabled: Bool = false
+        static let transcriptsFolderBookmark: Data? = nil
         static let autoSuffixEnabled: Bool = false
         static let autoSuffixText: String = " "
         static let removeFillerWords: Bool = false
@@ -264,6 +283,7 @@ final class SettingsStore {
         self.meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
         self.soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         self.meetingDetectionEnabled = Defaults.meetingDetectionEnabled
+        self.transcriptsFolderBookmark = Defaults.transcriptsFolderBookmark
         self.autoSuffixEnabled = Defaults.autoSuffixEnabled
         self.autoSuffixText = Defaults.autoSuffixText
         self.removeFillerWords = Defaults.removeFillerWords
@@ -293,6 +313,10 @@ final class SettingsStore {
         meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
         soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         meetingDetectionEnabled = Defaults.meetingDetectionEnabled
+        // Files already written to a custom folder are left where they are; only
+        // the destination for new transcripts returns to the app container.
+        transcriptsFolderBookmark = Defaults.transcriptsFolderBookmark
+        TranscriptLocation.useDefault()
         autoSuffixEnabled = Defaults.autoSuffixEnabled
         autoSuffixText = Defaults.autoSuffixText
         removeFillerWords = Defaults.removeFillerWords
@@ -403,6 +427,8 @@ final class SettingsStore {
         if defaults.object(forKey: Keys.meetingDetectionEnabled) != nil {
             self.meetingDetectionEnabled = defaults.bool(forKey: Keys.meetingDetectionEnabled)
         }
+
+        self.transcriptsFolderBookmark = defaults.data(forKey: Keys.transcriptsFolderBookmark)
 
         // Load auto-suffix settings
         if defaults.object(forKey: Keys.autoSuffixEnabled) != nil {
