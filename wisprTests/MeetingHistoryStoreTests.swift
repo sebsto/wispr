@@ -13,41 +13,26 @@ import Testing
 @testable import WisprApp
 
 @MainActor
-@Suite("MeetingHistoryStore Tests", .serialized)
+@Suite("MeetingHistoryStore Tests", .serialized, .transcriptDirectoryIsolated)
 struct MeetingHistoryStoreTests {
 
-    /// Runs `body` and removes every transcript file it added, so the suite leaves
-    /// the real transcripts directory as it found it.
+    /// Runs `body` and deletes every file it registered, so the suite leaves the
+    /// real transcripts directory as it found it.
     ///
-    /// Works off a before/after directory diff rather than a list of URLs the test
-    /// collected: these tests rename files, so a tracked URL goes stale the moment
-    /// a rename happens, and a test failing mid-way would leak the renamed file
-    /// into the user's real transcripts folder.
+    /// Tests that rename a file must register the new URL too, since retitling now
+    /// moves the file and a URL captured beforehand no longer exists.
+    ///
+    /// Held under `TestTranscriptDirectoryLock` because other suites share this
+    /// directory — one of them redirects it process-wide — and a parallel redirect
+    /// would make `refresh()` scan a different folder than the one written to.
     private func withCleanup(_ body: (inout [URL]) async throws -> Void) async throws {
-        let before = Self.directorySnapshot()
         var created: [URL] = []
-        defer { Self.removeFilesAdded(since: before) }
+        defer { for url in created { try? TranscriptStore.delete(url) } }
         try await body(&created)
     }
 
-    /// Names of the files currently in the transcripts directory.
-    fileprivate static func directorySnapshot() -> Set<String> {
-        let contents = try? FileManager.default.contentsOfDirectory(
-            atPath: TranscriptStore.directory.path)
-        return Set(contents ?? [])
-    }
-
-    /// Deletes every file that appeared in the transcripts directory since `snapshot`.
-    fileprivate static func removeFilesAdded(since snapshot: Set<String>) {
-        let now = directorySnapshot()
-        for name in now.subtracting(snapshot) {
-            try? FileManager.default.removeItem(
-                at: TranscriptStore.directory.appendingPathComponent(name))
-        }
-    }
-
     private func saveTranscript(
-        start: Date = Date(),
+        start: Date = TestTranscriptClock.nextStart(),
         texts: [String] = ["hello"],
         speakerIndex: Int? = nil
     ) throws -> URL {
@@ -257,7 +242,8 @@ struct MeetingHistoryStoreTests {
     @Test("Retitling a session persists and renames the file on disk")
     func testRetitlePersists() async throws {
         try await withCleanup { created in
-            let url = try saveTranscript(texts: ["bonjour"])
+            let start = TestTranscriptClock.nextStart()
+            let url = try saveTranscript(start: start, texts: ["bonjour"])
             created.append(url)
 
             let store = MeetingHistoryStore()
@@ -269,10 +255,13 @@ struct MeetingHistoryStoreTests {
 
             #expect(store.errorMessage == nil)
 
+            // Found by start time, not by title: the suites share one real
+            // directory, so a title match could land on another session entirely.
+            let renamed = try #require(store.summaries.first { $0.startTime == start })
+            created.append(renamed.url)
             // The title is the name the user sees in Finder too, so the row is now
             // keyed by a new URL carrying the title.
-            let renamed = try #require(store.summaries.first { $0.title == "Sprint review" })
-            created.append(renamed.url)
+            #expect(renamed.title == "Sprint review")
             #expect(renamed.url != url)
             #expect(renamed.url.lastPathComponent.contains("Sprint-review"))
             #expect(!FileManager.default.fileExists(atPath: url.path))
@@ -284,7 +273,8 @@ struct MeetingHistoryStoreTests {
     @Test("A session can be retitled without being opened first")
     func testRetitleWithoutOpening() async throws {
         try await withCleanup { created in
-            let url = try saveTranscript()
+            let start = TestTranscriptClock.nextStart()
+            let url = try saveTranscript(start: start)
             created.append(url)
 
             let store = MeetingHistoryStore()
@@ -294,8 +284,9 @@ struct MeetingHistoryStoreTests {
 
             await store.retitle(try #require(store.summaries.first { $0.url == url }), to: "Standup")
 
-            let renamed = try #require(store.summaries.first { $0.title == "Standup" })
+            let renamed = try #require(store.summaries.first { $0.startTime == start })
             created.append(renamed.url)
+            #expect(renamed.title == "Standup")
             #expect(try TranscriptStore.load(renamed.url).title == "Standup")
             #expect(store.isShowingArchived == false)
         }
@@ -304,7 +295,8 @@ struct MeetingHistoryStoreTests {
     @Test("Retitling the open session keeps it open under its new filename")
     func testRetitleUpdatesLoadedTranscript() async throws {
         try await withCleanup { created in
-            let url = try saveTranscript()
+            let start = TestTranscriptClock.nextStart()
+            let url = try saveTranscript(start: start)
             created.append(url)
 
             let store = MeetingHistoryStore()
@@ -316,7 +308,7 @@ struct MeetingHistoryStoreTests {
 
             // The URL is the row's identity; without remapping the selection, the
             // transcript on screen would look as though it had been deleted.
-            let renamed = try #require(store.summaries.first { $0.title == "Retro" })
+            let renamed = try #require(store.summaries.first { $0.startTime == start })
             created.append(renamed.url)
             #expect(store.loadedTranscript?.title == "Retro")
             #expect(store.selection == .archived(renamed.url))
@@ -327,15 +319,18 @@ struct MeetingHistoryStoreTests {
     @Test("Clearing a title falls back to the session's date")
     func testClearTitle() async throws {
         try await withCleanup { created in
-            let url = try saveTranscript()
+            let start = TestTranscriptClock.nextStart()
+            let url = try saveTranscript(start: start)
             created.append(url)
 
             let store = MeetingHistoryStore()
             await store.refresh()
-            await store.retitle(try #require(store.summaries.first { $0.url == url }), to: "Temporaire")
+            await store.retitle(
+                try #require(store.summaries.first { $0.url == url }), to: "Temporaire")
 
-            let titled = try #require(store.summaries.first { $0.title == "Temporaire" })
+            let titled = try #require(store.summaries.first { $0.startTime == start })
             created.append(titled.url)
+            #expect(titled.title == "Temporaire")
 
             await store.retitle(titled, to: nil)
 
@@ -412,12 +407,13 @@ struct MeetingHistoryStoreTests {
 
     @Test("Deleting several transcripts removes all of them")
     func testDeleteMany() async throws {
-        try await withCleanup { _ in
+        try await withCleanup { created in
             let urls = [
                 try saveTranscript(texts: ["un"]),
                 try saveTranscript(texts: ["deux"]),
                 try saveTranscript(texts: ["trois"]),
             ]
+            created.append(contentsOf: urls)
 
             let store = MeetingHistoryStore()
             await store.refresh()
@@ -436,10 +432,11 @@ struct MeetingHistoryStoreTests {
 
     @Test("One unreachable file does not stop the rest of a batch")
     func testDeleteManyContinuesPastFailure() async throws {
-        try await withCleanup { _ in
+        try await withCleanup { created in
             // Aborting halfway would leave the user unable to tell which transcripts
             // actually went, so the batch runs to completion and reports afterwards.
             let real = try saveTranscript(texts: ["réel"])
+            created.append(real)
             let missing = TranscriptStore.directory
                 .appendingPathComponent("meeting-1970-01-01_00-00-09.json")
 
@@ -460,9 +457,10 @@ struct MeetingHistoryStoreTests {
 
     @Test("Deleting a batch containing the open transcript returns the view to live")
     func testDeleteManyIncludingOpenReturnsToLive() async throws {
-        try await withCleanup { _ in
+        try await withCleanup { created in
             let first = try saveTranscript(texts: ["un"])
             let second = try saveTranscript(texts: ["deux"])
+            created.append(contentsOf: [first, second])
 
             let store = MeetingHistoryStore()
             await store.refresh()
@@ -482,8 +480,9 @@ struct MeetingHistoryStoreTests {
 
     @Test("Deleting an empty batch does nothing")
     func testDeleteEmptyBatch() async throws {
-        try await withCleanup { _ in
+        try await withCleanup { created in
             let url = try saveTranscript()
+            created.append(url)
 
             let store = MeetingHistoryStore()
             await store.refresh()

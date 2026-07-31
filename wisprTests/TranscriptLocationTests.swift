@@ -12,12 +12,16 @@ import Testing
 
 @testable import WisprApp
 
-@Suite("TranscriptLocation Tests", .serialized)
+@Suite("TranscriptLocation Tests", .serialized, .transcriptDirectoryIsolated)
 struct TranscriptLocationTests {
 
     /// Runs `body` with a throwaway folder, always returning the process to the
     /// default location so a failure here cannot redirect another suite's writes.
-    private func withTemporaryFolder(_ body: (URL) throws -> Void) throws {
+    ///
+    /// Held under `TestTranscriptDirectoryLock`: the location is process-wide, so
+    /// redirecting it while another suite is listing transcripts makes that suite
+    /// scan this temporary folder and report its own files as missing.
+    private func withTemporaryFolder(_ body: (URL) throws -> Void) async throws {
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("wispr-location-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -30,7 +34,7 @@ struct TranscriptLocationTests {
     }
 
     @Test("Defaults to the app container")
-    func testDefaultLocation() {
+    func testDefaultLocation() async {
         TranscriptLocation.useDefault()
 
         #expect(TranscriptLocation.isCustom == false)
@@ -39,8 +43,8 @@ struct TranscriptLocationTests {
     }
 
     @Test("A bookmark round-trips into the current folder")
-    func testBookmarkRoundTrip() throws {
-        try withTemporaryFolder { folder in
+    func testBookmarkRoundTrip() async throws {
+        try await withTemporaryFolder { folder in
             let bookmark = try TranscriptLocation.makeBookmark(for: folder)
 
             switch TranscriptLocation.activate(bookmark: bookmark) {
@@ -57,8 +61,8 @@ struct TranscriptLocationTests {
     }
 
     @Test("TranscriptStore writes into the configured folder")
-    func testStoreFollowsLocation() throws {
-        try withTemporaryFolder { folder in
+    func testStoreFollowsLocation() async throws {
+        try await withTemporaryFolder { folder in
             let bookmark = try TranscriptLocation.makeBookmark(for: folder)
             guard case .activated = TranscriptLocation.activate(bookmark: bookmark) else {
                 Issue.record("Could not activate the temporary folder")
@@ -117,8 +121,8 @@ struct TranscriptLocationTests {
     }
 
     @Test("useDefault() returns to the container after a custom folder")
-    func testUseDefaultReleasesCustomFolder() throws {
-        try withTemporaryFolder { folder in
+    func testUseDefaultReleasesCustomFolder() async throws {
+        try await withTemporaryFolder { folder in
             let bookmark = try TranscriptLocation.makeBookmark(for: folder)
             _ = TranscriptLocation.activate(bookmark: bookmark)
             #expect(TranscriptLocation.isCustom)
@@ -162,12 +166,12 @@ struct TranscriptLocationTests {
 
     @MainActor
     @Test("The chosen folder survives a SettingsStore reload")
-    func testBookmarkPersists() throws {
+    func testBookmarkPersists() async throws {
         let suite = "TranscriptLocationTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        try withTemporaryFolder { folder in
+        try await withTemporaryFolder { folder in
             let bookmark = try TranscriptLocation.makeBookmark(for: folder)
             let settings = SettingsStore(defaults: defaults)
             settings.transcriptsFolderBookmark = bookmark

@@ -248,19 +248,23 @@ struct MeetingTranscriptDurationTests {
 
 // MARK: - Store
 
-@Suite("TranscriptStore Tests", .serialized)
+@Suite("TranscriptStore Tests", .serialized, .transcriptDirectoryIsolated)
 struct TranscriptStoreTests {
 
     /// Files this suite created, so it can leave the real transcripts directory
     /// exactly as it found it.
-    private func withCleanup(_ body: (inout [URL]) throws -> Void) throws {
+    ///
+    /// Held under `TestTranscriptDirectoryLock`: other suites share this directory
+    /// and one of them redirects it process-wide, which would otherwise land
+    /// mid-test and point `TranscriptStore` at a different folder.
+    private func withCleanup(_ body: (inout [URL]) throws -> Void) async throws {
         var created: [URL] = []
         defer { for url in created { try? TranscriptStore.delete(url) } }
         try body(&created)
     }
 
     private func makeTranscript(
-        start: Date = Date(), texts: [String] = ["hello"]
+        start: Date = TestTranscriptClock.nextStart(), texts: [String] = ["hello"]
     ) -> MeetingTranscript {
         var transcript = MeetingTranscript(startTime: start)
         for (i, text) in texts.enumerated() {
@@ -279,8 +283,8 @@ struct TranscriptStoreTests {
     }
 
     @Test("A saved transcript loads back identically")
-    func testSaveThenLoad() throws {
-        try withCleanup { created in
+    func testSaveThenLoad() async throws {
+        try await withCleanup { created in
             var original = makeTranscript(texts: ["un", "deux"])
             original.setName("Alice", forSpeakerIndex: 0)
 
@@ -294,11 +298,11 @@ struct TranscriptStoreTests {
     }
 
     @Test("Two meetings starting in the same second do not overwrite each other")
-    func testFilenameCollision() throws {
-        try withCleanup { created in
+    func testFilenameCollision() async throws {
+        try await withCleanup { created in
             // Same startTime means the same timestamp-derived filename; without a
             // uniquing suffix the second save would silently destroy the first.
-            let start = Date()
+            let start = TestTranscriptClock.nextStart()
             let first = try #require(TranscriptStore.save(makeTranscript(start: start, texts: ["premier"])))
             created.append(first)
             let second = try #require(TranscriptStore.save(makeTranscript(start: start, texts: ["second"])))
@@ -311,8 +315,8 @@ struct TranscriptStoreTests {
     }
 
     @Test("save(to:) overwrites in place instead of creating a second file")
-    func testSaveToURLOverwrites() throws {
-        try withCleanup { created in
+    func testSaveToURLOverwrites() async throws {
+        try await withCleanup { created in
             let url = try #require(TranscriptStore.save(makeTranscript()))
             created.append(url)
 
@@ -328,8 +332,8 @@ struct TranscriptStoreTests {
     }
 
     @Test("list() summarises a saved transcript and sorts newest first")
-    func testListSummariesAndOrdering() throws {
-        try withCleanup { created in
+    func testListSummariesAndOrdering() async throws {
+        try await withCleanup { created in
             let older = Date().addingTimeInterval(-3_600)
             let newer = Date()
 
@@ -360,8 +364,8 @@ struct TranscriptStoreTests {
     }
 
     @Test("list() reports a session's title, and its absence")
-    func testListReportsTitle() throws {
-        try withCleanup { created in
+    func testListReportsTitle() async throws {
+        try await withCleanup { created in
             let untitled = try #require(TranscriptStore.save(makeTranscript(texts: ["sans titre"])))
             created.append(untitled)
 
@@ -382,8 +386,8 @@ struct TranscriptStoreTests {
     }
 
     @Test("A corrupt file appears as an unreadable row instead of breaking the scan")
-    func testCorruptFileIsListedNotSkipped() throws {
-        try withCleanup { created in
+    func testCorruptFileIsListedNotSkipped() async throws {
+        try await withCleanup { created in
             let good = try #require(TranscriptStore.save(makeTranscript(texts: ["valide"])))
             created.append(good)
 
@@ -404,8 +408,8 @@ struct TranscriptStoreTests {
     }
 
     @Test("Non-transcript files in the directory are ignored")
-    func testUnrelatedFilesIgnored() throws {
-        try withCleanup { created in
+    func testUnrelatedFilesIgnored() async throws {
+        try await withCleanup { created in
             let stray = TranscriptStore.directory.appendingPathComponent("notes.txt")
             try FileManager.default.createDirectory(
                 at: TranscriptStore.directory, withIntermediateDirectories: true)

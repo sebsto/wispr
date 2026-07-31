@@ -231,7 +231,7 @@ struct MeetingEchoSuppressionTests {
 // MARK: - MeetingStateManager Tests
 
 @MainActor
-@Suite("MeetingStateManager Tests", .serialized)
+@Suite("MeetingStateManager Tests", .serialized, .transcriptDirectoryIsolated)
 struct MeetingStateManagerTests {
 
     // MARK: - Initial State
@@ -274,28 +274,22 @@ struct MeetingStateManagerTests {
             MeetingTranscriptEntry(speaker: .you, text: "quitting mid meeting")
         )
 
-        let before = existingTranscriptFilenames()
         manager.finalizeForTermination()
-        let after = existingTranscriptFilenames()
 
         // The session is no longer considered live...
         #expect(manager.meetingState == .idle)
-        // ...and exactly one new transcript landed on disk.
-        let created = after.subtracting(before)
-        #expect(created.count == 1)
 
-        // Clean up the file this test wrote so repeated runs stay hermetic.
-        for name in created {
-            try? FileManager.default.removeItem(
-                at: TranscriptStore.directory.appendingPathComponent(name))
-        }
-    }
+        // ...and its transcript landed on disk. Located by its content rather than by
+        // diffing the directory: the suites share one real transcripts folder, so a
+        // diff both mis-counts and — when used to clean up — deletes files another
+        // suite is still using. Start time cannot be used as the key either, since
+        // ISO-8601 encoding drops the sub-second part on the way to disk.
+        let saved = try #require(
+            TranscriptStore.list().first { $0.preview == "quitting mid meeting" })
+        defer { try? TranscriptStore.delete(saved.url) }
 
-    /// Snapshot of the transcripts directory, used to detect files written by a test.
-    private func existingTranscriptFilenames() -> Set<String> {
-        let contents = try? FileManager.default.contentsOfDirectory(
-            atPath: TranscriptStore.directory.path)
-        return Set(contents ?? [])
+        #expect(FileManager.default.fileExists(atPath: saved.url.path))
+        #expect(try TranscriptStore.load(saved.url).entries.map(\.text) == ["quitting mid meeting"])
     }
 
     // MARK: - Start Meeting

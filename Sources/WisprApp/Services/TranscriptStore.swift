@@ -158,48 +158,14 @@ nonisolated enum TranscriptStore {
                 $0.pathExtension == fileExtension
                     && $0.lastPathComponent.hasPrefix(filePrefix)
             }
-            .map { url in
-                // Pick up any rename made in Finder before describing the file, so
-                // the sidebar and the JSON agree from here on.
-                reconcileTitleWithFilename(at: url)
-                return summary(for: url)
-            }
+            .map(summary(for:))
             .sorted { $0.startTime > $1.startTime }
     }
 
     /// Loads a full transcript from disk.
-    ///
-    /// The title is reconciled against the filename, so a transcript renamed in
-    /// Finder opens under its new name rather than the one baked into the JSON.
     static func load(_ url: URL) throws -> MeetingTranscript {
         let data = try Data(contentsOf: url)
-        var transcript = try decoder.decode(MeetingTranscript.self, from: data)
-
-        let reconciled = reconciledTitle(for: url, storedTitle: transcript.title)
-        if reconciled.changed { transcript.setTitle(reconciled.title) }
-        return transcript
-    }
-
-    /// Brings a file's stored title back in line with its filename.
-    ///
-    /// Called when listing, so a rename made in Finder is picked up once and then
-    /// persisted — otherwise the JSON keeps the old name and anything reading it
-    /// directly, such as an export, would disagree with the sidebar.
-    ///
-    /// Silent on failure: a read-only or vanished file must not break the scan.
-    static func reconcileTitleWithFilename(at url: URL) {
-        guard
-            let data = try? Data(contentsOf: url),
-            var transcript = try? decoder.decode(MeetingTranscript.self, from: data)
-        else { return }
-
-        let reconciled = reconciledTitle(for: url, storedTitle: transcript.title)
-        guard reconciled.changed else { return }
-
-        transcript.setTitle(reconciled.title)
-        try? write(transcript, to: url)
-        Log.stateManager.debug(
-            "TranscriptStore — adopted name from filename for \(url.lastPathComponent)")
+        return try decoder.decode(MeetingTranscript.self, from: data)
     }
 
     /// Permanently deletes a transcript file.
@@ -262,72 +228,6 @@ nonisolated enum TranscriptStore {
         }
 
         return slug
-    }
-
-    // MARK: - Reading names back from filenames
-
-    /// The title fragment in a transcript filename, or `""` when it carries none.
-    ///
-    /// Strips the `meeting-` prefix, the timestamp, and the extension, leaving what
-    /// `slug(from:)` put there — which is what a user editing the name in Finder
-    /// edits.
-    static func titleFragment(in url: URL) -> String {
-        let stem = url.deletingPathExtension().lastPathComponent
-        guard stem.hasPrefix(filePrefix) else { return "" }
-
-        // `<stamp>` is fixed-width, so anything past it is the fragment. Measuring
-        // the format rather than splitting on "-" matters because the timestamp is
-        // itself full of dashes.
-        let stampWidth = filenameFormatter.string(from: .distantPast).count
-        let afterPrefix = stem.dropFirst(filePrefix.count)
-        guard afterPrefix.count > stampWidth else { return "" }
-
-        let fragment = afterPrefix.dropFirst(stampWidth)
-        guard fragment.hasPrefix("-") else { return "" }
-        return String(fragment.dropFirst())
-    }
-
-    /// The session name implied by a filename, or `nil` for an unnamed session.
-    ///
-    /// Dashes become spaces, reversing `slug(from:)` as far as it can be reversed —
-    /// the mapping is lossy, so a title's punctuation does not survive a round trip.
-    /// `reconciledTitle(for:storedTitle:)` is what keeps that from mattering.
-    ///
-    /// An all-digit fragment is rejected: that is the collision suffix `fileURL`
-    /// adds when two meetings start in the same second, not something a user typed.
-    static func titleFromFilename(_ url: URL) -> String? {
-        let fragment = titleFragment(in: url)
-        guard !fragment.isEmpty else { return nil }
-        guard fragment.contains(where: { !$0.isNumber }) else { return nil }
-        return fragment.replacingOccurrences(of: "-", with: " ")
-    }
-
-    /// The title to show for a file, treating an external rename as authoritative.
-    ///
-    /// Renaming a transcript in Finder should rename the session in the app, but the
-    /// name lives in two places — the JSON's `title` and the filename's slug — and
-    /// the slug is lossy. So the stored title wins whenever it still *slugs to* the
-    /// filename's fragment, which preserves punctuation the filename cannot carry.
-    /// Only when the two genuinely disagree is the filename taken as the newer edit.
-    ///
-    /// - Returns: The reconciled title, and whether it differs from `storedTitle`
-    ///   and therefore needs writing back.
-    static func reconciledTitle(
-        for url: URL, storedTitle: String?
-    ) -> (title: String?, changed: Bool) {
-        let fragment = titleFragment(in: url)
-
-        // Still consistent: keep the stored title, punctuation and all.
-        if fragment == slug(from: storedTitle) {
-            return (storedTitle, false)
-        }
-
-        // An all-digit fragment is a collision suffix, so the name did not change.
-        if !fragment.isEmpty, !fragment.contains(where: { !$0.isNumber }) {
-            return (storedTitle, false)
-        }
-
-        return (titleFromFilename(url), true)
     }
 
     // MARK: - Private
