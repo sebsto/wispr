@@ -416,8 +416,6 @@ struct SettingsView: View {
             .font(.caption)
             .foregroundStyle(theme.secondaryTextColor)
 
-            Divider()
-
             HStack {
                 Text("Saved Transcripts")
                     .foregroundStyle(theme.primaryTextColor)
