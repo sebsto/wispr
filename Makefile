@@ -18,9 +18,12 @@ DERIVED_DATA := $(CURDIR)/.xcbuild
 DEV_APP      := $(DERIVED_DATA)/Build/Products/Release/Wispr.app
 LSREGISTER   := /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister
 
-# Ad-hoc signing for machines with no Developer ID in the keychain. Override with
-# DEV_SIGN= to use whatever automatic signing the project is configured for.
-DEV_SIGN     ?= CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=""
+# Signing for the local dev loop. Uses whatever the project is configured for when a
+# codesigning identity is available, and only falls back to ad-hoc on a machine with
+# no Developer ID in the keychain — so this never overrides a maintainer's signing.
+# If detection yields nothing, the project's own signing is used. Override to force it.
+SIGNING_IDS  := $(shell security find-identity -v -p codesigning 2>/dev/null | awk '/valid identities found/{print $$1}')
+DEV_SIGN     ?= $(if $(filter 0,$(SIGNING_IDS)),CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=,)
 
 # App Store Connect API key (read from secrets/asc-api-key.json)
 SECRETS_JSON   := $(CURDIR)/secrets/asc-api-key.json
