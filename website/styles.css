@@ -273,11 +273,11 @@ a {
 .instantly {
   font-style: italic;
   /* color: #f5f6f816; */
-  color: #f5f6f8;
+  color: #5c88d9ae;
 
-  text-shadow: 4px 0px 0px rgb(0, 122, 252);
+  text-shadow: 3px 3px 0px rgb(0, 122, 252);
 
-  /* -webkit-text-stroke: 1px #f5f6f8a2; Thickness and color of the border */
+  -webkit-text-stroke: 2px #dcdcdc7f;
 }
 
 .btn:hover {
@@ -1571,5 +1571,128 @@ a {
     bottom: 16px;
     width: auto;
     max-height: 62vh;
+  }
+}
+
+/* ==========================================================================
+   Load curtain & hero entrance
+   The curtain is the same near-black as the page, so it reads as a held
+   moment rather than a separate screen. Both are gated behind classes set by
+   the inline script in index.html, so with JS off nothing is ever hidden.
+   ========================================================================== */
+
+.loader {
+  display: none;
+}
+
+html.intro-loader .loader {
+  /* Below the film grain (z 9990) so the texture stays continuous across the
+     lift, above everything else. */
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  background: var(--bg);
+  transition: opacity 220ms ease-out;
+}
+
+/* Set by script.js once the page is ready. Pointer-events go first so the
+   fading curtain never eats a click on the CTA underneath. */
+html.intro-loader .loader.is-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loader-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-heading);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.loader-track {
+  position: relative;
+  width: 200px;
+  max-width: 60vw;
+  height: 1px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.loader-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--primary-blue);
+  box-shadow: 0 0 12px rgba(84, 155, 230, 0.8);
+  transition: width 240ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* --- Hero entrance -------------------------------------------------------
+   Elements rest in their hidden state only while .intro-armed is on <html>.
+   script.js drops that class to play every beat at once, each offset by its
+   own --intro-delay. */
+
+[data-intro] {
+  transition:
+    opacity 380ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--intro-delay, 0ms),
+    transform 380ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--intro-delay, 0ms);
+}
+
+html.intro-armed [data-intro] {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+/* Transform needs a block-level box; these two are inline spans in the h1. */
+.hero h1 .line {
+  display: inline-block;
+}
+
+[data-intro="eyebrow"] {
+  --intro-delay: 60ms;
+}
+[data-intro="head1"] {
+  --intro-delay: 120ms;
+}
+[data-intro="head2"] {
+  --intro-delay: 180ms;
+}
+[data-intro="cta"] {
+  --intro-delay: 260ms;
+}
+[data-intro="blurb"] {
+  --intro-delay: 340ms;
+}
+[data-intro="wayfinding"] {
+  --intro-delay: 340ms;
+}
+
+/* This one is vertically centred with translateY(-50%), so the generic armed
+   transform above would clobber its position and make it slide ~104px instead
+   of the intended 12px. Compose the offset into its own transform. */
+html.intro-armed [data-intro="wayfinding"] {
+  transform: translateY(calc(-50% + 12px));
+}
+
+/* Reveal without motion for anyone who scrolled while the curtain was up. */
+html.intro-instant [data-intro] {
+  transition: none;
+}
+
+/* No motion preference: the inline script never arms the intro, but guard the
+   transitions too in case the preference changes after load. */
+@media (prefers-reduced-motion: reduce) {
+  .loader,
+  [data-intro] {
+    transition: none;
   }
 }

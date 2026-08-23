@@ -239,3 +239,101 @@ if (prefersReducedMotion || !('IntersectionObserver' in window)) {
 
     updateUI();
 })();
+
+/* --------------------------------------------------------------------------
+   Load curtain & hero entrance
+
+   The curtain waits on real signals — fonts decoded, page loaded, first wave
+   frame painted — never a fixed delay. When they land (or the failsafe fires)
+   it lifts, and dropping .intro-armed plays every hero beat at once, each
+   offset by its own --intro-delay in styles.css. The same moment releases the
+   wave field's zoom spring, so the background motion and the copy arrive
+   together instead of one after the other.
+   -------------------------------------------------------------------------- */
+(function () {
+    const root = document.documentElement;
+
+    // The inline script in index.html only arms this when motion is welcome.
+    if (!root.classList.contains('intro-armed')) return;
+
+    const MIN_HOLD = 450;   // don't flash the curtain on a warm cache
+    const FAILSAFE = 1200;  // never let a stalled signal strand the page
+
+    let revealed = false;
+
+    function reveal() {
+        if (revealed) return;
+        revealed = true;
+        // Someone who scrolled while the curtain was up would otherwise watch
+        // the hero animate off-screen behind them, so skip straight to the end.
+        if (window.scrollY > 40) root.classList.add('intro-instant');
+        root.classList.remove('intro-armed');
+        document.dispatchEvent(new CustomEvent('wispr:reveal'));
+    }
+
+    const loader = document.querySelector('.loader');
+    if (!root.classList.contains('intro-loader') || !loader) {
+        // Already seen this session: keep the entrance, drop the curtain.
+        requestAnimationFrame(reveal);
+        return;
+    }
+
+    const fill = loader.querySelector('.loader-fill');
+    const started = performance.now();
+    const pending = new Set(['fonts', 'load', 'waves']);
+    const total = pending.size;
+    let lifted = false;
+    let failsafeTimer = 0;
+
+    function lift() {
+        if (lifted) return;
+        lifted = true;
+        clearTimeout(failsafeTimer);
+        if (fill) fill.style.width = '100%';
+        try {
+            sessionStorage.setItem('wispr-intro', '1');
+        } catch (e) { /* private mode — the curtain just shows again */ }
+
+        // Let the fill visibly reach the end before the curtain goes.
+        setTimeout(function () {
+            loader.classList.add('is-done');
+            reveal();
+            setTimeout(function () { loader.remove(); }, 260);
+        }, 80);
+    }
+
+    function settle(name) {
+        if (!pending.has(name)) return;
+        pending.delete(name);
+        if (fill) {
+            fill.style.width = Math.round(((total - pending.size) / total) * 100) + '%';
+        }
+        if (pending.size) return;
+        setTimeout(lift, Math.max(0, MIN_HOLD - (performance.now() - started)));
+    }
+
+    failsafeTimer = setTimeout(lift, FAILSAFE);
+
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () { settle('fonts'); });
+    } else {
+        settle('fonts');
+    }
+
+    if (document.readyState === 'complete') {
+        settle('load');
+    } else {
+        window.addEventListener('load', function () { settle('load'); }, { once: true });
+    }
+
+    // waves.js announces its first painted frame. If the hero has no canvas, or
+    // WebGL2 is unavailable so nothing ever announces, this resolves on load.
+    if (document.querySelector('.hero-waves')) {
+        document.addEventListener('wispr:waves-ready', function () { settle('waves'); }, { once: true });
+        window.addEventListener('load', function () {
+            setTimeout(function () { settle('waves'); }, 200);
+        }, { once: true });
+    } else {
+        settle('waves');
+    }
+})();

@@ -45,11 +45,11 @@
     introZoomFrom: 0.43,
     introStiffness: 60,
     introDamping: 31,
-    mouseInteraction: false,
+    mouseInteraction: true,
     parallaxStrength: 0.5,
     grain: true,
     grainIntensity: 0.095,
-    maxDpr: 3,
+    maxDpr: 2,
   };
 
   /* ------------------------------------------------------------------------
@@ -311,6 +311,7 @@ void main() {
       velocity: 0,
       active: false,
     };
+    let introHeld = false;
 
     function effectiveZoom() {
       return zoomSpring.active ? zoomSpring.value : state.zoom;
@@ -324,6 +325,14 @@ void main() {
       zoomSpring.value = state.introZoomFrom;
       zoomSpring.velocity = 0;
       zoomSpring.active = true;
+      // While the load curtain is up the spring holds at its start value, so
+      // the zoom is already wide behind it and only begins integrating on
+      // wispr:reveal. With no curtain it runs straight away.
+      introHeld = document.documentElement.classList.contains("intro-armed");
+    }
+
+    function releaseIntro() {
+      introHeld = false;
     }
 
     function endIntro() {
@@ -333,7 +342,7 @@ void main() {
     // Semi-implicit Euler. dt is clamped so a long stall — hidden tab, blocked
     // main thread — can't fling the spring far past its target in one step.
     function stepSpring(dt) {
-      if (!zoomSpring.active) return;
+      if (!zoomSpring.active || introHeld) return;
       const step = Math.min(dt, 1 / 30);
       const accel =
         -state.introStiffness * (zoomSpring.value - state.zoom) -
@@ -469,6 +478,7 @@ void main() {
     /* ---- render loop ---- */
 
     let raf = 0;
+    let announced = false;
     let prevNow = 0;
     let lastTime = 0;
     let onScreen = true;
@@ -487,6 +497,10 @@ void main() {
       gl.uniform2f(uniforms.uMouse, current[0], current[1]);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (!announced) {
+        announced = true;
+        document.dispatchEvent(new CustomEvent("wispr:waves-ready"));
+      }
     }
 
     function frame(now) {
@@ -576,8 +590,10 @@ void main() {
     return {
       state: state,
       endIntro: endIntro,
+      releaseIntro: releaseIntro,
       replayIntro: function () {
         startIntro();
+        releaseIntro();
         start();
       },
       apply: function (patch) {
@@ -928,6 +944,17 @@ void main() {
     if (!waves) return; // no WebGL2 — CSS glow fallback stays visible
 
     document.documentElement.classList.add("waves-active");
+
+    // The load curtain releases the zoom spring, so the background motion and
+    // the hero copy arrive together. If the intro was never armed — reduced
+    // motion, or a repeat visit already revealed — start immediately.
+    if (document.documentElement.classList.contains("intro-armed")) {
+      document.addEventListener("wispr:reveal", waves.releaseIntro, {
+        once: true,
+      });
+    } else {
+      waves.releaseIntro();
+    }
 
     const tuning =
       /(^|[?&])tune=1(&|$)/.test(window.location.search) ||

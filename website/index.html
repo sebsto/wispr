@@ -8,6 +8,23 @@
     ></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Runs before first paint so the curtain and the pre-animation state are
+         already in place: adding these classes later would flash unstyled
+         content. Everything degrades to plain visible content without JS. -->
+    <script>
+      (function () {
+        var root = document.documentElement;
+        root.classList.add("js");
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        root.classList.add("intro-armed");
+        var seen = false;
+        try {
+          seen = sessionStorage.getItem("wispr-intro") === "1";
+        } catch (e) {}
+        if (!seen) root.classList.add("intro-loader");
+      })();
+    </script>
     <title>Wispr - Voice Dictation for Mac</title>
     <meta
       name="description"
@@ -66,6 +83,16 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body id="top">
+    <!-- Load curtain. Same background as the page, so it reads as a held
+         moment rather than a separate screen. Removed by script.js. -->
+    <div class="loader" aria-hidden="true">
+      <div class="loader-mark">
+        <img src="icon.svg" alt="" width="26" height="26" />
+        <span>Wispr</span>
+      </div>
+      <div class="loader-track"><span class="loader-fill"></span></div>
+    </div>
+
     <a class="skip-link" href="#main">Skip to content</a>
 
     <header class="site-header">
@@ -111,7 +138,7 @@
           <span class="crosshair-diag"></span>
         </div>
 
-        <nav class="hero-wayfinding" aria-label="Section shortcuts">
+        <nav class="hero-wayfinding" data-intro="wayfinding" aria-label="Section shortcuts">
           <ul>
             <li><a href="#features">Features</a></li>
             <li><a href="#how-it-works">How it works</a></li>
@@ -142,15 +169,16 @@
         </nav>
 
         <div class="hero-content">
-          <p class="hero-eyebrow">
+          <p class="hero-eyebrow" data-intro="eyebrow">
             <img src="icon.svg" alt="" width="22" height="22" />
             <span>Wispr &middot; On-device dictation for macOS</span>
           </p>
           <h1 id="hero-heading">
-            Your voice, your words.<br />
-            <span class="instantly"> Instantly. </span>
+            <span class="line" data-intro="head1">Your voice, your words.</span
+            ><br />
+            <span class="instantly line" data-intro="head2"> Instantly. </span>
           </h1>
-          <div class="hero-cta">
+          <div class="hero-cta" data-intro="cta">
             <a class="btn btn-light" href="#download">Download for Mac</a>
             <a
               class="btn btn-glass"
@@ -181,7 +209,7 @@
           </div>
         </div>
 
-        <p class="hero-blurb">
+        <p class="hero-blurb" data-intro="blurb">
           Wispr listens on your Mac and nowhere else. On-device AI turns your
           speech into text in any app &mdash; no cloud, no accounts, and no
           audio ever leaving your machine. Free and open source.
