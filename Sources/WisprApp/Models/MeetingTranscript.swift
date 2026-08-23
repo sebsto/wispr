@@ -31,6 +31,20 @@ enum MeetingSpeaker: Sendable, Equatable, Hashable, Codable {
         if case .others = self { return true }
         return false
     }
+
+    /// Stable key used to look up a user-assigned name for this speaker.
+    ///
+    /// Diarization indices are the only handle we have on a remote person, so a
+    /// name is stored against the index rather than against individual entries.
+    /// The unresolved `.others(nil)` track gets its own key: it cannot be told
+    /// apart per person, but naming it is still useful (for example "Room").
+    var nameKey: String {
+        switch self {
+        case .you: return "you"
+        case .others(.none): return "others"
+        case .others(.some(let index)): return "speaker-\(index)"
+        }
+    }
 }
 
 /// A single timestamped entry in a meeting transcript.
@@ -53,8 +67,77 @@ struct MeetingTranscript: Sendable, Equatable, Codable {
     var entries: [MeetingTranscriptEntry] = []
     let startTime: Date
 
-    init(startTime: Date = Date()) {
+    /// User-supplied name for the session ("Sprint review" rather than a date).
+    /// `nil` means it is shown by its date. Optional so that transcripts written
+    /// before naming existed still decode.
+    var title: String?
+
+    /// Names the user has given the speakers, keyed by `MeetingSpeaker.nameKey`.
+    ///
+    /// Most useful after the meeting, which is when you actually know who
+    /// "Speaker 2" was.
+    var speakerNames: [String: String] = [:]
+
+    init(startTime: Date = Date(), title: String? = nil) {
         self.startTime = startTime
+        self.title = title
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case entries, startTime, title, speakerNames
+    }
+
+    /// Decoded explicitly rather than by synthesis: the synthesized initializer
+    /// requires every key to be present and does NOT fall back to a property's
+    /// default, so adding `speakerNames` would otherwise fail to decode every
+    /// transcript written before this existed.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try container.decode([MeetingTranscriptEntry].self, forKey: .entries)
+        startTime = try container.decode(Date.self, forKey: .startTime)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        speakerNames =
+            try container.decodeIfPresent([String: String].self, forKey: .speakerNames) ?? [:]
+    }
+
+    // MARK: - Speaker Names
+
+    /// The label to show for `speaker`: the user's name for them when set,
+    /// otherwise the generated "You" / "Speaker 2" / "Others".
+    func displayName(for speaker: MeetingSpeaker) -> String {
+        if let name = speakerNames[speaker.nameKey], !name.isEmpty { return name }
+        return speaker.displayName
+    }
+
+    /// Names a speaker, or clears the name when passed `nil` or whitespace.
+    mutating func setName(_ name: String?, for speaker: MeetingSpeaker) {
+        let cleaned = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let cleaned, !cleaned.isEmpty {
+            speakerNames[speaker.nameKey] = cleaned
+        } else {
+            speakerNames.removeValue(forKey: speaker.nameKey)
+        }
+    }
+
+    /// Distinct speakers appearing in the transcript, ordered for display: the
+    /// local speaker first, then resolved remote speakers by index, then the
+    /// unresolved track.
+    var presentSpeakers: [MeetingSpeaker] {
+        var seen: [MeetingSpeaker] = []
+        for entry in entries where !seen.contains(entry.speaker) {
+            seen.append(entry.speaker)
+        }
+
+        return seen.sorted { lhs, rhs in
+            func rank(_ speaker: MeetingSpeaker) -> Int {
+                switch speaker {
+                case .you: return 0
+                case .others(.some(let index)): return 1 + index
+                case .others(.none): return Int.max
+                }
+            }
+            return rank(lhs) < rank(rhs)
+        }
     }
 
     // MARK: - Echo Suppression
@@ -205,10 +288,13 @@ struct MeetingTranscript: Sendable, Equatable, Codable {
     }
 
     /// Formats the entire transcript as plain text for export.
+    ///
+    /// Uses assigned speaker names, so a copied or exported transcript reads the
+    /// same as what is on screen.
     func asPlainText() -> String {
         entries.map { entry in
             let time = Self.formatTime(entry.timestamp)
-            return "[\(time)] \(entry.speaker.displayName): \(entry.text)"
+            return "[\(time)] \(displayName(for: entry.speaker)): \(entry.text)"
         }.joined(separator: "\n")
     }
 
@@ -222,6 +308,30 @@ struct MeetingTranscript: Sendable, Equatable, Codable {
         let total = Int(duration)
         let minutes = total / 60
         let seconds = total % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    /// Wall-clock span the transcript actually covers, from its first timestamp
+    /// to its last.
+    ///
+    /// `duration` is measured against *now*, which is right while recording but
+    /// meaningless for a session loaded from disk, where it would grow forever.
+    /// Saved sessions are described with this instead.
+    var recordedSpan: TimeInterval {
+        guard let last = entries.last?.timestamp else { return 0 }
+        return max(0, last.timeIntervalSince(startTime))
+    }
+
+    /// `recordedSpan` as "h:mm:ss", hours omitted when zero. Unlike
+    /// `formattedDuration` this does not render a two-hour meeting as "140:12".
+    var formattedRecordedSpan: String {
+        let total = Int(recordedSpan)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
         return String(format: "%d:%02d", minutes, seconds)
     }
 }

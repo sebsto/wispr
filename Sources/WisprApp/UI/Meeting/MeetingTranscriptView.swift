@@ -21,42 +21,118 @@ struct MeetingTranscriptView: View {
 
     @State private var isExporting = false
 
+    /// Owns the saved-transcript list. Held here rather than injected because
+    /// nothing outside this window needs it.
+    @State private var history = MeetingHistoryStore()
+
+    /// Whether the history column is shown. Owned locally so the toggle button
+    /// keeps a fixed position.
+    @State private var showHistory = false
+
+    /// Speaker being renamed in the roster, and the in-flight text.
+    @State private var editingSpeaker: MeetingSpeaker?
+    @State private var editingSpeakerName = ""
+
+    /// Focuses the rename field as it appears, so a name can be typed straight
+    /// away instead of having to click into the visible box first.
+    @FocusState private var speakerFieldFocused: Bool
+
+    /// The transcript on screen: the live session, or one loaded from disk.
+    ///
+    /// Deliberately decoupled from `meetingState.transcript` so that opening an
+    /// archived session cannot disturb a recording in progress, and starting a
+    /// meeting cannot wipe an archive the user is reading.
+    private var displayedTranscript: MeetingTranscript {
+        if history.isShowingArchived {
+            return history.loadedTranscript ?? MeetingTranscript()
+        }
+        return meetingState.transcript
+    }
+
+    /// Archived sessions have no live controls and no auto-scroll.
+    private var isArchived: Bool { history.isShowingArchived }
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with controls
-            headerBar
-
-            Divider()
-
-            // Transcript area
-            if meetingState.transcript.entries.isEmpty {
-                emptyState
-            } else {
-                transcriptList
+        HStack(spacing: 0) {
+            if showHistory {
+                MeetingHistorySidebar(history: history)
+                Divider()
             }
 
-            Divider()
+            VStack(spacing: 0) {
+                // Header with controls
+                headerBar
 
-            // Footer with export actions
-            footerBar
+                Divider()
+
+                // Speaker names, for a finished session.
+                if isArchived && !displayedTranscript.presentSpeakers.isEmpty {
+                    speakerRoster
+                    Divider()
+                }
+
+                // Transcript area
+                if displayedTranscript.entries.isEmpty {
+                    emptyState
+                } else {
+                    transcriptList
+                }
+
+                Divider()
+
+                // Footer with export actions
+                footerBar
+            }
+            .frame(minWidth: 360, minHeight: 400)
         }
-        .frame(minWidth: 360, minHeight: 400)
         .fileExporter(
             isPresented: $isExporting,
-            document: TranscriptDocument(text: meetingState.transcript.asPlainText()),
+            document: TranscriptDocument(text: displayedTranscript.asPlainText()),
             contentType: .plainText,
-            defaultFilename: "meeting-transcript"
+            defaultFilename: exportFilename
         ) { result in
             if case .failure(let error) = result {
                 Log.stateManager.error("Export failed: \(error.localizedDescription)")
             }
         }
+        // stopMeeting() writes the session to disk; pick it up so it appears in
+        // the history list straight away.
+        .onChange(of: meetingState.lastSavedTranscriptURL) { _, newValue in
+            guard newValue != nil else { return }
+            history.refresh()
+        }
+    }
+
+    /// Archived exports are named after the session, not "meeting-transcript".
+    private var exportFilename: String {
+        guard isArchived, let summary = history.selectedSummary else {
+            return "meeting-transcript"
+        }
+        return summary.url.deletingPathExtension().lastPathComponent
     }
 
     // MARK: - Header
 
     private var headerBar: some View {
         HStack(spacing: 12) {
+            // History toggle. First in the row and never moves, whether the
+            // sidebar is open or closed.
+            Button {
+                showHistory.toggle()
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.body)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(
+                        showHistory ? theme.accentColor.opacity(0.15) : Color.clear
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help(showHistory ? "Hide transcript history" : "Show transcript history")
+            .accessibilityLabel("Toggle transcript history")
+
             // Record/Stop button
             Button {
                 Task { await meetingState.toggleMeeting() }
@@ -85,8 +161,22 @@ struct MeetingTranscriptView: View {
 
             Spacer()
 
+            // Which archived session is open, and the way back to the live one.
+            if isArchived {
+                if let summary = history.selectedSummary {
+                    Text(summary.displayName)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Button("Current Session") { history.showLive() }
+                    .buttonStyle(.link)
+                    .font(.callout)
+            }
+
             // Audio level indicators
-            if meetingState.meetingState == .recording {
+            if meetingState.meetingState == .recording && !isArchived {
                 HStack(spacing: 8) {
                     audioLevelIndicator(label: "You", level: meetingState.micLevel, color: .blue)
                     audioLevelIndicator(
@@ -159,7 +249,7 @@ struct MeetingTranscriptView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(meetingState.transcript.entries) { entry in
+                    ForEach(displayedTranscript.entries) { entry in
                         transcriptRow(entry)
                             .id(entry.id)
                     }
@@ -168,7 +258,10 @@ struct MeetingTranscriptView: View {
                 .padding(.vertical, 8)
             }
             .onChange(of: meetingState.transcript.entries.count) { _, _ in
-                // Auto-scroll to latest entry
+                // Auto-scroll to latest entry. Only while the live session is on
+                // screen: an archived transcript should stay where the user
+                // scrolled it, even if a meeting is recording in the background.
+                guard !isArchived else { return }
                 if let lastEntry = meetingState.transcript.entries.last {
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(lastEntry.id, anchor: .bottom)
@@ -187,10 +280,12 @@ struct MeetingTranscriptView: View {
                 .frame(width: 50, alignment: .trailing)
 
             // Speaker badge
-            Text(entry.speaker.displayName)
+            Text(displayedTranscript.displayName(for: entry.speaker))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(speakerColor(entry.speaker))
-                .frame(width: 56, alignment: .leading)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: 84, alignment: .leading)
 
             // Text
             Text(entry.text)
@@ -204,6 +299,77 @@ struct MeetingTranscriptView: View {
 
     private func formatTime(_ date: Date) -> String {
         MeetingTranscript.formatTime(date)
+    }
+
+    // MARK: - Speaker Roster
+
+    /// Lets each speaker in a finished session be given a real name.
+    ///
+    /// Offered only for an archived session: naming is most useful once the
+    /// meeting is over (which is when you know who "Speaker 2" was), and an
+    /// archived session has a file to write the name back to. The live
+    /// transcript has no file until it is saved.
+    private var speakerRoster: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Text("Speakers")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+
+                ForEach(displayedTranscript.presentSpeakers, id: \.self) { speaker in
+                    if editingSpeaker == speaker {
+                        TextField(speaker.displayName, text: $editingSpeakerName)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.caption)
+                            .frame(width: 120)
+                            .focused($speakerFieldFocused)
+                            .onAppear { speakerFieldFocused = true }
+                            .onSubmit { commitSpeakerRename(speaker) }
+                            .onExitCommand { cancelSpeakerRename() }
+                    } else {
+                        Button {
+                            beginSpeakerRename(speaker)
+                        } label: {
+                            Text(displayedTranscript.displayName(for: speaker))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(speakerColor(speaker))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(speakerColor(speaker).opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Rename this speaker")
+                        .contextMenu {
+                            Button("Rename…") { beginSpeakerRename(speaker) }
+                            if displayedTranscript.speakerNames[speaker.nameKey] != nil {
+                                Button("Reset to \(speaker.displayName)") {
+                                    history.renameSpeaker(speaker, to: nil)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+        }
+    }
+
+    private func beginSpeakerRename(_ speaker: MeetingSpeaker) {
+        editingSpeakerName = displayedTranscript.speakerNames[speaker.nameKey] ?? ""
+        editingSpeaker = speaker
+    }
+
+    private func commitSpeakerRename(_ speaker: MeetingSpeaker) {
+        history.renameSpeaker(speaker, to: editingSpeakerName)
+        cancelSpeakerRename()
+    }
+
+    private func cancelSpeakerRename() {
+        editingSpeaker = nil
+        editingSpeakerName = ""
+        speakerFieldFocused = false
     }
 
     /// Color for a speaker badge. "You" is blue; each diarized remote speaker
@@ -226,7 +392,7 @@ struct MeetingTranscriptView: View {
     private var footerBar: some View {
         HStack(spacing: 12) {
             // Entry count
-            Text("\(meetingState.transcript.entries.count) entries")
+            Text("\(displayedTranscript.entries.count) entries")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
@@ -234,13 +400,13 @@ struct MeetingTranscriptView: View {
 
             // Copy button
             Button {
-                meetingState.copyTranscript()
+                meetingState.copy(displayedTranscript)
             } label: {
                 Label("Copy", systemImage: SFSymbols.copy)
                     .font(.callout)
             }
             .buttonStyle(.plain)
-            .disabled(meetingState.transcript.entries.isEmpty)
+            .disabled(displayedTranscript.entries.isEmpty)
 
             // Export button
             Button {
@@ -250,7 +416,7 @@ struct MeetingTranscriptView: View {
                     .font(.callout)
             }
             .buttonStyle(.plain)
-            .disabled(meetingState.transcript.entries.isEmpty)
+            .disabled(displayedTranscript.entries.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

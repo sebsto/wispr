@@ -82,6 +82,8 @@
 		1C74D4222FA6394300208826 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110102F60A00100000001 /* WhisperKit */; };
 		1C74D4232FA6394300208826 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110112F60A00100000002 /* FluidAudio */; };
 		1CA1B2C301000000000000A1 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA1B2C301000000000000B1 /* TranscriptStore.swift */; };
+		1CA1B2C302000000000000A1 /* MeetingHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA1B2C302000000000000B1 /* MeetingHistoryStore.swift */; };
+		1CA1B2C303000000000000A1 /* MeetingHistorySidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA1B2C303000000000000B1 /* MeetingHistorySidebar.swift */; };
 		1CAEA51D301608D800565CF0 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAEA51C301608D800565CF0 /* ClipboardService.swift */; };
 		1CAEA51F301608EE00565CF0 /* UIThemeEngineMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAEA51E301608EE00565CF0 /* UIThemeEngineMonitor.swift */; };
 		24D1D37198DFC731F192C278 /* MeetingWindowPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654DB8601B81B3E819BC5A5C /* MeetingWindowPanel.swift */; };
@@ -214,6 +216,8 @@
 		1C74D2FC2FA632B700208826 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1C74D2FD2FA632B700208826 /* wisprApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wisprApp.swift; sourceTree = "<group>"; };
 		1CA1B2C301000000000000B1 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
+		1CA1B2C302000000000000B1 /* MeetingHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingHistoryStore.swift; sourceTree = "<group>"; };
+		1CA1B2C303000000000000B1 /* MeetingHistorySidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingHistorySidebar.swift; sourceTree = "<group>"; };
 		1CAEA51C301608D800565CF0 /* ClipboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardService.swift; sourceTree = "<group>"; };
 		1CAEA51E301608EE00565CF0 /* UIThemeEngineMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIThemeEngineMonitor.swift; sourceTree = "<group>"; };
 		422A849C5A34DC9AE1B8437C /* TranscriptDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDocument.swift; sourceTree = "<group>"; };
@@ -428,6 +432,7 @@
 				1C74D2D92FA632B700208826 /* TextCorrectionService.swift */,
 				1C74D2DA2FA632B700208826 /* TextInsertionService.swift */,
 				1CA1B2C301000000000000B1 /* TranscriptStore.swift */,
+				1CA1B2C302000000000000B1 /* MeetingHistoryStore.swift */,
 				1C74D2DB2FA632B700208826 /* UpdateChecker.swift */,
 				1CAEA51C301608D800565CF0 /* ClipboardService.swift */,
 			);
@@ -519,6 +524,7 @@
 			isa = PBXGroup;
 			children = (
 				F66665AA7D70423B4954925F /* MeetingTranscriptView.swift */,
+				1CA1B2C303000000000000B1 /* MeetingHistorySidebar.swift */,
 				654DB8601B81B3E819BC5A5C /* MeetingWindowPanel.swift */,
 			);
 			path = Meeting;
@@ -745,6 +751,8 @@
 				1C74D32D2FA632B700208826 /* HotkeyRecorderView.swift in Sources */,
 				1C74D32E2FA632B700208826 /* TextInsertionService.swift in Sources */,
 				1CA1B2C301000000000000A1 /* TranscriptStore.swift in Sources */,
+				1CA1B2C302000000000000A1 /* MeetingHistoryStore.swift in Sources */,
+				1CA1B2C303000000000000A1 /* MeetingHistorySidebar.swift in Sources */,
 				1C74D32F2FA632B700208826 /* SettingsStore.swift in Sources */,
 				1C74D3302FA632B700208826 /* OnboardingModelSelectionStep.swift in Sources */,
 				1C74D3312FA632B700208826 /* SupportedLanguage.swift in Sources */,

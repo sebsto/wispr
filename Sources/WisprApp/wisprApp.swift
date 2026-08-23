@@ -349,8 +349,10 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
         permissionMonitoringTask?.cancel()
         updateCheckTask?.cancel()
 
-        // Stop any active meeting session (synchronous — cascades via task group)
-        meetingStateManager?.cancelRecording()
+        // Stop any active meeting session (synchronous — cascades via task group).
+        // Saves the transcript first: cancelRecording() alone discards it, so
+        // quitting mid-meeting used to destroy the session with no warning.
+        meetingStateManager?.finalizeForTermination()
 
         // Stop meeting detection monitoring.
         Task { await meetingDetectionService?.stop() }

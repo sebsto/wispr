@@ -56,6 +56,10 @@ final class MeetingStateManager {
     /// Timer display string.
     var elapsedTime: String = "0:00"
 
+    /// File the most recent session was saved to. The history sidebar watches
+    /// this so a finished meeting appears without the user refreshing anything.
+    private(set) var lastSavedTranscriptURL: URL?
+
     // MARK: - Dependencies
 
     private let meetingAudioEngine: MeetingAudioEngine
@@ -171,7 +175,7 @@ final class MeetingStateManager {
 
         // Persist the completed session to disk before it can be overwritten
         // by a subsequent startMeeting() (which resets `transcript`).
-        TranscriptStore.save(transcript)
+        lastSavedTranscriptURL = TranscriptStore.save(transcript)
 
         meetingState = .idle
         micLevel = 0
@@ -193,9 +197,27 @@ final class MeetingStateManager {
 
     /// Copies the transcript to the clipboard.
     func copyTranscript() {
+        copy(transcript)
+    }
+
+    /// Copies an arbitrary transcript, so the history view can copy an archived
+    /// session rather than whatever is live.
+    func copy(_ transcript: MeetingTranscript) {
         let text = transcript.asPlainText()
         guard !text.isEmpty else { return }
         ClipboardService.copy(text)
+    }
+
+    /// Persists the transcript, then cancels recording.
+    ///
+    /// Called from `applicationWillTerminate`. `stopMeeting()` cannot be used
+    /// there: it is `async`, and the process is torn down before the suspension
+    /// would resume, so the session has to be written inline first. Without
+    /// this, closing the window mid-meeting and quitting from the menu destroys
+    /// the whole session, since `cancelRecording()` saves nothing.
+    func finalizeForTermination() {
+        lastSavedTranscriptURL = TranscriptStore.save(transcript)
+        cancelRecording()
     }
 
     // MARK: - Transcription
