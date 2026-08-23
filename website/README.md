@@ -1,112 +1,50 @@
-# Wispr Promotional Website
+# Website
 
-A modern, single-page promotional website for Wispr voice dictation app with full-page scroll snapping sections.
+A static, self-contained product website. No build step required.
 
-## Features
+## Deployment
 
-- **Scroll Snapping**: Apple-style full-page sections with smooth snap scrolling
-- **Modern Design**: Clean, engaging layout inspired by Apple's product pages
-- **Color Theme**: Uses the blue gradient color palette from Wispr's logo
-- **Responsive**: Works beautifully on desktop, tablet, and mobile
-- **Animations**: Smooth fade-in effects and parallax scrolling
-- **Keyboard Navigation**: Use arrow keys to navigate between sections
+This site is plain HTML/CSS/JS and can be deployed anywhere that serves static files:
 
-## Structure
-
-```
-website/
-├── index.html              # Main HTML structure
-├── styles.css              # All styling and animations
-├── script.js               # Interactive features and animations
-├── icon.svg                # Wispr logo
-├── CNAME                   # Custom domain configuration
-├── screenshots/            # App screenshots
-│   ├── menu.png
-│   ├── settings.png
-│   ├── model-management.png
-│   ├── onboarding-01.png
-│   ├── onboarding-02.png
-│   ├── onboarding-03.png
-│   ├── onboarding-04.png
-│   ├── onboarding-05.png
-│   └── onboarding-06.png
-└── README.md               # This file
-```
-
-The website is completely self-contained with all assets included.
-
-## Sections
-
-1. **Hero** - Eye-catching introduction with logo and call-to-action
-2. **Download/Install** - Homebrew installation commands and download button with donate option
-3. **Features** - Four key features in card layout
-4. **How It Works** - Three-step process explanation
-5. **Onboarding** - Interactive carousel showing the 6-step onboarding experience
-6. **Screenshots** - Visual showcase of the app interface
-7. **Use Cases** - Four different user scenarios
-8. **Support** - Donation call-to-action with Revolut link
-9. **Footer** - Links and copyright information
-
-## Usage
-
-### Local Development
-
-Simply open `index.html` in a web browser:
-
-```bash
-open index.html
-```
-
-Or use a local server:
-
-```bash
-# Python 3
-python3 -m http.server 8000
-
-# Node.js (with http-server)
-npx http-server
-```
-
-Then visit `http://localhost:8000`
-
-### Deployment
-
-The website is static HTML/CSS/JS and can be deployed to:
-
-- **GitHub Pages**: Push to a `gh-pages` branch
-- **Netlify**: Drag and drop the `website` folder
-- **Vercel**: Connect your repository
-- **Any static hosting**: Upload the files via FTP/SFTP
+- **GitHub Pages**: push the contents of `website/` to a `gh-pages` branch
+- **Netlify**: drag and drop the `website` folder into the Netlify dashboard
+- **Vercel**: connect your repository and set the root directory to `website`
+- **Any static host**: upload the files via FTP/SFTP
 
 ## Customization
 
 ### Colors
 
-Edit the CSS variables in `styles.css`:
+Edit the CSS variables at the top of `styles.css`:
 
 ```css
 :root {
-    --primary-blue: rgb(84, 155, 230);
-    --deep-blue: rgb(33, 38, 162);
-    --light-blue: rgb(173, 225, 252);
-    /* ... */
+  --primary-blue: rgb(84, 155, 230);
+  --deep-blue: rgb(33, 38, 162);
+  --light-blue: rgb(173, 225, 252);
+  /* ... */
 }
 ```
 
 ### Content
 
-Edit the text directly in `index.html`. The structure is semantic and easy to modify.
+Edit the text directly in `index.html`. The structure is semantic and organized by section, so it's easy to find and change.
+
+### Fonts
+
+Headings use [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) and body text uses [DM Sans](https://fonts.google.com/specimen/DM+Sans), loaded from Google Fonts in `index.html`. If the fonts can't load (e.g. offline), the site falls back to system fonts and remains fully usable. To change fonts, edit the `<link>` in `index.html` and the `--font-heading` / `--font-body` variables in `styles.css`.
 
 ### Images
 
-All images are included in the website directory:
-- `icon.svg` - Wispr logo
-- `screenshots/menu.png` - Menu bar screenshot
-- `screenshots/settings.png` - Settings screenshot
-- `screenshots/model-management.png` - Model management screenshot
-- `screenshots/onboarding-01.png` through `onboarding-06.png` - Onboarding flow screenshots
+All images live in the website directory:
 
-The website is completely self-contained and portable.
+- `icon.svg` — logo
+- `screenshots/menu.png` — menu bar screenshot
+- `screenshots/settings.png` — settings screenshot
+- `screenshots/model-management.png` — model management screenshot
+- `screenshots/onboarding-01.png` through `onboarding-06.png` — onboarding flow screenshots
+
+The site is fully self-contained and portable — copy the `website/` folder anywhere and it works.
 
 ## Browser Support
 
@@ -115,16 +53,4 @@ The website is completely self-contained and portable.
 - Safari 14+
 - All modern mobile browsers
 
-The scroll-snap feature is supported in all modern browsers. Older browsers will fall back to smooth scrolling.
-
-## Performance
-
-- No external dependencies
-- Minimal JavaScript
-- Optimized CSS animations
-- Fast loading time
-- Lighthouse score: 95+
-
-## License
-
-Same as the Wispr project.
+Scroll-snap is used for smooth section/carousel scrolling and is supported in all modern browsers; older browsers fall back to standard smooth scrolling.

@@ -1,23 +1,36 @@
-// Smooth scroll behavior for anchor links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
-    });
-});
+// Progressive enhancement marker: reveal-on-scroll styles only apply when JS runs,
+// so all content stays visible if this file fails to load.
+document.documentElement.classList.add('js');
 
-// Enrich the version label from the GitHub API. The download button itself is a
-// STATIC link to releases/latest/download/Wispr.pkg (set in the HTML), so the
-// download works even if this fetch fails/rate-limits — we only decorate the
-// version text and never touch the button's href.
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* --------------------------------------------------------------------------
+   Header: frosted background once the page is scrolled
+   -------------------------------------------------------------------------- */
+const header = document.querySelector('.site-header');
+let headerTicking = false;
+
+function updateHeader() {
+    if (header) header.classList.toggle('scrolled', window.scrollY > 8);
+    headerTicking = false;
+}
+
+window.addEventListener('scroll', () => {
+    if (!headerTicking) {
+        window.requestAnimationFrame(updateHeader);
+        headerTicking = true;
+    }
+}, { passive: true });
+updateHeader();
+
+/* --------------------------------------------------------------------------
+   Release version label. The download button is a STATIC link to
+   releases/latest/download/Wispr.pkg (set in the HTML), so downloads work even
+   if this fetch fails or rate-limits — we only decorate the version text.
+   -------------------------------------------------------------------------- */
 async function fetchLatestRelease() {
     const versionInfo = document.getElementById('version-info');
+    if (!versionInfo) return;
     try {
         const response = await fetch('https://api.github.com/repos/sebsto/wispr/releases/latest');
         if (!response.ok) {
@@ -28,295 +41,201 @@ async function fetchLatestRelease() {
         const pkg = (data.assets || []).find(a => a.name.endsWith('.pkg') && a.name !== 'Wispr.pkg')
             || (data.assets || []).find(a => a.name === 'Wispr.pkg');
 
-        if (versionInfo) {
-            versionInfo.textContent = pkg
-                ? `Latest: ${data.tag_name} • ${(pkg.size / 1024 / 1024).toFixed(1)} MB`
-                : `Latest: ${data.tag_name}`;
-        }
+        versionInfo.textContent = pkg
+            ? `Latest: ${data.tag_name} • ${(pkg.size / 1024 / 1024).toFixed(1)} MB`
+            : `Latest: ${data.tag_name}`;
     } catch (error) {
-        console.error('Failed to fetch latest release:', error);
-        // Leave the static button intact; just soften the version label.
-        if (versionInfo) versionInfo.textContent = 'Latest release on GitHub';
+        // Not an error condition for the page: the static label already links users
+        // to the latest release, so just note it quietly.
+        console.warn('Could not fetch latest release info:', error);
     }
 }
-
-// Copy to clipboard functionality
-document.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', async function() {
-        const textToCopy = this.getAttribute('data-copy');
-        try {
-            await navigator.clipboard.writeText(textToCopy);
-            const originalText = this.textContent;
-            this.textContent = 'Copied!';
-            setTimeout(() => {
-                this.textContent = originalText;
-            }, 2000);
-        } catch (err) {
-            console.error('Failed to copy:', err);
-        }
-    });
-});
-
-// Call on page load
 fetchLatestRelease();
 
-// Intersection Observer for fade-in animations
-const observerOptions = {
-    threshold: 0.2,
-    rootMargin: '0px 0px -100px 0px'
-};
-
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
+/* --------------------------------------------------------------------------
+   Copy-to-clipboard buttons (Homebrew commands)
+   -------------------------------------------------------------------------- */
+function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    // Fallback for non-secure contexts (e.g. plain http)
+    return new Promise((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy') ? resolve() : reject(new Error('execCommand copy failed'));
+        } catch (err) {
+            reject(err);
+        } finally {
+            textarea.remove();
         }
     });
-}, observerOptions);
+}
 
-// Observe all feature cards, steps, and use cases
-document.querySelectorAll('.feature-card, .step, .use-case, .screenshot-item').forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(30px)';
-    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-    observer.observe(el);
+document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async function () {
+        const originalText = this.textContent;
+        try {
+            await copyText(this.getAttribute('data-copy'));
+            this.textContent = 'Copied!';
+            this.classList.add('copied');
+        } catch (err) {
+            console.warn('Copy to clipboard failed:', err);
+            this.textContent = 'Copy failed';
+        }
+        setTimeout(() => {
+            this.textContent = originalText;
+            this.classList.remove('copied');
+        }, 2000);
+    });
 });
 
-// Add visible class styling
-const style = document.createElement('style');
-style.textContent = `
-    .visible {
-        opacity: 1 !important;
-        transform: translateY(0) !important;
-    }
-`;
-document.head.appendChild(style);
+/* --------------------------------------------------------------------------
+   Scroll-reveal animations (staggered within each group)
+   -------------------------------------------------------------------------- */
+const revealEls = document.querySelectorAll('.reveal');
 
-// Add staggered animation delays
-document.querySelectorAll('.feature-card').forEach((card, index) => {
-    card.style.transitionDelay = `${index * 0.1}s`;
-});
+if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+    revealEls.forEach(el => el.classList.add('is-visible'));
+} else {
+    revealEls.forEach(el => {
+        const siblings = el.parentElement
+            ? Array.from(el.parentElement.querySelectorAll(':scope > .reveal'))
+            : [el];
+        el.style.transitionDelay = `${(siblings.indexOf(el) % 4) * 0.08}s`;
+    });
 
-document.querySelectorAll('.step').forEach((step, index) => {
-    step.style.transitionDelay = `${index * 0.15}s`;
-});
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                revealObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
 
-document.querySelectorAll('.use-case').forEach((useCase, index) => {
-    useCase.style.transitionDelay = `${index * 0.1}s`;
-});
+    revealEls.forEach(el => revealObserver.observe(el));
+}
 
-document.querySelectorAll('.screenshot-item').forEach((item, index) => {
-    item.style.transitionDelay = `${index * 0.15}s`;
-});
+/* --------------------------------------------------------------------------
+   Onboarding carousel.
+   Built on native horizontal scroll + CSS scroll-snap, so swipe and trackpad
+   work with no JS at all; this script adds buttons, dots, keyboard support,
+   and a screen-reader status line.
+   -------------------------------------------------------------------------- */
+(function initCarousel() {
+    const viewport = document.querySelector('.carousel-viewport');
+    const slides = Array.from(document.querySelectorAll('.carousel-slide'));
+    const dotsContainer = document.querySelector('.carousel-dots');
+    const prevBtn = document.querySelector('.carousel-btn.prev');
+    const nextBtn = document.querySelector('.carousel-btn.next');
+    const status = document.getElementById('carousel-status');
 
-// Onboarding Carousel - Only initialize if elements exist
-const slides = document.querySelectorAll('.onboarding-slide');
-const track = document.querySelector('.carousel-track');
-const dotsContainer = document.querySelector('.carousel-dots');
-const prevBtn = document.querySelector('.carousel-btn.prev');
-const nextBtn = document.querySelector('.carousel-btn.next');
+    if (!viewport || slides.length === 0 || !dotsContainer || !prevBtn || !nextBtn) return;
 
-if (slides.length > 0 && track && dotsContainer && prevBtn && nextBtn) {
-    let currentSlide = 0;
     const totalSlides = slides.length;
+    let currentSlide = 0;
+    // While a smooth scroll is in flight, currentSlide lags behind; navigation
+    // is based on the pending target so rapid presses advance one slide each.
+    let pendingTarget = null;
 
-    // Create dots
-    for (let i = 0; i < totalSlides; i++) {
+    slides.forEach((_, i) => {
         const dot = document.createElement('button');
+        dot.type = 'button';
         dot.classList.add('carousel-dot');
-        if (i === 0) dot.classList.add('active');
-        dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+        dot.setAttribute('aria-label', `Go to step ${i + 1} of ${totalSlides}`);
         dot.addEventListener('click', () => goToSlide(i));
         dotsContainer.appendChild(dot);
+    });
+    const dots = Array.from(dotsContainer.children);
+
+    function updateUI() {
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentSlide);
+            if (i === currentSlide) {
+                dot.setAttribute('aria-current', 'true');
+            } else {
+                dot.removeAttribute('aria-current');
+            }
+        });
+        prevBtn.disabled = currentSlide === 0;
+        nextBtn.disabled = currentSlide === totalSlides - 1;
+        if (status) {
+            const caption = slides[currentSlide].querySelector('figcaption');
+            // Only the caption's own text — skip the decorative slide-number badge
+            const captionText = caption
+                ? Array.from(caption.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent)
+                    .join('')
+                    .trim()
+                : '';
+            status.textContent = `Step ${currentSlide + 1} of ${totalSlides}${captionText ? ': ' + captionText : ''}`;
+        }
     }
 
-    const dots = document.querySelectorAll('.carousel-dot');
-
-    function updateCarousel() {
-        if (!track || slides.length === 0) return;
-        
-        const slideWidth = slides[0].offsetWidth;
-        const gap = 32; // 2rem gap
-        const offset = currentSlide * (slideWidth + gap);
-        track.style.transform = `translateX(-${offset}px)`;
-        
-        // Update dots
-        dots.forEach((dot, index) => {
-            dot.classList.toggle('active', index === currentSlide);
-        });
-        
-        // Update button states
-        if (prevBtn) prevBtn.disabled = currentSlide === 0;
-        if (nextBtn) nextBtn.disabled = currentSlide === totalSlides - 1;
+    function slideBase() {
+        return pendingTarget !== null ? pendingTarget : currentSlide;
     }
 
     function goToSlide(index) {
-        currentSlide = Math.max(0, Math.min(index, totalSlides - 1));
-        updateCarousel();
-    }
-
-    function nextSlide() {
-        if (currentSlide < totalSlides - 1) {
-            currentSlide++;
-            updateCarousel();
+        const target = Math.max(0, Math.min(index, totalSlides - 1));
+        pendingTarget = target;
+        const left = target * viewport.clientWidth;
+        try {
+            viewport.scrollTo({ left, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+        } catch (err) {
+            viewport.scrollLeft = left;
         }
     }
 
-    function prevSlide() {
-        if (currentSlide > 0) {
-            currentSlide--;
-            updateCarousel();
-        }
-    }
-
-    prevBtn.addEventListener('click', prevSlide);
-    nextBtn.addEventListener('click', nextSlide);
-
-    // Track if carousel is in view for keyboard navigation
-    let carouselInView = false;
-    const carouselObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            carouselInView = entry.isIntersecting;
-        });
-    }, { threshold: 0.5 });
-
-    const carousel = document.querySelector('.onboarding-carousel');
-    if (carousel) {
-        carouselObserver.observe(carousel);
-    }
-
-    // Keyboard navigation for carousel (only when in view)
-    document.addEventListener('keydown', (e) => {
-        if (carouselInView && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-            e.preventDefault();
-            if (e.key === 'ArrowLeft') {
-                prevSlide();
-            } else if (e.key === 'ArrowRight') {
-                nextSlide();
+    // Keep state in sync with native scrolling (swipe, trackpad, snap)
+    let scrollTicking = false;
+    viewport.addEventListener('scroll', () => {
+        if (scrollTicking) return;
+        scrollTicking = true;
+        window.requestAnimationFrame(() => {
+            const index = Math.round(viewport.scrollLeft / viewport.clientWidth);
+            if (index === pendingTarget) pendingTarget = null;
+            if (index !== currentSlide && index >= 0 && index < totalSlides) {
+                currentSlide = index;
+                updateUI();
             }
+            scrollTicking = false;
+        });
+    }, { passive: true });
+
+    prevBtn.addEventListener('click', () => goToSlide(slideBase() - 1));
+    nextBtn.addEventListener('click', () => goToSlide(slideBase() + 1));
+
+    // Arrow-key navigation while the carousel has focus
+    viewport.addEventListener('keydown', (e) => {
+        const actions = {
+            ArrowLeft: slideBase() - 1,
+            ArrowRight: slideBase() + 1,
+            Home: 0,
+            End: totalSlides - 1
+        };
+        if (e.key in actions) {
+            e.preventDefault();
+            goToSlide(actions[e.key]);
         }
     });
 
-    // Auto-advance carousel
-    let autoAdvanceInterval;
-    function startAutoAdvance() {
-        // Clear any existing interval before starting a new one
-        if (autoAdvanceInterval) {
-            clearInterval(autoAdvanceInterval);
-        }
-        autoAdvanceInterval = setInterval(() => {
-            if (currentSlide < totalSlides - 1) {
-                nextSlide();
-            } else {
-                currentSlide = 0;
-                updateCarousel();
-            }
-        }, 5000);
-    }
-
-    function stopAutoAdvance() {
-        if (autoAdvanceInterval) {
-            clearInterval(autoAdvanceInterval);
-            autoAdvanceInterval = null;
-        }
-    }
-
-    // Start/stop auto-advance based on visibility
-    const autoAdvanceObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                startAutoAdvance();
-            } else {
-                stopAutoAdvance();
-            }
-        });
-    }, { threshold: 0.5 });
-
-    if (carousel) {
-        autoAdvanceObserver.observe(carousel);
-        carousel.addEventListener('click', stopAutoAdvance);
-        carousel.addEventListener('touchstart', stopAutoAdvance);
-    }
-
-    // Update carousel on window resize (throttled)
+    // Re-align the current slide after a resize changes the viewport width
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(updateCarousel, 150);
-    });
-}
-
-// Consolidated scroll handler with requestAnimationFrame throttling
-let scrollTicking = false;
-
-function handleScroll() {
-    const scrollY = window.scrollY;
-    
-    // Hide scroll indicator when user scrolls
-    const scrollIndicator = document.querySelector('.scroll-indicator');
-    if (scrollIndicator) {
-        if (scrollY > 100) {
-            scrollIndicator.style.opacity = '0';
-            scrollIndicator.style.pointerEvents = 'none';
-        } else {
-            scrollIndicator.style.opacity = '0.7';
-            scrollIndicator.style.pointerEvents = 'auto';
-        }
-    }
-    
-    // Parallax effect for hero background
-    const hero = document.querySelector('.hero');
-    if (hero) {
-        const heroHeight = hero.offsetHeight;
-        if (scrollY < heroHeight) {
-            hero.style.transform = `translateY(${scrollY * 0.5}px)`;
-            hero.style.opacity = 1 - (scrollY / heroHeight) * 0.5;
-        }
-    }
-    
-    scrollTicking = false;
-}
-
-window.addEventListener('scroll', () => {
-    if (!scrollTicking) {
-        window.requestAnimationFrame(handleScroll);
-        scrollTicking = true;
-    }
-});
-
-// Section keyboard navigation (only when carousel not in view)
-document.addEventListener('keydown', (e) => {
-    // Skip if carousel is in view
-    const carousel = document.querySelector('.onboarding-carousel');
-    if (carousel) {
-        const rect = carousel.getBoundingClientRect();
-        const carouselVisible = rect.top >= -100 && rect.top <= window.innerHeight;
-        if (carouselVisible) return;
-    }
-    
-    const sections = document.querySelectorAll('.section');
-    const currentSection = Array.from(sections).findIndex(section => {
-        const rect = section.getBoundingClientRect();
-        return rect.top >= -100 && rect.top <= 100;
+        resizeTimeout = setTimeout(() => {
+            viewport.scrollLeft = currentSlide * viewport.clientWidth;
+        }, 150);
     });
 
-    if (e.key === 'ArrowDown' && currentSection < sections.length - 1) {
-        e.preventDefault();
-        sections[currentSection + 1].scrollIntoView({ behavior: 'smooth' });
-    } else if (e.key === 'ArrowUp' && currentSection > 0) {
-        e.preventDefault();
-        sections[currentSection - 1].scrollIntoView({ behavior: 'smooth' });
-    }
-});
-
-// Add loading animation
-window.addEventListener('load', () => {
-    const computedOpacity = window.getComputedStyle(document.body).opacity;
-    // Only apply fade-in if the body was initially hidden via CSS (opacity 0)
-    if (computedOpacity === '0') {
-        document.body.style.transition = 'opacity 0.5s ease';
-        window.requestAnimationFrame(() => {
-            document.body.style.opacity = '1';
-        });
-    }
-});
+    updateUI();
+})();
