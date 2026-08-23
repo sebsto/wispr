@@ -1515,6 +1515,7 @@ a {
 
 .waves-panel-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
@@ -1543,7 +1544,9 @@ a {
   transform: scale(0.98);
 }
 
+/* Takes its own row so "Replay intro" and "Reset" can share the one below */
 .waves-btn-primary {
+  flex-basis: 100%;
   color: #08131f;
   background: var(--light-blue);
   border-color: var(--light-blue);

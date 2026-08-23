@@ -18,49 +18,38 @@
    ========================================================================== */
 
 (function () {
-  'use strict';
+  "use strict";
 
   /* ------------------------------------------------------------------------
      Config — edit these
      ------------------------------------------------------------------------ */
 
   const WAVES_CONFIG = {
-    // Colors: token reference, hex, or rgb() string
-    horizonColor: 'var(--deep-blue)',    // distant haze the waves fade into
-    waveColor: 'var(--primary-blue)',    // mid color of the rolling bodies
-    crestColor: '#FFFFFF',               // highlight on the nearest crests
-
-    // Wave field
-    speed: 0.3,            // animation speed of the undulating field
-    amplitude: 3.0,         // height of the sine-plasma waves
-    waveScale: 0.5,         // overall spatial frequency
-    waveRatio: 0.9,         // ratio of short to long wavelength components
-    swell: 35,              // large-scale horizontal swell distortion
-    turbulence: 20,         // large-scale cross-flow turbulence
-
-    // Camera
-    tilt: 1.02,             // pitch toward the horizon, in radians
-    zoom: 1.0,              // field-of-view zoom into the field
-    height: 2.8,            // vertical offset of the horizon line
-    fogDepth: 32,           // distance over which waves fade into haze
-
-    // Appearance
-    detail: 'medium',       // raymarch quality: 'low' | 'medium' | 'high'
-    brightness: 1.5,        // final color multiplier
-    opacity: 1.0,           // global opacity of the effect
-
-    // Interaction
-    mouseInteraction: true, // pointer-driven camera parallax
-    parallaxStrength: 0.5,  // strength of the cursor drift
-
-    // Grain — off by default because styles.css already lays a film-grain
-    // overlay across the whole page; turning this on stacks a second one.
-    grain: false,
-    grainIntensity: 0.05,
-
-    // Performance ceiling for the render buffer. 2 is crisp on retina,
-    // 1.5 trades a little sharpness for noticeably fewer shaded pixels.
-    maxDpr: 2
+    horizonColor: "var(--deep-blue)",
+    waveColor: "var(--primary-blue)",
+    crestColor: "#FFFFFF",
+    speed: 0.3,
+    amplitude: 3.7,
+    waveScale: 0.5,
+    waveRatio: 0.9,
+    swell: 35,
+    turbulence: 20,
+    tilt: 1.02,
+    zoom: 1,
+    height: 2.8,
+    fogDepth: 32,
+    detail: "medium",
+    brightness: 1.5,
+    opacity: 1,
+    intro: true,
+    introZoomFrom: 0.43,
+    introStiffness: 60,
+    introDamping: 31,
+    mouseInteraction: false,
+    parallaxStrength: 0.5,
+    grain: true,
+    grainIntensity: 0.095,
+    maxDpr: 3,
   };
 
   /* ------------------------------------------------------------------------
@@ -187,7 +176,7 @@ void main() {
 
   // Accepts var(--token), #rgb, #rrggbb, rgb()/rgba(). Returns [r,g,b] in 0..1.
   function parseColor(value) {
-    let v = String(value == null ? '' : value).trim();
+    let v = String(value == null ? "" : value).trim();
 
     const token = TOKEN_RE.exec(v);
     if (token) {
@@ -201,7 +190,7 @@ void main() {
       return [
         parseInt(m[1] + m[1], 16) / 255,
         parseInt(m[2] + m[2], 16) / 255,
-        parseInt(m[3] + m[3], 16) / 255
+        parseInt(m[3] + m[3], 16) / 255,
       ];
     }
 
@@ -210,7 +199,7 @@ void main() {
       return [
         parseInt(m[1], 16) / 255,
         parseInt(m[2], 16) / 255,
-        parseInt(m[3], 16) / 255
+        parseInt(m[3], 16) / 255,
       ];
     }
 
@@ -219,7 +208,7 @@ void main() {
       return [
         Math.min(1, parseFloat(m[1]) / 255),
         Math.min(1, parseFloat(m[2]) / 255),
-        Math.min(1, parseFloat(m[3]) / 255)
+        Math.min(1, parseFloat(m[3]) / 255),
       ];
     }
 
@@ -228,19 +217,19 @@ void main() {
 
   function toHex(rgb) {
     return (
-      '#' +
+      "#" +
       rgb
         .map(function (channel) {
           const byte = Math.max(0, Math.min(255, Math.round(channel * 255)));
-          return byte.toString(16).padStart(2, '0');
+          return byte.toString(16).padStart(2, "0");
         })
-        .join('')
+        .join("")
     );
   }
 
   function detailToSteps(detail) {
-    if (detail === 'low') return 40.0;
-    if (detail === 'high') return 110.0;
+    if (detail === "low") return 40.0;
+    if (detail === "high") return 110.0;
     return 70.0;
   }
 
@@ -255,7 +244,7 @@ void main() {
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       const log = gl.getShaderInfoLog(shader);
       gl.deleteShader(shader);
-      throw new Error('Shader compile failed: ' + log);
+      throw new Error("Shader compile failed: " + log);
     }
     return shader;
   }
@@ -272,7 +261,7 @@ void main() {
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       const log = gl.getProgramInfoLog(program);
       gl.deleteProgram(program);
-      throw new Error('Program link failed: ' + log);
+      throw new Error("Program link failed: " + log);
     }
     return program;
   }
@@ -287,9 +276,9 @@ void main() {
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array([-1, -1, 3, -1, -1, 3]),
-      gl.STATIC_DRAW
+      gl.STATIC_DRAW,
     );
-    const loc = gl.getAttribLocation(program, 'position');
+    const loc = gl.getAttribLocation(program, "position");
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
@@ -301,42 +290,104 @@ void main() {
      ------------------------------------------------------------------------ */
 
   function createWaves(container, config) {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2', {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2", {
       alpha: true,
       premultipliedAlpha: true,
       antialias: false,
       depth: false,
       stencil: false,
-      powerPreference: 'default'
+      powerPreference: "default",
     });
     if (!gl) return null;
 
     const state = Object.assign({}, config);
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    // Entrance spring. It owns the uZoom uniform until it settles, after which
+    // state.zoom is used directly so panel edits respond instantly.
+    const zoomSpring = {
+      value: state.introZoomFrom,
+      velocity: 0,
+      active: false,
+    };
+
+    function effectiveZoom() {
+      return zoomSpring.active ? zoomSpring.value : state.zoom;
+    }
+
+    function startIntro() {
+      if (!state.intro || reduceMotion.matches) {
+        zoomSpring.active = false;
+        return;
+      }
+      zoomSpring.value = state.introZoomFrom;
+      zoomSpring.velocity = 0;
+      zoomSpring.active = true;
+    }
+
+    function endIntro() {
+      zoomSpring.active = false;
+    }
+
+    // Semi-implicit Euler. dt is clamped so a long stall — hidden tab, blocked
+    // main thread — can't fling the spring far past its target in one step.
+    function stepSpring(dt) {
+      if (!zoomSpring.active) return;
+      const step = Math.min(dt, 1 / 30);
+      const accel =
+        -state.introStiffness * (zoomSpring.value - state.zoom) -
+        state.introDamping * zoomSpring.velocity;
+      zoomSpring.velocity += accel * step;
+      zoomSpring.value += zoomSpring.velocity * step;
+      if (
+        Math.abs(zoomSpring.value - state.zoom) < 0.001 &&
+        Math.abs(zoomSpring.velocity) < 0.001
+      ) {
+        zoomSpring.active = false;
+      }
+    }
 
     let program, vao, uniforms;
     try {
       program = buildProgram(gl);
       vao = buildGeometry(gl, program);
     } catch (err) {
-      if (window.console) console.warn('[waves] ' + err.message);
+      if (window.console) console.warn("[waves] " + err.message);
       return null;
     }
 
     const UNIFORM_NAMES = [
-      'iResolution', 'iTime', 'uSpeed', 'uAmplitude', 'uWaveScale',
-      'uWaveRatio', 'uSwell', 'uTurbulence', 'uTilt', 'uZoom', 'uHeight',
-      'uFogDepth', 'uSteps', 'uBrightness', 'uOpacity', 'uGrain',
-      'uGrainIntensity', 'uMouse', 'uParallax', 'uEnableMouse',
-      'uHorizonColor', 'uWaveColor', 'uCrestColor'
+      "iResolution",
+      "iTime",
+      "uSpeed",
+      "uAmplitude",
+      "uWaveScale",
+      "uWaveRatio",
+      "uSwell",
+      "uTurbulence",
+      "uTilt",
+      "uZoom",
+      "uHeight",
+      "uFogDepth",
+      "uSteps",
+      "uBrightness",
+      "uOpacity",
+      "uGrain",
+      "uGrainIntensity",
+      "uMouse",
+      "uParallax",
+      "uEnableMouse",
+      "uHorizonColor",
+      "uWaveColor",
+      "uCrestColor",
     ];
     uniforms = {};
     UNIFORM_NAMES.forEach(function (name) {
       uniforms[name] = gl.getUniformLocation(program, name);
     });
 
-    canvas.className = 'hero-waves-canvas';
+    canvas.className = "hero-waves-canvas";
     container.appendChild(canvas);
 
     gl.clearColor(0, 0, 0, 0);
@@ -371,7 +422,7 @@ void main() {
       gl.uniform1f(uniforms.uSwell, state.swell);
       gl.uniform1f(uniforms.uTurbulence, state.turbulence);
       gl.uniform1f(uniforms.uTilt, state.tilt);
-      gl.uniform1f(uniforms.uZoom, state.zoom);
+      // uZoom is set per-frame in render() — the intro spring may own it.
       gl.uniform1f(uniforms.uHeight, state.height);
       gl.uniform1f(uniforms.uFogDepth, state.fogDepth);
       gl.uniform1f(uniforms.uSteps, detailToSteps(state.detail));
@@ -393,7 +444,7 @@ void main() {
 
     const current = [0.5, 0.5];
     const target = [0.5, 0.5];
-    const pointerHost = container.closest('.hero') || container;
+    const pointerHost = container.closest(".hero") || container;
 
     function onPointerMove(event) {
       if (!state.mouseInteraction) return;
@@ -408,12 +459,17 @@ void main() {
       target[1] = 0.5;
     }
 
-    pointerHost.addEventListener('pointermove', onPointerMove, { passive: true });
-    pointerHost.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    pointerHost.addEventListener("pointermove", onPointerMove, {
+      passive: true,
+    });
+    pointerHost.addEventListener("pointerleave", onPointerLeave, {
+      passive: true,
+    });
 
     /* ---- render loop ---- */
 
     let raf = 0;
+    let prevNow = 0;
     let lastTime = 0;
     let onScreen = true;
     let pageVisible = !document.hidden;
@@ -427,12 +483,16 @@ void main() {
       gl.bindVertexArray(vao);
       gl.uniform2f(uniforms.iResolution, width, height);
       gl.uniform1f(uniforms.iTime, time);
+      gl.uniform1f(uniforms.uZoom, effectiveZoom());
       gl.uniform2f(uniforms.uMouse, current[0], current[1]);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 
     function frame(now) {
+      const dt = prevNow ? (now - prevNow) * 0.001 : 0;
+      prevNow = now;
+      stepSpring(dt);
       const tx = state.mouseInteraction ? target[0] : 0.5;
       const ty = state.mouseInteraction ? target[1] : 0.5;
       current[0] += 0.05 * (tx - current[0]);
@@ -459,6 +519,7 @@ void main() {
         cancelAnimationFrame(raf);
         raf = 0;
       }
+      prevNow = 0;
     }
 
     /* ---- lifecycle observers ---- */
@@ -472,7 +533,7 @@ void main() {
         if (onScreen) start();
         else stop();
       },
-      { threshold: 0 }
+      { threshold: 0 },
     );
     intersectionObserver.observe(container);
 
@@ -481,38 +542,44 @@ void main() {
       if (pageVisible) start();
       else stop();
     }
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     function onMotionPreferenceChange() {
       stop();
       start();
     }
-    if (typeof reduceMotion.addEventListener === 'function') {
-      reduceMotion.addEventListener('change', onMotionPreferenceChange);
+    if (typeof reduceMotion.addEventListener === "function") {
+      reduceMotion.addEventListener("change", onMotionPreferenceChange);
     }
 
     // A lost context (GPU reset, driver sleep) would otherwise leave a blank
     // canvas over the hero; drop back to the CSS glow instead.
-    canvas.addEventListener('webglcontextlost', function (event) {
+    canvas.addEventListener("webglcontextlost", function (event) {
       event.preventDefault();
       contextLost = true;
       stop();
-      document.documentElement.classList.remove('waves-active');
+      document.documentElement.classList.remove("waves-active");
     });
-    canvas.addEventListener('webglcontextrestored', function () {
+    canvas.addEventListener("webglcontextrestored", function () {
       contextLost = false;
-      document.documentElement.classList.add('waves-active');
+      document.documentElement.classList.add("waves-active");
       pushConfig();
       setSize();
       start();
     });
 
     pushConfig();
+    startIntro();
     setSize();
     start();
 
     return {
       state: state,
+      endIntro: endIntro,
+      replayIntro: function () {
+        startIntro();
+        start();
+      },
       apply: function (patch) {
         Object.assign(state, patch);
         pushConfig();
@@ -521,7 +588,7 @@ void main() {
       },
       redraw: function () {
         render(lastTime);
-      }
+      },
     };
   }
 
@@ -530,38 +597,60 @@ void main() {
      ------------------------------------------------------------------------ */
 
   const SLIDERS = [
-    { key: 'speed', label: 'Speed', min: 0, max: 2, step: 0.01 },
-    { key: 'amplitude', label: 'Amplitude', min: 0, max: 8, step: 0.05 },
-    { key: 'waveScale', label: 'Wave scale', min: 0.05, max: 2, step: 0.01 },
-    { key: 'waveRatio', label: 'Wave ratio', min: 0.1, max: 3, step: 0.01 },
-    { key: 'swell', label: 'Swell', min: 0, max: 100, step: 0.5 },
-    { key: 'turbulence', label: 'Turbulence', min: 0, max: 100, step: 0.5 },
-    { key: 'tilt', label: 'Tilt (rad)', min: 0, max: 3.14, step: 0.01 },
-    { key: 'zoom', label: 'Zoom', min: 0.1, max: 3, step: 0.01 },
-    { key: 'height', label: 'Horizon height', min: -20, max: 20, step: 0.1 },
-    { key: 'fogDepth', label: 'Fog depth', min: 1, max: 60, step: 0.5 },
-    { key: 'brightness', label: 'Brightness', min: 0, max: 2, step: 0.01 },
-    { key: 'opacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
-    { key: 'parallaxStrength', label: 'Parallax', min: 0, max: 2, step: 0.01 },
-    { key: 'grainIntensity', label: 'Grain intensity', min: 0, max: 0.3, step: 0.005 },
-    { key: 'maxDpr', label: 'Max DPR', min: 0.5, max: 3, step: 0.1 }
+    { key: "speed", label: "Speed", min: 0, max: 2, step: 0.01 },
+    { key: "amplitude", label: "Amplitude", min: 0, max: 8, step: 0.05 },
+    { key: "waveScale", label: "Wave scale", min: 0.05, max: 2, step: 0.01 },
+    { key: "waveRatio", label: "Wave ratio", min: 0.1, max: 3, step: 0.01 },
+    { key: "swell", label: "Swell", min: 0, max: 100, step: 0.5 },
+    { key: "turbulence", label: "Turbulence", min: 0, max: 100, step: 0.5 },
+    { key: "tilt", label: "Tilt (rad)", min: 0, max: 3.14, step: 0.01 },
+    { key: "zoom", label: "Zoom", min: 0.1, max: 3, step: 0.01 },
+    { key: "height", label: "Horizon height", min: -20, max: 20, step: 0.1 },
+    { key: "fogDepth", label: "Fog depth", min: 1, max: 60, step: 0.5 },
+    { key: "brightness", label: "Brightness", min: 0, max: 2, step: 0.01 },
+    { key: "opacity", label: "Opacity", min: 0, max: 1, step: 0.01 },
+    { key: "parallaxStrength", label: "Parallax", min: 0, max: 2, step: 0.01 },
+    {
+      key: "introZoomFrom",
+      label: "Intro zoom from",
+      min: 0.05,
+      max: 1,
+      step: 0.01,
+    },
+    {
+      key: "introStiffness",
+      label: "Intro stiffness",
+      min: 10,
+      max: 400,
+      step: 5,
+    },
+    { key: "introDamping", label: "Intro damping", min: 1, max: 60, step: 0.5 },
+    {
+      key: "grainIntensity",
+      label: "Grain intensity",
+      min: 0,
+      max: 0.3,
+      step: 0.005,
+    },
+    { key: "maxDpr", label: "Max DPR", min: 0.5, max: 3, step: 0.1 },
   ];
 
   const COLORS = [
-    { key: 'horizonColor', label: 'Horizon' },
-    { key: 'waveColor', label: 'Waves' },
-    { key: 'crestColor', label: 'Crests' }
+    { key: "horizonColor", label: "Horizon" },
+    { key: "waveColor", label: "Waves" },
+    { key: "crestColor", label: "Crests" },
   ];
 
   const TOGGLES = [
-    { key: 'mouseInteraction', label: 'Pointer parallax' },
-    { key: 'grain', label: 'Shader grain' }
+    { key: "intro", label: "Intro animation" },
+    { key: "mouseInteraction", label: "Pointer parallax" },
+    { key: "grain", label: "Shader grain" },
   ];
 
   // Browsers restore form-control values across reloads and would replay them
   // over WAVES_CONFIG, so every control here opts out of that restoration.
   function noRestore(input) {
-    input.autocomplete = 'off';
+    input.autocomplete = "off";
     return input;
   }
 
@@ -573,22 +662,35 @@ void main() {
   }
 
   function buildPanel(waves, defaults) {
-    const panel = el('aside', 'waves-panel');
-    panel.setAttribute('aria-label', 'Gradient waves controls');
+    const panel = el("aside", "waves-panel");
+    panel.setAttribute("aria-label", "Gradient waves controls");
 
-    const head = el('div', 'waves-panel-head');
-    head.appendChild(el('h2', null, 'Gradient waves'));
-    const close = el('button', 'waves-panel-close', '\u00d7');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Close controls');
-    close.addEventListener('click', function () {
+    const head = el("div", "waves-panel-head");
+    head.appendChild(el("h2", null, "Gradient waves"));
+    const close = el("button", "waves-panel-close", "\u00d7");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close controls");
+    close.addEventListener("click", function () {
       panel.remove();
     });
     head.appendChild(close);
     panel.appendChild(head);
 
-    const body = el('div', 'waves-panel-body');
+    const body = el("div", "waves-panel-body");
     panel.appendChild(body);
+
+    // Any hands-on tuning ends the entrance animation, so a running spring
+    // never fights a value being dragged. Capture phase: fires before the
+    // per-control handlers below.
+    ["input", "change"].forEach(function (type) {
+      panel.addEventListener(
+        type,
+        function () {
+          waves.endIntro();
+        },
+        true,
+      );
+    });
 
     // key -> function(value) that writes a config value into its control.
     const sync = {};
@@ -596,20 +698,20 @@ void main() {
     let idSeq = 0;
     function nextId() {
       idSeq += 1;
-      return 'waves-ctl-' + idSeq;
+      return "waves-ctl-" + idSeq;
     }
 
     /* colors */
-    const colorRow = el('div', 'waves-colors');
+    const colorRow = el("div", "waves-colors");
     COLORS.forEach(function (def) {
       const id = nextId();
-      const wrap = el('div', 'waves-color');
-      const label = el('label', null, def.label);
+      const wrap = el("div", "waves-color");
+      const label = el("label", null, def.label);
       label.htmlFor = id;
-      const input = noRestore(document.createElement('input'));
-      input.type = 'color';
+      const input = noRestore(document.createElement("input"));
+      input.type = "color";
       input.id = id;
-      input.addEventListener('input', function () {
+      input.addEventListener("input", function () {
         const patch = {};
         patch[def.key] = input.value;
         waves.apply(patch);
@@ -625,18 +727,18 @@ void main() {
 
     /* detail select */
     const detailId = nextId();
-    const detailRow = el('div', 'waves-row waves-row-select');
-    const detailLabel = el('label', null, 'Detail');
+    const detailRow = el("div", "waves-row waves-row-select");
+    const detailLabel = el("label", null, "Detail");
     detailLabel.htmlFor = detailId;
-    const detailSelect = noRestore(document.createElement('select'));
+    const detailSelect = noRestore(document.createElement("select"));
     detailSelect.id = detailId;
-    ['low', 'medium', 'high'].forEach(function (tier) {
-      const option = document.createElement('option');
+    ["low", "medium", "high"].forEach(function (tier) {
+      const option = document.createElement("option");
       option.value = tier;
       option.textContent = tier;
       detailSelect.appendChild(option);
     });
-    detailSelect.addEventListener('change', function () {
+    detailSelect.addEventListener("change", function () {
       waves.apply({ detail: detailSelect.value });
     });
     sync.detail = function (value) {
@@ -649,13 +751,13 @@ void main() {
     /* toggles */
     TOGGLES.forEach(function (def) {
       const id = nextId();
-      const row = el('div', 'waves-row waves-row-toggle');
-      const input = noRestore(document.createElement('input'));
-      input.type = 'checkbox';
+      const row = el("div", "waves-row waves-row-toggle");
+      const input = noRestore(document.createElement("input"));
+      input.type = "checkbox";
       input.id = id;
-      const label = el('label', null, def.label);
+      const label = el("label", null, def.label);
       label.htmlFor = id;
-      input.addEventListener('change', function () {
+      input.addEventListener("change", function () {
         const patch = {};
         patch[def.key] = input.checked;
         waves.apply(patch);
@@ -671,18 +773,18 @@ void main() {
     /* sliders */
     SLIDERS.forEach(function (def) {
       const id = nextId();
-      const row = el('div', 'waves-row');
-      const label = el('label', null, def.label);
+      const row = el("div", "waves-row");
+      const label = el("label", null, def.label);
       label.htmlFor = id;
-      const output = el('output', 'waves-value');
+      const output = el("output", "waves-value");
       output.htmlFor = id;
-      const input = noRestore(document.createElement('input'));
-      input.type = 'range';
+      const input = noRestore(document.createElement("input"));
+      input.type = "range";
       input.id = id;
       input.min = String(def.min);
       input.max = String(def.max);
       input.step = String(def.step);
-      input.addEventListener('input', function () {
+      input.addEventListener("input", function () {
         const next = parseFloat(input.value);
         output.textContent = String(next);
         const patch = {};
@@ -693,7 +795,7 @@ void main() {
         input.value = String(value);
         output.textContent = String(value);
       };
-      const rowHead = el('div', 'waves-row-head');
+      const rowHead = el("div", "waves-row-head");
       rowHead.appendChild(label);
       rowHead.appendChild(output);
       row.appendChild(rowHead);
@@ -722,40 +824,53 @@ void main() {
     // pageshow fires after the browser has finished replaying remembered form
     // state (including on history and back/forward-cache loads), so this is
     // the point where re-asserting the config actually sticks.
-    window.addEventListener('pageshow', function () {
+    window.addEventListener("pageshow", function () {
       requestAnimationFrame(reassert);
     });
 
     /* actions */
-    const actions = el('div', 'waves-panel-actions');
+    const actions = el("div", "waves-panel-actions");
 
-    const copy = el('button', 'waves-btn waves-btn-primary', 'Copy config');
-    copy.type = 'button';
-    copy.addEventListener('click', function () {
+    const copy = el("button", "waves-btn waves-btn-primary", "Copy config");
+    copy.type = "button";
+    copy.addEventListener("click", function () {
       const text = serializeConfig(waves.state);
       const done = function (ok) {
-        copy.textContent = ok ? 'Copied' : 'Press \u2318C';
+        copy.textContent = ok ? "Copied" : "Press \u2318C";
         setTimeout(function () {
-          copy.textContent = 'Copy config';
+          copy.textContent = "Copy config";
         }, 1800);
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(
-          function () { done(true); },
-          function () { window.prompt('Copy this config:', text); done(false); }
+          function () {
+            done(true);
+          },
+          function () {
+            window.prompt("Copy this config:", text);
+            done(false);
+          },
         );
       } else {
-        window.prompt('Copy this config:', text);
+        window.prompt("Copy this config:", text);
         done(false);
       }
     });
     actions.appendChild(copy);
 
-    const reset = el('button', 'waves-btn', 'Reset');
-    reset.type = 'button';
-    reset.addEventListener('click', function () {
+    const replay = el("button", "waves-btn", "Replay intro");
+    replay.type = "button";
+    replay.addEventListener("click", function () {
+      waves.replayIntro();
+    });
+    actions.appendChild(replay);
+
+    const reset = el("button", "waves-btn", "Reset");
+    reset.type = "button";
+    reset.addEventListener("click", function () {
       waves.apply(defaults);
       syncAll(defaults);
+      waves.replayIntro();
     });
     actions.appendChild(reset);
 
@@ -766,18 +881,39 @@ void main() {
   // Emit a paste-ready block matching the WAVES_CONFIG shape above.
   function serializeConfig(state) {
     const order = [
-      'horizonColor', 'waveColor', 'crestColor', 'speed', 'amplitude',
-      'waveScale', 'waveRatio', 'swell', 'turbulence', 'tilt', 'zoom',
-      'height', 'fogDepth', 'detail', 'brightness', 'opacity',
-      'mouseInteraction', 'parallaxStrength', 'grain', 'grainIntensity',
-      'maxDpr'
+      "horizonColor",
+      "waveColor",
+      "crestColor",
+      "speed",
+      "amplitude",
+      "waveScale",
+      "waveRatio",
+      "swell",
+      "turbulence",
+      "tilt",
+      "zoom",
+      "height",
+      "fogDepth",
+      "detail",
+      "brightness",
+      "opacity",
+      "intro",
+      "introZoomFrom",
+      "introStiffness",
+      "introDamping",
+      "mouseInteraction",
+      "parallaxStrength",
+      "grain",
+      "grainIntensity",
+      "maxDpr",
     ];
     const lines = order.map(function (key) {
       const value = state[key];
-      const printed = typeof value === 'string' ? "'" + value + "'" : String(value);
-      return '  ' + key + ': ' + printed + ',';
+      const printed =
+        typeof value === "string" ? "'" + value + "'" : String(value);
+      return "  " + key + ": " + printed + ",";
     });
-    return 'const WAVES_CONFIG = {\n' + lines.join('\n') + '\n};';
+    return "const WAVES_CONFIG = {\n" + lines.join("\n") + "\n};";
   }
 
   /* ------------------------------------------------------------------------
@@ -785,17 +921,17 @@ void main() {
      ------------------------------------------------------------------------ */
 
   function init() {
-    const container = document.querySelector('.hero-waves');
+    const container = document.querySelector(".hero-waves");
     if (!container) return;
 
     const waves = createWaves(container, WAVES_CONFIG);
     if (!waves) return; // no WebGL2 — CSS glow fallback stays visible
 
-    document.documentElement.classList.add('waves-active');
+    document.documentElement.classList.add("waves-active");
 
     const tuning =
       /(^|[?&])tune=1(&|$)/.test(window.location.search) ||
-      window.location.hash === '#tune';
+      window.location.hash === "#tune";
     if (tuning) {
       buildPanel(waves, Object.assign({}, WAVES_CONFIG));
       // Handy for tweaking from the console: __waves.apply({ speed: 0.6 })
@@ -803,8 +939,8 @@ void main() {
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
   }
