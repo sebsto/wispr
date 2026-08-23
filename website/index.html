@@ -96,6 +96,10 @@
     <main id="main">
       <!-- 1. Hero -->
       <section class="section hero" aria-labelledby="hero-heading">
+        <!-- Animated wave field (WebGL2, see waves.js). The CSS glow that
+             follows is the fallback shown when WebGL2 or JS is unavailable. -->
+        <div class="hero-waves" aria-hidden="true"></div>
+        <div class="hero-scrim" aria-hidden="true"></div>
         <div class="hero-glow" aria-hidden="true">
           <div class="glow-blob glow-blob-a"></div>
           <div class="glow-blob glow-blob-b"></div>
@@ -179,15 +183,6 @@
           speech into text in any app &mdash; no cloud, no accounts, and no
           audio ever leaving your machine. Free and open source.
         </p>
-
-        <figure class="hero-preview">
-          <img
-            src="screenshots/menu.png"
-            width="718"
-            height="434"
-            alt="Preview of the Wispr menu bar interface on macOS"
-          />
-        </figure>
       </section>
 
       <!-- 2. Download / Install -->
@@ -844,5 +839,6 @@
     </footer>
 
     <script src="script.js"></script>
+    <script src="waves.js"></script>
   </body>
 </html>
