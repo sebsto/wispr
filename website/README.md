@@ -141,6 +141,16 @@ arrive together rather than in sequence. To retime the entrance, edit those
 `<head>` rather than by `script.js`, because they have to be in place before the
 first paint — set them later and you get a flash of unstyled content. Nothing is
 hidden unless that script runs, so with JS disabled the page is simply visible.
+
+Because those classes hide things (`intro-loader` covers the page, `intro-armed`
+holds the hero, `reveal-armed` sits the later sections at `opacity: 0`), the
+inline script also carries a failsafe for the case where it runs but `script.js`
+does not — a 404, a blocking extension or proxy, a syntax error. `script.js` sets
+`document.documentElement.dataset.introReady = '1'` on its last line; the inline
+script checks that flag on `DOMContentLoaded` and, if it is unset, strips all
+three classes. The page then renders plain and fully visible instead of stranded
+behind the curtain. Keep that assignment as the final statement of `script.js`:
+moved earlier, it stops covering a mid-file throw.
 The curtain shows once per browser session (a `wispr-intro` key in
 `sessionStorage`); later loads keep the stagger and skip the curtain. Under
 `prefers-reduced-motion: reduce` there is no curtain, no stagger and no spring —

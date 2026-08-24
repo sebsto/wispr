@@ -17,12 +17,24 @@
         var root = document.documentElement;
         root.classList.add("js");
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        root.classList.add("intro-armed");
+        root.classList.add("intro-armed", "reveal-armed");
         var seen = false;
         try {
           seen = sessionStorage.getItem("wispr-intro") === "1";
         } catch (e) {}
         if (!seen) root.classList.add("intro-loader");
+
+        // Every class above hides something until script.js takes over: the
+        // curtain covers the page, the hero waits, later sections sit at
+        // opacity 0. If script.js never runs -- 404, blocked by an extension
+        // or proxy, parse error -- nothing would ever lift them. DOMContentLoaded
+        // still fires in all of those cases, and by then a healthy script.js has
+        // set introReady, so an unset flag means the enhancement is gone: strip
+        // the armed state and leave a plain, fully visible page.
+        document.addEventListener("DOMContentLoaded", function () {
+          if (root.dataset.introReady === "1") return;
+          root.classList.remove("intro-armed", "intro-loader", "reveal-armed");
+        });
       })();
     </script>
     <title>Wispr - Voice Dictation for Mac</title>

@@ -1223,10 +1223,13 @@ a {
 }
 
 /* ==========================================================================
-   Scroll reveal (activated by script.js; content stays visible without JS)
+   Scroll reveal
+   Gated on .reveal-armed, which the inline script in index.html sets and drops
+   again if script.js never checks in -- so content is visible both without JS
+   and when script.js fails to load.
    ========================================================================== */
 
-.js .reveal {
+.reveal-armed .reveal {
   opacity: 0;
   transform: translateY(24px);
   transition:
@@ -1234,7 +1237,7 @@ a {
     transform 0.6s ease;
 }
 
-.js .reveal.is-visible {
+.reveal-armed .reveal.is-visible {
   opacity: 1;
   transform: none;
 }
@@ -1341,7 +1344,9 @@ a {
     transition-duration: 0.01ms !important;
   }
 
-  .js .reveal {
+  /* Covers a reduced-motion preference switched on after load, when the class
+     is already armed. */
+  .reveal-armed .reveal {
     opacity: 1;
     transform: none;
   }

@@ -337,3 +337,9 @@ if (prefersReducedMotion || !('IntersectionObserver' in window)) {
         settle('waves');
     }
 })();
+
+// Tells the failsafe in index.html's inline script that this file ran to
+// completion, so it leaves the armed curtain/reveal classes alone. Last line on
+// purpose: if anything above throws, the flag stays unset and the failsafe
+// un-arms the page instead of leaving the curtain or hidden sections stranded.
+document.documentElement.dataset.introReady = '1';
