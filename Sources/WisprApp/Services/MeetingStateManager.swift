@@ -189,7 +189,7 @@ final class MeetingStateManager {
         // writing happen off the main actor, but are awaited so the save is
         // guaranteed to complete before `transcript` can be replaced.
         let completed = transcript
-        let savedURL = await Task.detached { TranscriptStore.save(completed) }.value
+        let savedURL = await TranscriptIO.shared.save(completed)
 
         // Return "Current Session" to an empty slate: the finished meeting is now
         // on disk and shown from history, so keeping its text in the live view

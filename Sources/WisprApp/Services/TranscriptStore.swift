@@ -50,9 +50,16 @@ nonisolated struct TranscriptSummary: Identifiable, Sendable, Equatable {
 /// one — which resets the in-memory transcript — never destroys prior data.
 ///
 /// The whole type is `nonisolated` so that directory scans, decoding, and file
-/// writes never run on the main actor. Under this package's
+/// writes never run on the main actor by default. Under this package's
 /// `.defaultIsolation(MainActor.self)` the default would be the opposite:
 /// listing a hundred transcripts would decode them all on the UI thread.
+///
+/// This only makes the *type* callable off the main actor — it does not by
+/// itself move a caller's work anywhere. Call through `TranscriptIO` (below)
+/// to actually hop off the main actor via a structured `await` rather than
+/// `Task.detached`. `finalizeForTermination()` is the one exception: it runs
+/// synchronously from `applicationWillTerminate`, which cannot `await`, so it
+/// calls these static members directly.
 nonisolated enum TranscriptStore {
 
     /// Directory where transcript JSON files are stored.
@@ -321,5 +328,50 @@ nonisolated enum TranscriptStore {
 
     private static func fileCreationDate(_ url: URL) -> Date? {
         try? url.resourceValues(forKeys: [.creationDateKey]).creationDate
+    }
+}
+
+/// Runs `TranscriptStore`'s file I/O off the main actor through a real
+/// structured-concurrency boundary.
+///
+/// `TranscriptStore` itself is a `nonisolated enum` of `static` members, so
+/// there is no instance for actor isolation to attach to — it cannot become
+/// an `actor` in the usual sense. This actor exists to give callers something
+/// to `await` into instead: unlike `Task.detached`, an `await` on an actor
+/// method inherits the caller's priority, task-local values, and cancellation
+/// (see CLAUDE.md's "Structured concurrency only" rule under Concurrency
+/// Patterns).
+///
+/// `TranscriptStore`'s own file operations stay synchronous: they are the
+/// right shape for `finalizeForTermination()`, which runs from
+/// `applicationWillTerminate` and cannot `await` at all.
+actor TranscriptIO {
+    static let shared = TranscriptIO()
+
+    private init() {}
+
+    func list() -> [TranscriptSummary] {
+        TranscriptStore.list()
+    }
+
+    func load(_ url: URL) throws -> MeetingTranscript {
+        try TranscriptStore.load(url)
+    }
+
+    @discardableResult
+    func save(_ transcript: MeetingTranscript) -> URL? {
+        TranscriptStore.save(transcript)
+    }
+
+    func save(_ transcript: MeetingTranscript, to url: URL) throws {
+        try TranscriptStore.save(transcript, to: url)
+    }
+
+    func delete(_ url: URL) throws {
+        try TranscriptStore.delete(url)
+    }
+
+    func rename(at url: URL, startTime: Date, title: String?) throws -> URL {
+        try TranscriptStore.rename(at: url, startTime: startTime, title: title)
     }
 }

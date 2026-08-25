@@ -68,7 +68,7 @@ final class MeetingHistoryStore {
         isLoading = true
         defer { isLoading = false }
 
-        let scanned = await Task.detached { TranscriptStore.list() }.value
+        let scanned = await TranscriptIO.shared.list()
         summaries = scanned
 
         // A transcript deleted outside the app (or by another window) must not
@@ -100,9 +100,12 @@ final class MeetingHistoryStore {
         errorMessage = nil
 
         let url = summary.url
-        let result = await Task.detached { () -> Result<MeetingTranscript, any Error> in
-            do { return .success(try TranscriptStore.load(url)) } catch { return .failure(error) }
-        }.value
+        let result: Result<MeetingTranscript, any Error>
+        do {
+            result = .success(try await TranscriptIO.shared.load(url))
+        } catch {
+            result = .failure(error)
+        }
 
         switch result {
         case .success(let transcript):
@@ -129,21 +132,20 @@ final class MeetingHistoryStore {
 
         // Edit the file rather than `loadedTranscript`: a session can be renamed
         // from the sidebar without being opened first.
-        let outcome = await Task.detached { () -> Result<(MeetingTranscript, URL), any Error> in
-            do {
-                var transcript = try TranscriptStore.load(url)
-                transcript.setTitle(title)
-                try TranscriptStore.save(transcript, to: url)
-                // Rename only after the content is safely written: a failed rename
-                // then leaves a correctly-titled file under its old name, rather
-                // than a renamed file holding a stale title.
-                let renamed = try TranscriptStore.rename(
-                    at: url, startTime: transcript.startTime, title: transcript.title)
-                return .success((transcript, renamed))
-            } catch {
-                return .failure(error)
-            }
-        }.value
+        let outcome: Result<(MeetingTranscript, URL), any Error>
+        do {
+            var transcript = try await TranscriptIO.shared.load(url)
+            transcript.setTitle(title)
+            try await TranscriptIO.shared.save(transcript, to: url)
+            // Rename only after the content is safely written: a failed rename
+            // then leaves a correctly-titled file under its old name, rather
+            // than a renamed file holding a stale title.
+            let renamed = try await TranscriptIO.shared.rename(
+                at: url, startTime: transcript.startTime, title: transcript.title)
+            outcome = .success((transcript, renamed))
+        } catch {
+            outcome = .failure(error)
+        }
 
         switch outcome {
         case .success(let (transcript, renamedURL)):
@@ -173,14 +175,13 @@ final class MeetingHistoryStore {
         loadedTranscript = transcript
 
         let snapshot = transcript
-        let failure = await Task.detached { () -> (any Error)? in
-            do {
-                try TranscriptStore.save(snapshot, to: url)
-                return nil
-            } catch {
-                return error
-            }
-        }.value
+        let failure: (any Error)?
+        do {
+            try await TranscriptIO.shared.save(snapshot, to: url)
+            failure = nil
+        } catch {
+            failure = error
+        }
 
         if let failure {
             Log.stateManager.error(
@@ -207,17 +208,14 @@ final class MeetingHistoryStore {
         guard !summaries.isEmpty else { return }
         let urls = summaries.map(\.url)
 
-        let failures = await Task.detached { () -> [String] in
-            var failures: [String] = []
-            for url in urls {
-                do {
-                    try TranscriptStore.delete(url)
-                } catch {
-                    failures.append("\(url.lastPathComponent) (\(error.localizedDescription))")
-                }
+        var failures: [String] = []
+        for url in urls {
+            do {
+                try await TranscriptIO.shared.delete(url)
+            } catch {
+                failures.append("\(url.lastPathComponent) (\(error.localizedDescription))")
             }
-            return failures
-        }.value
+        }
 
         // Drop the viewer off a transcript that no longer exists before rescanning.
         if let loaded = loadedURL, urls.contains(loaded) { showLive() }
