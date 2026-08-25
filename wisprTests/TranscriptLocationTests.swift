@@ -120,6 +120,40 @@ struct TranscriptLocationTests {
         }
     }
 
+    @Test("Re-activating the already-current folder stays activated")
+    func testReactivatingSameFolderStaysActive() async throws {
+        try await withTemporaryFolder { folder in
+            let bookmark = try TranscriptLocation.makeBookmark(for: folder)
+
+            // Re-picking the same folder in Settings, or `applyStoredFolder` running
+            // again while it is already active, activates the same bookmark twice
+            // in a row. This must not call `startAccessingSecurityScopedResource()`
+            // a second time — doing so would leak one retained access count with
+            // nothing left to close it, since `useDefault()` below balances the
+            // access exactly once.
+            guard case .activated = TranscriptLocation.activate(bookmark: bookmark) else {
+                Issue.record("First activation should succeed")
+                return
+            }
+            guard case .activated = TranscriptLocation.activate(bookmark: bookmark) else {
+                Issue.record("Re-activating the same folder should still succeed")
+                return
+            }
+
+            #expect(TranscriptLocation.isCustom)
+            #expect(
+                TranscriptLocation.current.resolvingSymlinksInPath()
+                    == folder.resolvingSymlinksInPath()
+            )
+
+            // A single stop() balances the two activations above (one real start,
+            // one short-circuited). Dropping to the default folder proves the scope
+            // was left in a consistent state rather than double-opened.
+            TranscriptLocation.useDefault()
+            #expect(TranscriptLocation.isCustom == false)
+        }
+    }
+
     @Test("useDefault() returns to the container after a custom folder")
     func testUseDefaultReleasesCustomFolder() async throws {
         try await withTemporaryFolder { folder in

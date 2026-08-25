@@ -126,6 +126,18 @@ nonisolated enum TranscriptLocation {
             return .failed(error.localizedDescription)
         }
 
+        // Re-activating the folder that is already current — re-picking it in
+        // Settings, or `applyStoredFolder` running again for an already-active
+        // folder — must not call `startAccessingSecurityScopedResource()` a
+        // second time. `replaceScope` only balances a *change* of URL with a
+        // matching `stop`, so a second `start` on the same URL would leak one
+        // retained access count with nothing left to close it.
+        let alreadyActive = scope.withLock { $0?.holdsSecurityScope == true && $0?.url == resolved }
+        if alreadyActive {
+            let refreshed = isStale ? try? makeBookmark(for: resolved) : nil
+            return .activated(resolved, refreshedBookmark: refreshed)
+        }
+
         guard resolved.startAccessingSecurityScopedResource() else {
             useDefault()
             return .failed("macOS denied access to “\(resolved.lastPathComponent)”.")
