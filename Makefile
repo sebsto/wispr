@@ -196,7 +196,8 @@ which-app: ## Show which Wispr bundle is running, and what it was built from
 	@$(LSREGISTER) -dump 2>/dev/null \
 		| awk '/^bundle[ \t]/{p=""} /path:/{p=$$2} /$(BUNDLE_ID)/{if(p!="")print "  "p}' | sort -u
 
-test: ## Run unit tests with xcodebuild (not SPM)	set -o pipefail && xcodebuild test \
+test: ## Run unit tests with xcodebuild (not SPM)
+	set -o pipefail && xcodebuild test \
 		-project $(XCODEPROJ) \
 		-scheme $(SCHEME) \
 		-configuration Debug \
