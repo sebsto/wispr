@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Synchronization
 import WisprCore
 import os
 
@@ -142,6 +143,22 @@ nonisolated enum TranscriptStore {
 
     // MARK: - Reading
 
+    /// Summaries already computed, keyed by file URL and tagged with the file's
+    /// modification date at the time they were built.
+    ///
+    /// `list()` runs on every window appear, after each rename/retitle/delete, on
+    /// debounced external filesystem changes, and on meeting stop, so its cost
+    /// scales with total transcribed minutes across every saved session and
+    /// repeats often. A summary only needs a preview line, entry count, duration,
+    /// and speaker names, but building one from scratch decodes the whole
+    /// transcript — every entry — which is exactly the cost `TranscriptSummary`
+    /// exists to avoid paying just to list. Keying by mtime rather than trusting
+    /// the cache unconditionally means an edit made outside this cache — Finder,
+    /// another process, a future code path that writes the file directly — is
+    /// picked up on the next scan instead of serving a stale summary forever.
+    private static let summaryCache = Mutex<[URL: (modified: Date, summary: TranscriptSummary)]>(
+        [:])
+
     /// All saved transcripts, most recent first.
     ///
     /// A file that cannot be decoded yields a summary with `isUnreadable = true`
@@ -152,7 +169,7 @@ nonisolated enum TranscriptStore {
         guard
             let urls = try? fileManager.contentsOfDirectory(
                 at: directory,
-                includingPropertiesForKeys: [.creationDateKey],
+                includingPropertiesForKeys: [.creationDateKey, .contentModificationDateKey],
                 options: [.skipsHiddenFiles]
             )
         else {
@@ -160,13 +177,27 @@ nonisolated enum TranscriptStore {
             return []
         }
 
-        return urls
-            .filter {
-                $0.pathExtension == fileExtension
-                    && $0.lastPathComponent.hasPrefix(filePrefix)
-            }
-            .map(summary(for:))
+        let candidates = urls.filter {
+            $0.pathExtension == fileExtension && $0.lastPathComponent.hasPrefix(filePrefix)
+        }
+
+        return candidates
+            .map(cachedSummary(for:))
             .sorted { $0.startTime > $1.startTime }
+    }
+
+    /// Returns a cached summary for `url` when its modification date matches what
+    /// was cached, otherwise decodes the file and caches the result.
+    private static func cachedSummary(for url: URL) -> TranscriptSummary {
+        let modified = fileModificationDate(url) ?? .distantPast
+
+        if let cached = summaryCache.withLock({ $0[url] }), cached.modified == modified {
+            return cached.summary
+        }
+
+        let built = summary(for: url)
+        summaryCache.withLock { $0[url] = (modified, built) }
+        return built
     }
 
     /// Loads a full transcript from disk.
@@ -178,6 +209,7 @@ nonisolated enum TranscriptStore {
     /// Permanently deletes a transcript file.
     static func delete(_ url: URL) throws {
         try FileManager.default.removeItem(at: url)
+        summaryCache.withLock { $0[url] = nil }
         Log.stateManager.debug("TranscriptStore — deleted \(url.lastPathComponent)")
     }
 
@@ -196,9 +228,37 @@ nonisolated enum TranscriptStore {
         guard target != url else { return url }
 
         try FileManager.default.moveItem(at: url, to: target)
+        // The cache is keyed by URL, so the entry under the old URL has to move
+        // with the file or the next `list()` would treat the new URL as an
+        // uncached miss and decode a file whose content — and so summary — did
+        // not actually change; `moveItem` preserves the modification date, so the
+        // carried entry's staleness check still holds under the new URL. Dropping
+        // the old URL's entry either way also prevents it being served if that
+        // path is ever reused (a rename back to a previous title).
+        summaryCache.withLock { cache in
+            let carried = cache.removeValue(forKey: url)
+            if let carried {
+                cache[target] = (carried.modified, retargeted(carried.summary, to: target))
+            }
+        }
         Log.stateManager.debug(
             "TranscriptStore — renamed \(url.lastPathComponent) to \(target.lastPathComponent)")
         return target
+    }
+
+    /// Copies a summary onto a new URL, for carrying a cache entry across a
+    /// rename where the file's content — and so every other field — is unchanged.
+    private static func retargeted(_ summary: TranscriptSummary, to url: URL) -> TranscriptSummary {
+        TranscriptSummary(
+            url: url,
+            startTime: summary.startTime,
+            title: summary.title,
+            duration: summary.duration,
+            entryCount: summary.entryCount,
+            speakerNames: summary.speakerNames,
+            preview: summary.preview,
+            isUnreadable: summary.isUnreadable
+        )
     }
 
     /// Converts a session title into a filename-safe fragment.
@@ -244,6 +304,16 @@ nonisolated enum TranscriptStore {
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try encoder.encode(transcript)
         try data.write(to: url, options: .atomic)
+
+        // Populate the cache from the transcript already in hand, rather than
+        // leaving the next `list()` to decode the file this call just wrote.
+        // Not required for correctness — `cachedSummary(for:)`'s own mtime check
+        // already invalidates correctly on a fresh `URL` from
+        // `contentsOfDirectory`, which is what `list()` uses — but it avoids
+        // decoding a transcript that is, at this point, already sitting in memory.
+        let built = summary(from: transcript, url: url)
+        let modified = fileModificationDate(url) ?? .distantPast
+        summaryCache.withLock { $0[url] = (modified, built) }
     }
 
     /// Builds a unique file URL for a session start time and optional title.
@@ -309,7 +379,15 @@ nonisolated enum TranscriptStore {
                 isUnreadable: true
             )
         }
+        return summary(from: transcript, url: url)
+    }
 
+    /// Builds a summary from a transcript already decoded in memory.
+    ///
+    /// Split out from `summary(for:)` so `write(_:to:)` can refresh the cache
+    /// from the transcript it just encoded, instead of re-reading and
+    /// re-decoding the file it only just wrote.
+    private static func summary(from transcript: MeetingTranscript, url: URL) -> TranscriptSummary {
         let names = transcript.presentSpeakerIndices.map { index in
             transcript.displayName(for: .others(speakerIndex: index))
         }
@@ -328,6 +406,13 @@ nonisolated enum TranscriptStore {
 
     private static func fileCreationDate(_ url: URL) -> Date? {
         try? url.resourceValues(forKeys: [.creationDateKey]).creationDate
+    }
+
+    /// Drives the summary cache's staleness check: a file rewritten by `save`
+    /// (including through this process) or edited outside it gets a new
+    /// modification date, which is what tells `cachedSummary(for:)` to re-decode.
+    private static func fileModificationDate(_ url: URL) -> Date? {
+        try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
     }
 }
 

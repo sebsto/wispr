@@ -331,6 +331,53 @@ struct TranscriptStoreTests {
         }
     }
 
+    @Test("list() picks up an edit made through save(to:) rather than serving a cached summary")
+    func testListReflectsEditAfterCachedSummary() async throws {
+        try await withCleanup { created in
+            var transcript = makeTranscript(texts: ["avant"])
+            transcript.entries.append(
+                MeetingTranscriptEntry(speaker: .others(speakerIndex: 0), text: "et"))
+            let url = try #require(TranscriptStore.save(transcript))
+            created.append(url)
+
+            // Populate the summary cache with the pre-edit content.
+            let before = try #require(TranscriptStore.list().first { $0.url == url })
+            #expect(before.speakerNames == ["Speaker 1"])
+
+            var edited = try TranscriptStore.load(url)
+            edited.setName("Alice", forSpeakerIndex: 0)
+            try TranscriptStore.save(edited, to: url)
+
+            let after = try #require(TranscriptStore.list().first { $0.url == url })
+            #expect(after.speakerNames == ["Alice"])
+        }
+    }
+
+    @Test("list() picks up a rename rather than serving a summary under the old URL")
+    func testListReflectsRenameAfterCachedSummary() async throws {
+        try await withCleanup { created in
+            let start = TestTranscriptClock.nextStart()
+            var transcript = makeTranscript(start: start)
+            let url = try #require(TranscriptStore.save(transcript))
+            created.append(url)
+
+            // Populate the summary cache under the original (untitled) URL.
+            _ = TranscriptStore.list()
+
+            // The title lives in the file's content; rename() only moves the file
+            // to match. Real callers (MeetingHistoryStore.retitle) always write the
+            // content first, so the test does the same.
+            transcript.setTitle("Sprint review")
+            try TranscriptStore.save(transcript, to: url)
+            let renamed = try TranscriptStore.rename(at: url, startTime: start, title: "Sprint review")
+            created.append(renamed)
+
+            let listed = TranscriptStore.list()
+            #expect(listed.contains { $0.url == renamed && $0.title == "Sprint review" })
+            #expect(!listed.contains { $0.url == url })
+        }
+    }
+
     @Test("list() summarises a saved transcript and sorts newest first")
     func testListSummariesAndOrdering() async throws {
         try await withCleanup { created in
