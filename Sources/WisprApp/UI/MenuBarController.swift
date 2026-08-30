@@ -175,6 +175,7 @@ final class MenuBarController {
     /// Requirement 5.3: Menu contains Start/Stop Recording, Settings,
     /// Model Management, Language Selection, and Quit.
     private func buildMenu() {
+        Self.disableAutomaticItemEnablement(in: menu)
         menu.removeAllItems()
 
         // Start/Stop Recording
@@ -274,6 +275,11 @@ final class MenuBarController {
         for item in menu.items where item.action != nil {
             item.target = handler
         }
+    }
+
+    /// Preserves explicit item enablement, such as disabling recording while processing.
+    static func disableAutomaticItemEnablement(in menu: NSMenu) {
+        menu.autoenablesItems = false
     }
 
     // MARK: - Recording Menu Item
