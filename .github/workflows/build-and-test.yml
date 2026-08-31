@@ -24,6 +24,33 @@ jobs:
       - name: Build with SPM
         run: swift build
 
+  test-spm:
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache SPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-build-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-build-
+
+      # `xcodebuild test` is disabled below — its explicit-module build hits a
+      # Swift Testing / toolchain incompatibility unrelated to the tests
+      # themselves (a `TestScoping.provideScope` conformance mismatch). `swift
+      # test` builds and runs the exact same wisprTests target without that
+      # issue, so it carries the suite's regression and integration coverage
+      # (e.g. EndToEndIntegrationTests, AppLifecycleIntegrationTests) in CI.
+      #
+      # Hardware-dependent tests (mic capture, permission prompts, etc.) are
+      # already gated with `.enabled(if: isLocalTestEnvironment, ...)`, which
+      # is false whenever GITHUB_ACTIONS is set, so they self-skip here.
+      - name: Run tests with SPM
+        run: swift test
+
   build-xcode:
     runs-on: macos-26
     env:
@@ -52,21 +79,6 @@ jobs:
             -scheme wispr \
             -configuration Debug \
             -destination 'platform=macOS,arch=arm64' \
-            -clonedSourcePackagesDirPath "$SPM_PACKAGES" \
-            CODE_SIGN_IDENTITY=- \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO | xcbeautify
-
-      - name: Run unit tests
-        if: false
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          xcodebuild test \
-            -project wispr.xcodeproj \
-            -scheme wispr \
-            -destination 'platform=macOS,arch=arm64' \
-            -only-testing:wisprTests \
             -clonedSourcePackagesDirPath "$SPM_PACKAGES" \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
