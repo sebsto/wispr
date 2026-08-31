@@ -42,7 +42,6 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
 
     /// Key under which AppKit autosaves this window's frame.
     private static let frameAutosaveName = "MeetingTranscriptionWindow"
-    private static let minimumHeight: CGFloat = 420
     private static let widthTolerance: CGFloat = 0.5
 
     /// Whether AppKit has a stored frame for this window.
@@ -141,7 +140,7 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
         panel.contentView = hostingView
         panel.minSize = NSSize(
             width: MeetingTranscriptView.compactMinimumWidth,
-            height: Self.minimumHeight
+            height: MeetingTranscriptView.minimumHeight
         )
         panel.isReleasedWhenClosed = false
         panel.delegate = self

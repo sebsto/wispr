@@ -99,6 +99,60 @@ struct MeetingTranscriptCodableTests {
         #expect(restored.title == "Sprint review")
     }
 
+    @Test("Legacy JSON without mode decodes as an online meeting")
+    func testLegacyDecodeWithoutMode() throws {
+        // Same guard as speakerNames/title: transcripts archived before in-person
+        // mode existed carry no `mode` key, and must keep rendering with the
+        // original "You" / "Others" labelling rather than failing to decode.
+        let legacy = """
+            {
+              "entries": [
+                {
+                  "id": "3F2504E0-4F89-11D3-9A0C-0305E82C3301",
+                  "speaker": { "you": {} },
+                  "text": "bonjour",
+                  "timestamp": "2026-07-20T09:05:23Z"
+                }
+              ],
+              "startTime": "2026-07-20T09:05:00Z"
+            }
+            """
+
+        let transcript = try decoder.decode(MeetingTranscript.self, from: Data(legacy.utf8))
+
+        #expect(transcript.mode == .online)
+        // The archived "You" entry keeps its label, which is only correct because
+        // the mode defaulted to online.
+        #expect(transcript.displayName(for: .you) == "You")
+    }
+
+    @Test("An in-person mode survives an encode/decode round-trip")
+    func testModeRoundTrip() throws {
+        var transcript = MeetingTranscript(startTime: Date(timeIntervalSince1970: 1_000))
+        transcript.mode = .inPerson
+        transcript.entries.append(
+            MeetingTranscriptEntry(
+                speaker: .others(speakerIndex: 1), text: "salut",
+                timestamp: Date(timeIntervalSince1970: 1_010))
+        )
+
+        let restored = try decoder.decode(
+            MeetingTranscript.self, from: encoder.encode(transcript))
+
+        #expect(restored.mode == .inPerson)
+        #expect(restored.entries[0].speaker == .others(speakerIndex: 1))
+    }
+
+    @Test("An online mode survives an encode/decode round-trip")
+    func testOnlineModeRoundTrip() throws {
+        let transcript = MeetingTranscript(startTime: Date(timeIntervalSince1970: 1_000))
+
+        let restored = try decoder.decode(
+            MeetingTranscript.self, from: encoder.encode(transcript))
+
+        #expect(restored.mode == .online)
+    }
+
     @Test("Blank titles clear back to nil rather than storing whitespace")
     func testTitleTrimmingAndClearing() {
         var transcript = MeetingTranscript()

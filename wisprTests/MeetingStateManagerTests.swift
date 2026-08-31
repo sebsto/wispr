@@ -32,6 +32,21 @@ func createTestMeetingStateManager() -> MeetingStateManager {
     )
 }
 
+/// Same as `createTestMeetingStateManager()` but hands back the `SettingsStore`
+/// too, for tests that need to flip a setting the manager reads.
+@MainActor
+func createTestMeetingStateManagerWithSettings() -> (MeetingStateManager, SettingsStore) {
+    let settingsStore = SettingsStore(
+        defaults: UserDefaults(suiteName: "test.wispr.meeting.\(UUID().uuidString)")!
+    )
+    let manager = MeetingStateManager(
+        meetingAudioEngine: MeetingAudioEngine(),
+        transcriptionEngine: FakeMeetingTranscriptionEngine(),
+        settingsStore: settingsStore
+    )
+    return (manager, settingsStore)
+}
+
 // MARK: - MeetingTranscript Tests
 
 @Suite("MeetingTranscript Tests")
@@ -107,6 +122,127 @@ struct MeetingTranscriptTests {
         #expect(MeetingSpeaker.others(speakerIndex: 0).displayName == "Speaker 1")
         #expect(MeetingSpeaker.others(speakerIndex: 1).displayName == "Speaker 2")
         #expect(MeetingSpeaker.others(speakerIndex: 3).displayName == "Speaker 4")
+    }
+}
+
+// MARK: - In-Person Speaker Labelling
+
+/// Covers the behavioural heart of in-person mode (issue #97): the mic track is
+/// diarized and every participant — including the local user — becomes a numbered
+/// speaker, so nothing recorded in person is ever labelled "You".
+@Suite("Meeting In-Person Labelling Tests")
+struct MeetingInPersonLabellingTests {
+
+    @Test("In person, a resolved chunk is labelled with its diarized speaker")
+    func testInPersonResolvedIndex() {
+        let speaker = MeetingStateManager.micSpeaker(mode: .inPerson, diarizedIndex: 1)
+
+        #expect(speaker == .others(speakerIndex: 1))
+        #expect(speaker.displayName == "Speaker 2")
+    }
+
+    @Test("In person, an unresolved chunk falls back to Others rather than You")
+    func testInPersonColdStartFallsBackToOthers() {
+        // nil is the diarizer's cold-start window, or diarization being off.
+        let speaker = MeetingStateManager.micSpeaker(mode: .inPerson, diarizedIndex: nil)
+
+        #expect(speaker == .others(speakerIndex: nil))
+        #expect(speaker.displayName == "Others")
+    }
+
+    @Test("In person never labels microphone audio as You")
+    func testInPersonNeverYou() {
+        // There is no privileged local speaker in a room, so no diarizer outcome
+        // — resolved or not — may produce .you.
+        for index in [nil, 0, 1, 2, 3] as [Int?] {
+            let speaker = MeetingStateManager.micSpeaker(mode: .inPerson, diarizedIndex: index)
+            #expect(speaker != .you)
+            #expect(speaker.isRemote)
+        }
+    }
+
+    @Test("Online still labels microphone audio as You, ignoring any index")
+    func testOnlineIsAlwaysYou() {
+        #expect(MeetingStateManager.micSpeaker(mode: .online, diarizedIndex: nil) == .you)
+        // Online the mic is never diarized; a stray index must not leak a label.
+        #expect(MeetingStateManager.micSpeaker(mode: .online, diarizedIndex: 2) == .you)
+    }
+}
+
+// MARK: - Echo Suppression Mode Gate
+
+/// Covers the `record()` gate rather than `appendSuppressingEcho` itself: echo
+/// suppression exists to drop the mic's copy of *remote* speech, so in person —
+/// where there is no remote audio — it must be bypassed entirely. Two people in a
+/// room saying the same short phrase is real speech, not an echo.
+@Suite("Meeting Echo Suppression Mode Gate Tests")
+@MainActor
+struct MeetingEchoSuppressionModeGateTests {
+
+    /// Two near-identical entries close in time — exactly what suppression drops
+    /// online — recorded through the manager for a given session mode.
+    private func recordEchoPair(mode: MeetingMode) -> MeetingTranscript {
+        let (manager, settings) = createTestMeetingStateManagerWithSettings()
+        // The bypass only means anything while suppression is switched on.
+        settings.meetingEchoSuppressionEnabled = true
+        manager.transcript = MeetingTranscript()
+        manager.transcript.mode = mode
+
+        let base = Date()
+        manager.record(
+            MeetingTranscriptEntry(
+                speaker: .others(speakerIndex: 0),
+                text: "Let's review the quarterly numbers",
+                timestamp: base))
+        manager.record(
+            MeetingTranscriptEntry(
+                speaker: mode == .inPerson ? .others(speakerIndex: 1) : .you,
+                text: "Let's review the quarterly numbers.",
+                timestamp: base.addingTimeInterval(1)))
+
+        return manager.transcript
+    }
+
+    @Test("In person, a would-be echo is kept instead of suppressed")
+    func testInPersonKeepsWouldBeEcho() {
+        let transcript = recordEchoPair(mode: .inPerson)
+
+        // Both speakers survive: suppressing the second would silently delete a
+        // real participant's words.
+        #expect(transcript.entries.count == 2)
+        #expect(
+            transcript.entries.map(\.speaker) == [
+                .others(speakerIndex: 0), .others(speakerIndex: 1),
+            ])
+    }
+
+    @Test("Online, the same pair is still suppressed as microphone echo")
+    func testOnlineStillSuppressesEcho() {
+        let transcript = recordEchoPair(mode: .online)
+
+        // Control for the test above — proves the bypass is what changed the
+        // outcome, not the entries themselves.
+        #expect(transcript.entries.count == 1)
+        #expect(transcript.entries[0].speaker == .others(speakerIndex: 0))
+    }
+
+    @Test("In person ignores the echo-suppression setting entirely")
+    func testInPersonBypassIsIndependentOfSetting() {
+        let (manager, settings) = createTestMeetingStateManagerWithSettings()
+        settings.meetingEchoSuppressionEnabled = true
+        manager.transcript = MeetingTranscript()
+        manager.transcript.mode = .inPerson
+
+        let base = Date()
+        let text = "we should ship it this week"
+        for offset in [0.0, 1.0, 2.0] {
+            manager.record(
+                MeetingTranscriptEntry(
+                    speaker: .others(speakerIndex: 0), text: text,
+                    timestamp: base.addingTimeInterval(offset)))
+        }
+
+        #expect(manager.transcript.entries.count == 3)
     }
 }
 

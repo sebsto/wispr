@@ -53,10 +53,13 @@ final class MeetingStateManager {
     /// Always 0 in `.inPerson` mode, which does not capture system audio.
     var systemLevel: Float = 0
 
-    /// Capture mode for the next (or current) meeting. Bound to the header
-    /// toggle and seeded from the last remembered choice. Editable only while
-    /// idle — the header disables the toggle during recording so a transcript
-    /// never mixes two labelling schemes.
+    /// Capture mode for the **next** meeting. Bound to the header toggle and
+    /// seeded from the last remembered choice.
+    ///
+    /// Once a meeting starts this is copied to `transcript.mode`, which is the
+    /// canonical mode for the running session — every mode-dependent decision
+    /// (labelling, diarization, echo suppression) reads that frozen value rather
+    /// than this binding, so a transcript can never mix two labelling schemes.
     ///
     /// Selecting in-person turns on diarization automatically: it is what
     /// separates the people in the room, and without it the whole room collapses
@@ -186,7 +189,9 @@ final class MeetingStateManager {
     /// collapses into a single speaker, which defeats the mode. Online mode only
     /// warms it when the user opted into diarization.
     private func warmUpDiarizerIfEnabled() async {
-        let wantsDiarization = mode == .inPerson || settingsStore.meetingDiarizationEnabled
+        // `transcript.mode` is the frozen session mode, set once at startMeeting().
+        let wantsDiarization =
+            transcript.mode == .inPerson || settingsStore.meetingDiarizationEnabled
         guard wantsDiarization, let diarizer = meetingDiarizer else {
             return
         }
@@ -301,10 +306,31 @@ final class MeetingStateManager {
 
     // MARK: - Transcription
 
+    /// The transcript label for a microphone chunk.
+    ///
+    /// Online, the mic is always the local user, so it is labelled `.you` and the
+    /// diarized index (if any) is ignored. In person the mic carries the whole
+    /// room and there is no privileged "You": every chunk becomes a numbered
+    /// participant, falling back to `.others(nil)` — rendered "Others" — while
+    /// the diarizer is cold or switched off.
+    ///
+    /// Extracted from `transcribeMicAudio()` so this decision is testable without
+    /// microphone hardware.
+    static func micSpeaker(mode: MeetingMode, diarizedIndex: Int?) -> MeetingSpeaker {
+        switch mode {
+        case .online:
+            return .you
+        case .inPerson:
+            return .others(speakerIndex: diarizedIndex)
+        }
+    }
+
     private func transcribeMicAudio() async {
         let audioStream = await meetingAudioEngine.micAudioStream
         let language = settingsStore.languageMode
-        let isInPerson = mode == .inPerson
+        // The frozen session mode, not the live header binding: a transcript must
+        // never mix two labelling schemes even if the toggle were ever unlocked.
+        let isInPerson = transcript.mode == .inPerson
 
         for await chunk in audioStream {
             guard !Task.isCancelled else { break }
@@ -325,24 +351,24 @@ final class MeetingStateManager {
                 let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else { continue }
 
-                let speaker: MeetingSpeaker
-                if isInPerson {
-                    // Resolve the dominant speaker over the chunk's time window.
-                    // nil (cold-start or diarization off) renders as plain "Others".
-                    var speakerIndex: Int?
-                    if let diarizer {
-                        let chunkEnd =
-                            chunk.startTime
-                            + Double(chunk.samples.count) / Double(MeetingAudioEngine.sampleRate)
-                        speakerIndex = await diarizer.dominantSpeaker(
-                            in: chunk.startTime...chunkEnd)
-                    }
-                    speaker = .others(speakerIndex: speakerIndex)
-                } else {
-                    speaker = .you
+                // Resolve the dominant speaker over the chunk's time window.
+                // nil (cold-start or diarization off) renders as plain "Others".
+                var speakerIndex: Int?
+                if let diarizer {
+                    let chunkEnd =
+                        chunk.startTime
+                        + Double(chunk.samples.count) / Double(MeetingAudioEngine.sampleRate)
+                    speakerIndex = await diarizer.dominantSpeaker(
+                        in: chunk.startTime...chunkEnd)
                 }
 
-                record(MeetingTranscriptEntry(speaker: speaker, text: text))
+                record(
+                    MeetingTranscriptEntry(
+                        speaker: Self.micSpeaker(
+                            mode: transcript.mode, diarizedIndex: speakerIndex),
+                        text: text
+                    )
+                )
             } catch {
                 if case WisprError.emptyTranscription = error { continue }
                 Log.stateManager.warning(
@@ -403,8 +429,10 @@ final class MeetingStateManager {
     /// In-person mode bypasses echo suppression entirely: there is no remote
     /// audio, so the mechanism can only produce false positives (two people in a
     /// room saying similar short phrases).
-    private func record(_ entry: MeetingTranscriptEntry) {
-        guard mode == .online, settingsStore.meetingEchoSuppressionEnabled else {
+    /// Internal rather than private so tests can drive it directly: the bypass
+    /// depends on session state that is otherwise only reachable with live audio.
+    func record(_ entry: MeetingTranscriptEntry) {
+        guard transcript.mode == .online, settingsStore.meetingEchoSuppressionEnabled else {
             transcript.entries.append(entry)
             return
         }

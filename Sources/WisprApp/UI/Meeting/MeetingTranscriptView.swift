@@ -26,6 +26,9 @@ struct MeetingTranscriptView: View {
     /// can increase the AppKit window by exactly the same amount.
     static let historySidebarWidth: CGFloat = 210
     static let historyWidthIncrement = historySidebarWidth + 1  // Divider
+    /// Smallest usable height, shared with `MeetingWindowPanel` so the window's
+    /// floor and the content's declared minimum cannot drift apart.
+    static let minimumHeight: CGFloat = 420
 
     @Environment(MeetingStateManager.self) private var meetingState: MeetingStateManager
     @Environment(MeetingHistoryStore.self) private var history: MeetingHistoryStore
@@ -76,7 +79,7 @@ struct MeetingTranscriptView: View {
             minWidth: showHistory
                 ? Self.compactMinimumWidth + Self.historyWidthIncrement
                 : Self.compactMinimumWidth,
-            minHeight: 420
+            minHeight: Self.minimumHeight
         )
         .onChange(of: showHistory) { _, visible in
             onHistoryVisibilityChanged?(visible)
