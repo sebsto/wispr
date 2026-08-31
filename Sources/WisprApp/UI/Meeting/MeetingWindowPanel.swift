@@ -19,6 +19,14 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
     // MARK: - Properties
 
     private var panel: NSPanel?
+    /// The full frame width before history was opened, retained so a close can
+    /// restore precisely the compact width rather than a hard-coded size.
+    private var compactFrameWidth: CGFloat?
+    /// The full frame width produced by the most recent programmatic expansion.
+    /// If the user resizes while history is open, the close path leaves that user
+    /// chosen width untouched instead of unexpectedly shrinking the panel.
+    private var expandedFrameWidth: CGFloat?
+
     private let meetingStateManager: MeetingStateManager
     private let settingsStore: SettingsStore
     private let themeEngine: UIThemeEngine
@@ -34,6 +42,8 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
 
     /// Key under which AppKit autosaves this window's frame.
     private static let frameAutosaveName = "MeetingTranscriptionWindow"
+    private static let minimumHeight: CGFloat = 420
+    private static let widthTolerance: CGFloat = 0.5
 
     /// Whether AppKit has a stored frame for this window.
     ///
@@ -101,17 +111,20 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
     // MARK: - Private Helpers
 
     private func createPanel() {
-        let transcriptView = MeetingTranscriptView()
-            .environment(meetingStateManager)
-            .environment(settingsStore)
-            .environment(themeEngine)
-            .environment(historyStore)
+        let transcriptView = MeetingTranscriptView { [weak self] visible in
+            self?.setHistoryVisible(visible)
+        }
+        .environment(meetingStateManager)
+        .environment(settingsStore)
+        .environment(themeEngine)
+        .environment(historyStore)
 
         let hostingView = NSHostingView(rootView: transcriptView)
 
         let panel = NSPanel(
-            // Wide enough for the history sidebar plus a readable transcript.
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
+            // Compact by default; opening history grows the panel by the sidebar
+            // width and closing it returns to this exact width.
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 560),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .utilityWindow],
             backing: .buffered,
             defer: false
@@ -126,16 +139,56 @@ final class MeetingWindowPanel: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = hostingView
-        // Matches the content's declared minimum. The transcript rows spend
-        // ~154pt on the timestamp and speaker columns before any text, so a
-        // narrower window leaves nothing readable beside the sidebar.
-        panel.minSize = NSSize(width: 620, height: 420)
+        panel.minSize = NSSize(
+            width: MeetingTranscriptView.compactMinimumWidth,
+            height: Self.minimumHeight
+        )
         panel.isReleasedWhenClosed = false
         panel.delegate = self
         // Persist position and size across close/reopen and across launches.
         panel.setFrameAutosaveName(Self.frameAutosaveName)
 
         self.panel = panel
+    }
+
+    /// Adjusts the AppKit window in lockstep with SwiftUI history visibility.
+    /// Opening remembers the exact compact frame width and expands by the fixed
+    /// sidebar + divider width. Closing restores it only when the user has not
+    /// resized the expanded window themselves.
+    private func setHistoryVisible(_ visible: Bool) {
+        guard let panel else { return }
+
+        if visible {
+            let compactWidth = panel.frame.width
+            compactFrameWidth = compactWidth
+            panel.minSize.width =
+                MeetingTranscriptView.compactMinimumWidth
+                + MeetingTranscriptView.historyWidthIncrement
+
+            var expandedFrame = panel.frame
+            expandedFrame.size.width = compactWidth + MeetingTranscriptView.historyWidthIncrement
+            panel.setFrame(expandedFrame, display: true, animate: true)
+            expandedFrameWidth = panel.frame.width
+            return
+        }
+
+        panel.minSize.width = MeetingTranscriptView.compactMinimumWidth
+        defer {
+            compactFrameWidth = nil
+            expandedFrameWidth = nil
+        }
+
+        guard
+            let compactFrameWidth,
+            let expandedFrameWidth,
+            abs(panel.frame.width - expandedFrameWidth) <= Self.widthTolerance
+        else {
+            return
+        }
+
+        var compactFrame = panel.frame
+        compactFrame.size.width = compactFrameWidth
+        panel.setFrame(compactFrame, display: true, animate: true)
     }
 
     // MARK: - NSWindowDelegate

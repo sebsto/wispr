@@ -20,9 +20,19 @@ import os
 /// `MeetingStateManager.transcript`: starting a meeting resets the live
 /// transcript, which would otherwise wipe an archived one the user was reading.
 struct MeetingTranscriptView: View {
+    /// The smallest useful width for the transcript and its one-line controls.
+    static let compactMinimumWidth: CGFloat = 370
+    /// Stable sidebar width, shared with `MeetingWindowPanel` so opening history
+    /// can increase the AppKit window by exactly the same amount.
+    static let historySidebarWidth: CGFloat = 210
+    static let historyWidthIncrement = historySidebarWidth + 1  // Divider
+
     @Environment(MeetingStateManager.self) private var meetingState: MeetingStateManager
     @Environment(MeetingHistoryStore.self) private var history: MeetingHistoryStore
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
+
+    /// Lets the AppKit-owned panel resize when the sidebar changes visibility.
+    let onHistoryVisibilityChanged: ((Bool) -> Void)?
 
     @State private var isExporting = false
     /// Speaker index whose name is being edited, and the in-flight text.
@@ -31,11 +41,9 @@ struct MeetingTranscriptView: View {
     /// Drives keyboard focus into the rename field the moment it appears, so the
     /// user can type immediately instead of having to click the field first.
     @FocusState private var speakerFieldFocused: Bool
-    /// Whether the history column is shown. Plain view state rather than a
-    /// `NavigationSplitView` column binding: this window is a utility `NSPanel`
-    /// with no `NSToolbar`, so the split view's own chrome cannot render into a
-    /// title bar and lands in the content area instead.
-    @State private var showHistory = true
+    /// History starts closed for a compact meeting window. It remains view state
+    /// for the lifetime of the retained panel, rather than resetting on reopen.
+    @State private var showHistory = false
 
     // MARK: - Displayed transcript
 
@@ -54,16 +62,25 @@ struct MeetingTranscriptView: View {
         HStack(spacing: 0) {
             if showHistory {
                 MeetingHistorySidebar()
-                    .frame(minWidth: 190, idealWidth: 210, maxWidth: 280)
+                    .frame(width: Self.historySidebarWidth)
                 Divider()
             }
 
+            // The header needs enough room for the Start button and the capture
+            // mode picker to remain on one line. When history is open, the panel
+            // grows by exactly its fixed sidebar width rather than squeezing here.
             detailPane
+                .frame(minWidth: Self.compactMinimumWidth)
         }
-        // Sized for sidebar + transcript: the rows spend ~154pt on the timestamp
-        // and speaker columns before any text, so a narrower window leaves the
-        // transcript unreadable.
-        .frame(minWidth: 620, minHeight: 420)
+        .frame(
+            minWidth: showHistory
+                ? Self.compactMinimumWidth + Self.historyWidthIncrement
+                : Self.compactMinimumWidth,
+            minHeight: 420
+        )
+        .onChange(of: showHistory) { _, visible in
+            onHistoryVisibilityChanged?(visible)
+        }
         .fileExporter(
             isPresented: $isExporting,
             document: TranscriptDocument(text: transcript.asPlainText()),
@@ -153,32 +170,7 @@ struct MeetingTranscriptView: View {
 
             // Start/Stop sits in the header rather than the transcript body, so
             // it stays reachable while an archived session is on screen.
-            Button {
-                Task { await meetingState.toggleMeeting() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(
-                        systemName: meetingState.meetingState == .recording
-                            ? SFSymbols.stopFill
-                            : SFSymbols.recordingMicrophone
-                    )
-                    .font(.body)
-
-                    Text(meetingState.meetingState == .recording ? "Stop" : "Start Meeting")
-                        .font(.callout.weight(.medium))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    meetingState.meetingState == .recording
-                        ? Color.red.opacity(0.15)
-                        : theme.accentColor.opacity(0.15)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(
-                meetingState.meetingState == .recording ? "Stop meeting" : "Start meeting")
+            recordButton
 
             if isArchived {
                 archivedHeaderContent
@@ -190,15 +182,82 @@ struct MeetingTranscriptView: View {
         .padding(.vertical, 10)
     }
 
+    /// Start/Stop control. The label never wraps: when the header is too narrow
+    /// for "Start Meeting"/"Stop" beside the icon, it collapses to the icon alone
+    /// rather than stacking the text vertically.
+    private var recordButton: some View {
+        let isRecording = meetingState.meetingState == .recording
+        let icon = isRecording ? SFSymbols.stopFill : SFSymbols.recordingMicrophone
+        let title = isRecording ? "Stop" : "Start Meeting"
+        let tint = isRecording ? Color.red : theme.accentColor
+
+        return Button {
+            Task { await meetingState.toggleMeeting() }
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon).font(.body)
+                    Text(title)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                // Fallback for a narrow header: the icon carries the action.
+                Image(systemName: icon).font(.body)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(tint.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(isRecording ? "Stop meeting" : "Start meeting")
+        .accessibilityLabel(isRecording ? "Stop meeting" : "Start meeting")
+    }
+
     @ViewBuilder
     private var liveHeaderContent: some View {
+        @Bindable var meetingState = meetingState
+        let isRecording = meetingState.meetingState == .recording
+
+        // Capture mode. Locked while recording so a transcript never mixes two
+        // labelling schemes.
+        Picker("Meeting mode", selection: $meetingState.mode) {
+            Text("Online").tag(MeetingMode.online)
+            Text("In person").tag(MeetingMode.inPerson)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+        .disabled(isRecording)
+        .help(
+            "Online captures your mic plus system audio. In person diarizes the mic for up to four people in the room."
+        )
+        .accessibilityHint(
+            "Choose a remote or an in-person meeting recorded on the microphone. Locked while recording."
+        )
+
         Spacer()
 
-        if meetingState.meetingState == .recording {
-            HStack(spacing: 8) {
-                audioLevelIndicator(label: "You", level: meetingState.micLevel, color: .blue)
-                audioLevelIndicator(
-                    label: "Others", level: meetingState.systemLevel, color: .green)
+        if isRecording {
+            // The level indicators are the first thing to go when the header runs
+            // out of room: hide them wholesale rather than let their labels wrap.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    if meetingState.mode == .inPerson {
+                        // In person the mic carries the whole room; it is the only
+                        // meaningful level.
+                        audioLevelIndicator(
+                            label: "Room", level: meetingState.micLevel, color: .green)
+                    } else {
+                        audioLevelIndicator(
+                            label: "You", level: meetingState.micLevel, color: .blue)
+                        audioLevelIndicator(
+                            label: "Others", level: meetingState.systemLevel, color: .green)
+                    }
+                }
+                // Fallback: nothing, so the timer keeps its place at narrow widths.
+                Color.clear.frame(width: 0, height: 0)
             }
 
             Text(meetingState.elapsedTime)
@@ -246,6 +305,8 @@ struct MeetingTranscriptView: View {
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
         }
     }
 
@@ -282,7 +343,9 @@ struct MeetingTranscriptView: View {
                     .foregroundStyle(.secondary)
 
                 Text(
-                    "Press Start to capture your microphone and system audio.\nSpeakers are separated automatically."
+                    meetingState.mode == .inPerson
+                        ? "Press Start to record everyone in the room on your microphone.\nUp to four speakers are separated automatically."
+                        : "Press Start to capture your microphone and system audio.\nSpeakers are separated automatically."
                 )
                 .font(.callout)
                 .foregroundStyle(.tertiary)

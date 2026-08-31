@@ -26,6 +26,16 @@ struct SystemAudioChunk: Sendable {
     let startTime: TimeInterval
 }
 
+/// A timestamped audio chunk from the microphone capture path.
+///
+/// `startTime` is seconds elapsed since capture began (cumulative sample count /
+/// sampleRate), mirroring `SystemAudioChunk`. In-person meetings diarize the mic
+/// track, and `MeetingDiarizer` needs a timeline to attribute chunks to speakers.
+struct MicAudioChunk: Sendable {
+    let samples: [Float]
+    let startTime: TimeInterval
+}
+
 /// Actor responsible for capturing both microphone and system audio simultaneously.
 ///
 /// Uses `AVAudioEngine` for microphone input and `SCStream` (ScreenCaptureKit)
@@ -42,11 +52,13 @@ actor MeetingAudioEngine {
     private var systemStreamOutput: SystemAudioOutputHandler?
 
     private var micBuffer: [Float] = []
+    private var micSamplesTotal: Int = 0
+    private var micChunkStartSamples: Int = 0
     private var systemBuffer: [Float] = []
     private var systemSamplesTotal: Int = 0
     private var systemChunkStartSamples: Int = 0
 
-    private var micContinuation: AsyncStream<[Float]>.Continuation?
+    private var micContinuation: AsyncStream<MicAudioChunk>.Continuation?
     private var systemContinuation: AsyncStream<SystemAudioChunk>.Continuation?
     private var micLevelContinuation: AsyncStream<Float>.Continuation?
     private var systemLevelContinuation: AsyncStream<Float>.Continuation?
@@ -61,15 +73,30 @@ actor MeetingAudioEngine {
     /// Whether system audio capture is active (may be false if permission denied).
     private var hasSystemAudio = false
 
+    /// Capture mode for the active session. In-person capture is mic-only and
+    /// diarizes the mic track, so it uses the shorter chunk size below.
+    private var captureMode: MeetingMode = .online
+
     /// The audio chunk streams created at capture start.
-    private var _micAudioStream: AsyncStream<[Float]>?
+    private var _micAudioStream: AsyncStream<MicAudioChunk>?
     private var _systemAudioStream: AsyncStream<SystemAudioChunk>?
 
-    /// The chunk size in samples before yielding to the transcription stream.
+    /// Online mic chunk size in samples before yielding to transcription.
     /// ~5 seconds of audio at 16kHz = 80,000 samples.
-    private let chunkSize = 80_000
+    private let onlineMicChunkSize = 80_000
 
-    /// System-audio chunk size. Shorter than the mic chunk (~3s) so each
+    /// In-person mic chunk size (~3s). Shorter than the online mic chunk so each
+    /// diarized transcript entry spans less time, reducing how often a single
+    /// entry flattens a speaker change into one label — the same rationale as the
+    /// system-audio chunk in online mode.
+    private let inPersonMicChunkSize = 48_000
+
+    /// Active mic chunk size, chosen by `captureMode` at `startCapture()`.
+    private var micChunkSize: Int {
+        captureMode == .inPerson ? inPersonMicChunkSize : onlineMicChunkSize
+    }
+
+    /// System-audio chunk size. Shorter than the online mic chunk (~3s) so each
     /// transcript entry spans less time, reducing how often a single entry
     /// flattens a speaker change into one diarization label.
     private let systemChunkSize = 48_000
@@ -84,9 +111,14 @@ actor MeetingAudioEngine {
     /// System audio capture may silently fail if Screen Recording permission
     /// is not granted — in that case, only mic capture is active.
     ///
+    /// - Parameter mode: `.online` captures mic + system audio (system audio may
+    ///   still fall back to mic-only if permission is denied). `.inPerson`
+    ///   captures the microphone only and never touches ScreenCaptureKit, so it
+    ///   avoids the Screen Recording permission prompt entirely.
     /// - Returns: A tuple of (micLevelStream, systemLevelStream) for UI visualization.
+    ///   In `.inPerson` mode the system level stream is silent (finishes immediately).
     /// - Throws: If microphone capture fails to start.
-    func startCapture() async throws -> (
+    func startCapture(mode: MeetingMode = .online) async throws -> (
         micLevels: AsyncStream<Float>, systemLevels: AsyncStream<Float>
     ) {
         guard !isCapturing else {
@@ -94,12 +126,15 @@ actor MeetingAudioEngine {
         }
 
         isCapturing = true
+        captureMode = mode
         micBuffer.removeAll()
+        micSamplesTotal = 0
+        micChunkStartSamples = 0
         systemBuffer.removeAll()
 
         // Create audio chunk streams upfront so continuations are ready
         // before the taps start producing data.
-        let (micStream, micCont) = AsyncStream.makeStream(of: [Float].self)
+        let (micStream, micCont) = AsyncStream.makeStream(of: MicAudioChunk.self)
         _micAudioStream = micStream
         micContinuation = micCont
 
@@ -108,6 +143,17 @@ actor MeetingAudioEngine {
         systemContinuation = sysCont
 
         let micLevels = startMicCapture()
+
+        // In-person meetings are mic-only: everyone is in the room and reaches the
+        // microphone, so there is no remote audio to capture and no reason to ask
+        // for Screen Recording permission.
+        guard mode == .online else {
+            hasSystemAudio = false
+            let (silentStream, silentCont) = AsyncStream.makeStream(of: Float.self)
+            silentCont.finish()
+            Log.audioEngine.debug("MeetingAudioEngine — in-person mode: mic-only capture")
+            return (micLevels, silentStream)
+        }
 
         // Attempt system audio capture — fall back to mic-only on failure
         let systemLevels: AsyncStream<Float>
@@ -140,9 +186,9 @@ actor MeetingAudioEngine {
     }
 
     /// Returns the mic audio chunk stream created during `startCapture()`.
-    var micAudioStream: AsyncStream<[Float]> {
+    var micAudioStream: AsyncStream<MicAudioChunk> {
         if let stream = _micAudioStream { return stream }
-        let (stream, cont) = AsyncStream.makeStream(of: [Float].self)
+        let (stream, cont) = AsyncStream.makeStream(of: MicAudioChunk.self)
         cont.finish()
         return stream
     }
@@ -158,7 +204,8 @@ actor MeetingAudioEngine {
     /// Flushes any remaining buffered audio as final chunks.
     func flushBuffers() {
         if !micBuffer.isEmpty {
-            micContinuation?.yield(micBuffer)
+            let startTime = Double(micChunkStartSamples) / Double(Self.sampleRate)
+            micContinuation?.yield(MicAudioChunk(samples: micBuffer, startTime: startTime))
             micBuffer.removeAll()
         }
         if !systemBuffer.isEmpty {
@@ -269,13 +316,18 @@ actor MeetingAudioEngine {
         let normalizedLevel = min(max(rms * 5.0, 0.0), 1.0)
         micLevelContinuation?.yield(normalizedLevel)
 
+        micSamplesTotal += samples.count
         micBuffer.append(contentsOf: samples)
+        let chunkSize = micChunkSize
         if micBuffer.count >= chunkSize {
             let chunk = Array(micBuffer.prefix(chunkSize))
             micBuffer.removeFirst(min(chunkSize, micBuffer.count))
+            let startTime = Double(micChunkStartSamples) / Double(Self.sampleRate)
+            micChunkStartSamples = micSamplesTotal - micBuffer.count
             Log.audioEngine.debug(
-                "MeetingAudioEngine — yielding mic chunk of \(chunk.count) samples")
-            micContinuation?.yield(chunk)
+                "MeetingAudioEngine — yielding mic chunk of \(chunk.count) samples at t=\(String(format: "%.2f", startTime))s"
+            )
+            micContinuation?.yield(MicAudioChunk(samples: chunk, startTime: startTime))
         }
     }
 
@@ -289,6 +341,8 @@ actor MeetingAudioEngine {
         engine.inputNode.removeTap(onBus: 0)
         micEngine = nil
         micBuffer.removeAll()
+        micSamplesTotal = 0
+        micChunkStartSamples = 0
         micContinuation?.finish()
         micContinuation = nil
         micLevelContinuation?.finish()

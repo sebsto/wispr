@@ -7,6 +7,23 @@
 
 import Foundation
 
+/// How a meeting is captured, which determines the speaker model.
+///
+/// - `online`: the classic remote-meeting shape. Your voice is on the mic and
+///   everyone else arrives through system audio; the mic track is labelled
+///   "You" and only the system track is diarized.
+/// - `inPerson`: everyone is in one room and reaches the same microphone. There
+///   is no privileged "You" — the mic track itself is diarized and every
+///   participant (including the local user) becomes a numbered speaker. System
+///   audio is not captured, so no Screen Recording permission is needed.
+///
+/// Diarization can distinguish up to four participants in person, a fixed limit
+/// of the underlying Sortformer model.
+nonisolated enum MeetingMode: String, Sendable, Codable, CaseIterable {
+    case online
+    case inPerson
+}
+
 /// Identifies the audio source / speaker in a meeting transcript.///
 /// Speaker indices are stored **0-based** internally. The +1 transform to
 /// "Speaker 1", "Speaker 2", etc. happens only inside `displayName`.
@@ -69,6 +86,11 @@ nonisolated struct MeetingTranscript: Sendable, Equatable, Codable {
     var entries: [MeetingTranscriptEntry] = []
     let startTime: Date
 
+    /// How this session was captured. Fixed at `startMeeting()` and never changed
+    /// mid-session, so a transcript never mixes two labelling schemes. Archived
+    /// transcripts written before this field existed decode as `.online`.
+    var mode: MeetingMode = .online
+
     /// User-assigned title for the session, or `nil` to fall back to its date.
     ///
     /// A meeting's date is a poor handle once there are more than a handful of
@@ -91,7 +113,7 @@ nonisolated struct MeetingTranscript: Sendable, Equatable, Codable {
     // MARK: - Codable
 
     private enum CodingKeys: String, CodingKey {
-        case entries, startTime, speakerNames, title
+        case entries, startTime, speakerNames, title, mode
     }
 
     /// Decodes a transcript, tolerating files written before `speakerNames` and
@@ -109,6 +131,7 @@ nonisolated struct MeetingTranscript: Sendable, Equatable, Codable {
         self.speakerNames =
             try container.decodeIfPresent([String: String].self, forKey: .speakerNames) ?? [:]
         self.title = try container.decodeIfPresent(String.self, forKey: .title)
+        self.mode = try container.decodeIfPresent(MeetingMode.self, forKey: .mode) ?? .online
     }
 
     // MARK: - Title

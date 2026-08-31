@@ -116,6 +116,16 @@ final class SettingsStore {
         }
     }
 
+    /// Remembers the last meeting capture mode chosen in the meeting window's
+    /// header toggle. `true` means the next meeting defaults to in-person
+    /// (mic-only, diarized, no privileged "You"). Defaults to false (online).
+    var meetingInPersonMode: Bool {
+        didSet {
+            guard !isLoading else { return }
+            defaults.set(meetingInPersonMode, forKey: Keys.meetingInPersonMode)
+        }
+    }
+
     /// When true, plays short audio cues on recording start/stop.
     var soundFeedbackEnabled: Bool {
         didSet {
@@ -221,6 +231,7 @@ final class SettingsStore {
         static let handsFreeMode = "handsFreeMode"
         static let meetingDiarizationEnabled = "meetingDiarizationEnabled"
         static let meetingEchoSuppressionEnabled = "meetingEchoSuppressionEnabled"
+        static let meetingInPersonMode = "meetingInPersonMode"
         static let soundFeedbackEnabled = "soundFeedbackEnabled"
         static let meetingDetectionEnabled = "meetingDetectionEnabled"
         static let transcriptsFolderBookmark = "transcriptsFolderBookmark"
@@ -249,6 +260,7 @@ final class SettingsStore {
         static let handsFreeMode: Bool = false
         static let meetingDiarizationEnabled: Bool = false
         static let meetingEchoSuppressionEnabled: Bool = true
+        static let meetingInPersonMode: Bool = false
         static let soundFeedbackEnabled: Bool = false
         static let meetingDetectionEnabled: Bool = false
         static let transcriptsFolderBookmark: Data? = nil
@@ -281,6 +293,7 @@ final class SettingsStore {
         self.handsFreeMode = Defaults.handsFreeMode
         self.meetingDiarizationEnabled = Defaults.meetingDiarizationEnabled
         self.meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
+        self.meetingInPersonMode = Defaults.meetingInPersonMode
         self.soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         self.meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         self.transcriptsFolderBookmark = Defaults.transcriptsFolderBookmark
@@ -311,6 +324,7 @@ final class SettingsStore {
         handsFreeMode = Defaults.handsFreeMode
         meetingDiarizationEnabled = Defaults.meetingDiarizationEnabled
         meetingEchoSuppressionEnabled = Defaults.meetingEchoSuppressionEnabled
+        meetingInPersonMode = Defaults.meetingInPersonMode
         soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         // Files already written to a custom folder are left where they are; only
@@ -343,6 +357,7 @@ final class SettingsStore {
         defaults.set(handsFreeMode, forKey: Keys.handsFreeMode)
         defaults.set(meetingDiarizationEnabled, forKey: Keys.meetingDiarizationEnabled)
         defaults.set(meetingEchoSuppressionEnabled, forKey: Keys.meetingEchoSuppressionEnabled)
+        defaults.set(meetingInPersonMode, forKey: Keys.meetingInPersonMode)
         defaults.set(soundFeedbackEnabled, forKey: Keys.soundFeedbackEnabled)
         defaults.set(meetingDetectionEnabled, forKey: Keys.meetingDetectionEnabled)
         defaults.set(autoSuffixEnabled, forKey: Keys.autoSuffixEnabled)
@@ -418,6 +433,10 @@ final class SettingsStore {
         if defaults.object(forKey: Keys.meetingEchoSuppressionEnabled) != nil {
             self.meetingEchoSuppressionEnabled = defaults.bool(
                 forKey: Keys.meetingEchoSuppressionEnabled)
+        }
+
+        if defaults.object(forKey: Keys.meetingInPersonMode) != nil {
+            self.meetingInPersonMode = defaults.bool(forKey: Keys.meetingInPersonMode)
         }
 
         if defaults.object(forKey: Keys.soundFeedbackEnabled) != nil {
