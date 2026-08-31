@@ -38,7 +38,7 @@ final class MenuBarController {
     private let statusItem: NSStatusItem
 
     /// The dropdown menu displayed when the user clicks the status item.
-    private let menu: NSMenu
+    let menu: NSMenu
 
     /// Reference to the central state manager for wiring actions.
     private let stateManager: StateManager
@@ -93,7 +93,7 @@ final class MenuBarController {
 
     // MARK: - Menu Items (retained for dynamic updates)
 
-    private let recordingMenuItem = NSMenuItem()
+    let recordingMenuItem = NSMenuItem()
     private let meetingMenuItem = NSMenuItem()
     private let stopMeetingMenuItem = NSMenuItem()
     private let languageMenuItem = NSMenuItem()
@@ -175,7 +175,7 @@ final class MenuBarController {
     /// Requirement 5.3: Menu contains Start/Stop Recording, Settings,
     /// Model Management, Language Selection, and Quit.
     private func buildMenu() {
-        Self.disableAutomaticItemEnablement(in: menu)
+        menu.autoenablesItems = false
         menu.removeAllItems()
 
         // Start/Stop Recording
@@ -277,15 +277,10 @@ final class MenuBarController {
         }
     }
 
-    /// Preserves explicit item enablement, such as disabling recording while processing.
-    static func disableAutomaticItemEnablement(in menu: NSMenu) {
-        menu.autoenablesItems = false
-    }
-
     // MARK: - Recording Menu Item
 
     /// Updates the recording menu item title and action based on current state.
-    private func updateRecordingMenuItem() {
+    func updateRecordingMenuItem() {
         let isRecording = stateManager.appState == .recording
         let shortcut = KeyCodeMapping.shared.hotkeyDisplayString(
             keyCode: settingsStore.hotkeyKeyCode,

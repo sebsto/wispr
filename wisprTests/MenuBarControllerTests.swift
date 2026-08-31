@@ -136,23 +136,19 @@ struct MenuBarControllerIconTests {
 @Suite("MenuBarController Menu Structure Tests")
 struct MenuBarControllerMenuTests {
 
-    @Test("Menu preserves an explicitly disabled recording action")
-    func testMenuPreservesExplicitDisabledState() {
-        let menu = NSMenu()
-        let target = MenuActionTarget()
-        let item = NSMenuItem(
-            title: "Start Recording",
-            action: #selector(MenuActionTarget.toggleRecording(_:)),
-            keyEquivalent: ""
+    @Test("Recording item is disabled while processing")
+    func testRecordingItemDisabledWhileProcessing() {
+        let (controller, stateManager, _, _) = createTestController()
+        stateManager.appState = .processing
+
+        controller.updateRecordingMenuItem()
+        controller.menu.update()
+
+        #expect(
+            !controller.recordingMenuItem.isEnabled,
+            "Recording item should remain disabled while transcription is processing"
         )
-        item.target = target
-        menu.addItem(item)
-
-        MenuBarController.disableAutomaticItemEnablement(in: menu)
-        item.isEnabled = false
-        menu.update()
-
-        #expect(!item.isEnabled)
+        controller.stopObserving()
     }
 
     @Test("Menu contains recording, language, settings, model management, and quit items")
@@ -183,11 +179,6 @@ struct MenuBarControllerMenuTests {
         #expect(themeEngine.actionSymbol(.model) == "cpu")
         #expect(themeEngine.actionSymbol(.quit) == "power")
     }
-}
-
-@MainActor
-private final class MenuActionTarget: NSObject {
-    @objc func toggleRecording(_ sender: Any?) {}
 }
 
 // MARK: - Language Display Tests (Requirement 16.7)
