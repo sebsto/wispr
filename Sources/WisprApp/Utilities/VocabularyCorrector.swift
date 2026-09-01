@@ -180,7 +180,7 @@ enum VocabularyCorrector {
     private static func bestMatch(for window: [String], in entries: [Entry], languages: [String]) -> (canonical: String, score: Double)? {
         // Join the alphanumeric cores of the window (drops punctuation and the
         // spaces between split tokens): ["data", "ecou."] → "dataecou".
-        let joined = window.map { core(of: $0) }.joined()
+        let joined = window.map { alphanumericCore(of: $0) }.joined()
         guard !joined.isEmpty else { return nil }
 
         // Precompute the window's key per language once.
@@ -195,7 +195,7 @@ enum VocabularyCorrector {
                 // Keys too short for the threshold to discriminate: only accept a
                 // case-insensitive spelling match (still fixes casing, e.g. "go" → "Go").
                 if ek.count < minKeyLengthForFuzzyMatch || wk.count < minKeyLengthForFuzzyMatch {
-                    if joined.caseInsensitiveCompare(entry.canonical) == .orderedSame {
+                    if joined.caseInsensitiveCompare(alphanumericCore(of: entry.canonical)) == .orderedSame {
                         entryScore = 1
                     }
                     continue
@@ -277,6 +277,9 @@ enum VocabularyCorrector {
 
         // Digraph / sound-alike folding (order matters).
         let digraphs: [(String, String)] = [
+            // "eau" must precede its shorter components so it is consumed as
+            // one sound (rather than becoming "i" + "o" via "ea" then "au").
+            ("eau", "o"),
             ("ph", "f"),
             ("qu", "k"),
             ("ck", "k"),
@@ -288,7 +291,6 @@ enum VocabularyCorrector {
             ("ai", "e"),
             ("ei", "e"),
             ("au", "o"),
-            ("eau", "o"),
         ]
         for (from, to) in digraphs {
             s = s.replacingOccurrences(of: from, with: to)
@@ -418,5 +420,12 @@ enum VocabularyCorrector {
         let start = token.index(token.startIndex, offsetBy: leading.count)
         let end = token.index(token.endIndex, offsetBy: -trailing.count)
         return String(token[start..<end])
+    }
+
+    /// The alphanumeric content of a token or vocabulary entry. This also
+    /// removes separators within a multi-word canonical entry, allowing an
+    /// exact short-key match such as "a b" → "A B".
+    private static func alphanumericCore(of text: String) -> String {
+        String(text.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 }

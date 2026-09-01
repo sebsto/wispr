@@ -256,8 +256,9 @@ final class StateManager {
     /// when the setting is enabled and the list is non-empty.
     ///
     /// The language used for phonetic matching is the configured one when pinned
-    /// or specific; in auto-detect mode (where `languageMode.languageCode` is nil)
-    /// it falls back to the language the engine detected for this transcription.
+    /// or specific. In auto-detect mode it uses an engine-reported language when
+    /// available; engines such as Parakeet that do not report one use the
+    /// corrector's English fallback.
     func applyVocabularyCorrection(to text: String, detectedLanguage: String? = nil) -> String {
         guard settingsStore.customVocabularyEnabled,
               !settingsStore.customVocabulary.isEmpty,

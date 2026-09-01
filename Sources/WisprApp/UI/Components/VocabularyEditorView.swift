@@ -37,12 +37,12 @@ struct VocabularyEditorView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(Array(vocabulary.enumerated()), id: \.offset) { index, word in
+                ForEach(vocabulary, id: \.self) { word in
                     HStack {
                         Text(word)
                         Spacer()
                         Button {
-                            remove(at: index)
+                            remove(word)
                         } label: {
                             Image(systemName: SFSymbols.removeCircle)
                                 .foregroundStyle(.secondary)
@@ -75,5 +75,10 @@ struct VocabularyEditorView: View {
     private func remove(at index: Int) {
         guard vocabulary.indices.contains(index) else { return }
         vocabulary.remove(at: index)
+    }
+
+    private func remove(_ word: String) {
+        guard let index = vocabulary.firstIndex(of: word) else { return }
+        remove(at: index)
     }
 }

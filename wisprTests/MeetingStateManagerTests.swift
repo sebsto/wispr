@@ -47,6 +47,26 @@ func createTestMeetingStateManagerWithSettings() -> (MeetingStateManager, Settin
     return (manager, settingsStore)
 }
 
+// MARK: - Meeting Vocabulary Correction Tests
+
+@Suite("Meeting Vocabulary Correction Tests")
+@MainActor
+struct MeetingVocabularyCorrectionTests {
+
+    @Test("Uses English fallback when auto-detect has no engine language")
+    func autoDetectWithoutDetectedLanguageUsesEnglishFallback() {
+        let (manager, settingsStore) = createTestMeetingStateManagerWithSettings()
+        settingsStore.customVocabularyEnabled = true
+        settingsStore.customVocabulary = ["PyTorch"]
+        settingsStore.languageMode = .autoDetect
+
+        #expect(
+            manager.applyVocabularyCorrection(to: "we use pytorch", detectedLanguage: nil)
+                == "we use PyTorch"
+        )
+    }
+}
+
 // MARK: - MeetingTranscript Tests
 
 @Suite("MeetingTranscript Tests")

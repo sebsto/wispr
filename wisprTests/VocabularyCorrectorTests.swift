@@ -188,4 +188,14 @@ struct VocabularyCorrectorTests {
         #expect(VocabularyCorrector.correct("le gars est là", vocabulary: vocab) == "le gars est là")
         #expect(VocabularyCorrector.correct("gay pride", vocabulary: vocab) == "gay pride")
     }
+
+    @Test("Short multi-word entries compare normalized canonical spelling")
+    func shortMultiWordExactMatch() {
+        #expect(VocabularyCorrector.correct("we chose a b", vocabulary: ["A B"]) == "we chose A B")
+    }
+
+    @Test("Folds eau before its component digraphs")
+    func eauDigraphOrder() {
+        #expect(VocabularyCorrector.phoneticKey("Bordeaux", language: "en") == "bordox")
+    }
 }

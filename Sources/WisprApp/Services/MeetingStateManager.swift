@@ -326,9 +326,10 @@ final class MeetingStateManager {
     }
 
     /// Corrects mis-transcribed proper nouns against the user's custom vocabulary
-    /// when the setting is enabled. Mirrors `StateManager.applyVocabularyCorrection`:
-    /// uses the configured language, falling back to the detected one in auto-detect.
-    private func applyVocabularyCorrection(to text: String, detectedLanguage: String?) -> String {
+    /// when the setting is enabled. It uses a configured language when available;
+    /// in auto-detect mode, engines without a detected language (including
+    /// Parakeet) use the corrector's English fallback.
+    func applyVocabularyCorrection(to text: String, detectedLanguage: String?) -> String {
         guard settingsStore.customVocabularyEnabled,
               !settingsStore.customVocabulary.isEmpty,
               !text.isEmpty else { return text }
