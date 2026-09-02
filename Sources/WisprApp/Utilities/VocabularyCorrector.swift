@@ -318,9 +318,8 @@ enum VocabularyCorrector {
 
         // Drop a trailing schwa-ish vowel that speakers/models often add or
         // drop ("novaria" vs "novariou" → both end effectively the same).
-        while let lastChar = deduped.last, "aeiou".contains(lastChar), deduped.count > 1 {
+        if let lastChar = deduped.last, "aeiou".contains(lastChar), deduped.count > 1 {
             deduped.removeLast()
-            break
         }
 
         return deduped
@@ -412,14 +411,6 @@ enum VocabularyCorrector {
         let leading = String(chars[0..<start])
         let trailing = String(chars[end..<chars.count])
         return (leading, trailing)
-    }
-
-    /// The alphanumeric core of a token, with surrounding punctuation removed.
-    private static func core(of token: String) -> String {
-        let (leading, trailing) = affixes(of: token)
-        let start = token.index(token.startIndex, offsetBy: leading.count)
-        let end = token.index(token.endIndex, offsetBy: -trailing.count)
-        return String(token[start..<end])
     }
 
     /// The alphanumeric content of a token or vocabulary entry. This also
