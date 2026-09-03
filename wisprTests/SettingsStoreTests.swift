@@ -186,7 +186,37 @@ struct SettingsStoreTests {
         #expect(newStore.onboardingCompleted == true, "Onboarding completed should persist")
         #expect(newStore.onboardingLastStep == 3, "Onboarding last step should persist")
     }
-    
+
+    @Test("SettingsStore showRealtimeText defaults to false")
+    func testShowRealtimeTextDefault() async {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+
+        #expect(store.showRealtimeText == false, "showRealtimeText should default to false")
+    }
+
+    @Test("SettingsStore persists showRealtimeText")
+    func testShowRealtimeTextPersistence() async {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+
+        store.showRealtimeText = true
+
+        let newStore = SettingsStore(defaults: defaults)
+        #expect(newStore.showRealtimeText == true, "showRealtimeText should persist across instances")
+    }
+
+    @Test("SettingsStore restoreDefaults resets showRealtimeText")
+    func testShowRealtimeTextRestoreDefaults() async {
+        let defaults = createTestDefaults()
+        let store = SettingsStore(defaults: defaults)
+
+        store.showRealtimeText = true
+        store.restoreDefaults()
+
+        #expect(store.showRealtimeText == false, "restoreDefaults should reset showRealtimeText to false")
+    }
+
     // MARK: - Save/Load Tests
     
     @Test("SettingsStore save() persists all properties")

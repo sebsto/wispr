@@ -44,6 +44,11 @@ final class StateManager {
     /// When nil, the overlay shows the default "Processing..." label.
     var processingStatusText: String?
 
+    /// Partial transcription text ("ghost text") shown in the overlay during
+    /// recording. Updated in real time when `showRealtimeText` is enabled and
+    /// the active model supports partial results. Cleared when recording stops.
+    var partialTranscriptionText: String?
+
     // MARK: - Dependencies
 
     private let audioEngine: AudioEngine
@@ -193,16 +198,32 @@ final class StateManager {
         let supportsEou = await whisperService.supportsEndOfUtteranceDetection()
         guard supportsEou else { return }
 
+        var emitPartials = false
+        if settingsStore.showRealtimeText {
+            emitPartials = await whisperService.supportsPartialResults()
+        }
+
         eouMonitoringTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            // Single source of cleanup: clear the ghost text on every exit path
+            // (normal completion, EOU break, thrown error, cancellation).
+            defer { self.partialTranscriptionText = nil }
             do {
                 let resultStream = await self.whisperService.transcribeStream(
                     await self.audioEngine.captureStream,
-                    language: self.currentLanguage
+                    language: self.currentLanguage,
+                    emitPartialResults: emitPartials
                 )
 
                 var finalResult: TranscriptionResult?
                 for try await result in resultStream {
+                    if result.isPartial {
+                        // Live "ghost text". The whole task is @MainActor, so
+                        // this mutation is isolation-safe; the value arrives via
+                        // the thread-safe stream, not direct cross-actor access.
+                        self.partialTranscriptionText = result.text
+                        continue
+                    }
                     if result.isEndOfUtterance {
                         finalResult = result
                         break
@@ -240,6 +261,7 @@ final class StateManager {
     private func cancelEouMonitoring() {
         eouMonitoringTask?.cancel()
         eouMonitoringTask = nil
+        partialTranscriptionText = nil
     }
 
     // MARK: - Filler Word Removal

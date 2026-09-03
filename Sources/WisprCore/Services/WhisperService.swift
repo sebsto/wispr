@@ -611,6 +611,11 @@ extension WhisperService: TranscriptionEngine {
         return false
     }
 
+    /// WhisperKit does not support real-time partial results.
+    public func supportsPartialResults() async -> Bool {
+        return false
+    }
+
     /// Streaming transcription stub — collects all audio chunks, then
     /// delegates to the batch `transcribe(_:language:)` method.
     ///
@@ -618,9 +623,13 @@ extension WhisperService: TranscriptionEngine {
     /// implementation buffers the entire audio stream before processing.
     /// A future engine (e.g. Parakeet via FluidAudio) could yield partial
     /// results as audio arrives.
+    ///
+    /// `emitPartialResults` is ignored: WhisperKit produces no intermediate
+    /// results, so there is nothing to emit before the final result.
     public func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
 

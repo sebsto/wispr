@@ -17,6 +17,7 @@ actor MockTranscriptionEngine: TranscriptionEngine {
     let models: [ModelInfo]
     private var _activeModel: String?
     private var downloadBehavior: DownloadBehavior = .succeedImmediately
+    private let partialResultsSupported: Bool
 
     /// Number of times `loadModel` was invoked (for idempotency assertions).
     private(set) var loadModelCallCount = 0
@@ -31,9 +32,10 @@ actor MockTranscriptionEngine: TranscriptionEngine {
     private var downloadContinuation: AsyncThrowingStream<DownloadProgress, Error>.Continuation?
     private var downloadFinished = false
 
-    init(models: [ModelInfo], activeModel: String? = nil) {
+    init(models: [ModelInfo], activeModel: String? = nil, partialResultsSupported: Bool = false) {
         self.models = models
         self._activeModel = activeModel
+        self.partialResultsSupported = partialResultsSupported
     }
 
     func setDownloadBehavior(_ behavior: DownloadBehavior) {
@@ -123,7 +125,7 @@ actor MockTranscriptionEngine: TranscriptionEngine {
         return TranscriptionResult(text: "mock", detectedLanguage: nil, duration: 0.1)
     }
 
-    func transcribeStream(_ audioStream: AsyncStream<[Float]>, language: TranscriptionLanguage) async -> AsyncThrowingStream<TranscriptionResult, Error> {
+    func transcribeStream(_ audioStream: AsyncStream<[Float]>, language: TranscriptionLanguage, emitPartialResults: Bool) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
         guard _activeModel != nil else {
             continuation.finish(throwing: WisprError.modelNotDownloaded)
@@ -135,6 +137,7 @@ actor MockTranscriptionEngine: TranscriptionEngine {
     }
 
     func supportsEndOfUtteranceDetection() async -> Bool { false }
+    func supportsPartialResults() async -> Bool { partialResultsSupported }
 }
 
 // MARK: - Helper
@@ -445,5 +448,29 @@ struct CompositeTranscriptionEngineTests {
 
         let result = try await composite.transcribe([Float](repeating: 0, count: 100), language: .autoDetect)
         #expect(result.text == "mock")
+    }
+
+    // MARK: - Partial results forwarding
+
+    @Test("supportsPartialResults forwards to the active engine")
+    func supportsPartialResultsForwardsToActiveEngine() async throws {
+        let engineA = MockTranscriptionEngine(models: [makeModel("model-a")], partialResultsSupported: false)
+        let engineB = MockTranscriptionEngine(models: [makeModel("model-b")], partialResultsSupported: true)
+
+        let composite = CompositeTranscriptionEngine(engines: [engineA, engineB])
+
+        try await composite.loadModel("model-a")
+        #expect(await composite.supportsPartialResults() == false, "Should reflect engine A (unsupported)")
+
+        try await composite.loadModel("model-b")
+        #expect(await composite.supportsPartialResults() == true, "Should reflect engine B (supported)")
+    }
+
+    @Test("supportsPartialResults is false when no engine is active")
+    func supportsPartialResultsFalseWhenNoActiveEngine() async {
+        let engine = MockTranscriptionEngine(models: [makeModel("model-a")], partialResultsSupported: true)
+        let composite = CompositeTranscriptionEngine(engines: [engine])
+
+        #expect(await composite.supportsPartialResults() == false, "No active engine → false")
     }
 }

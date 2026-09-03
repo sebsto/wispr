@@ -56,14 +56,20 @@ public protocol TranscriptionEngine: Actor {
 
     // MARK: - Streaming Transcription
 
-    /// Accepts a stream of audio chunks and yields partial transcription results
-    /// as they become available.
+    /// Accepts a stream of audio chunks and yields transcription results.
     ///
     /// Engines that don't support true streaming should accumulate all chunks
     /// and yield a single final result when the input stream finishes.
+    ///
+    /// - Parameter emitPartialResults: When `true` *and* the loaded model
+    ///   reports `supportsPartialResults()`, the engine additionally yields
+    ///   intermediate `isPartial` results ("ghost text") during processing.
+    ///   When `false`, or when the model doesn't support partials, only final
+    ///   result(s) are yielded. Engines that never produce partials ignore it.
     func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error>
 
     /// Whether the currently loaded model supports end-of-utterance detection.
@@ -71,6 +77,12 @@ public protocol TranscriptionEngine: Actor {
     /// stops speaking. When false, transcribeStream() only finishes when
     /// the input audio stream ends.
     func supportsEndOfUtteranceDetection() async -> Bool
+
+    /// Whether the currently loaded model supports real-time partial
+    /// transcription results. When true and `emitPartialResults` is passed to
+    /// transcribeStream(), the engine yields intermediate `isPartial` results
+    /// during processing.
+    func supportsPartialResults() async -> Bool
 }
 
 // MARK: - Default Parameter Convenience
@@ -79,5 +91,25 @@ extension TranscriptionEngine {
     /// Convenience overload with default retry count.
     public func reloadModelWithRetry() async throws {
         try await reloadModelWithRetry(maxAttempts: 3)
+    }
+
+    /// Default implementation so adding this requirement is not source-breaking
+    /// for existing conformers. Engines that support partial results override
+    /// this; most (e.g. WhisperService) get the correct `false` default.
+    public func supportsPartialResults() async -> Bool {
+        false
+    }
+
+    /// Two-argument convenience overload that preserves existing call sites.
+    /// Swift protocol *requirements* cannot carry default argument values, so
+    /// the default lives here in the extension. This forwards to the
+    /// three-argument requirement above; the differing arity means it
+    /// dispatches to the conforming type's implementation, not to itself
+    /// (no recursion).
+    public func transcribeStream(
+        _ audioStream: AsyncStream<[Float]>,
+        language: TranscriptionLanguage
+    ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
+        await transcribeStream(audioStream, language: language, emitPartialResults: false)
     }
 }
