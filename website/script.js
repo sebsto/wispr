@@ -105,8 +105,11 @@ document.querySelectorAll('.use-case').forEach((useCase, index) => {
     useCase.style.transitionDelay = `${index * 0.1}s`;
 });
 
-document.querySelectorAll('.screenshot-item').forEach((item, index) => {
-    item.style.transitionDelay = `${index * 0.15}s`;
+// Stagger screenshots per grid so every section starts from zero delay
+document.querySelectorAll('.screenshot-grid').forEach(grid => {
+    grid.querySelectorAll('.screenshot-item').forEach((item, index) => {
+        item.style.transitionDelay = `${index * 0.15}s`;
+    });
 });
 
 // Onboarding Carousel - Only initialize if elements exist

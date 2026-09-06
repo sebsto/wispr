@@ -726,6 +726,58 @@ body {
     margin-top: auto;
 }
 
+/* Meeting Transcription Section */
+.meetings {
+    background: var(--gradient-light);
+}
+
+.meetings h2 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--deep-blue);
+}
+
+.meetings .section-subtitle {
+    margin-bottom: 3rem;
+    color: #555;
+}
+
+.meetings .screenshot-item {
+    background: white;
+}
+
+/* Keep the portrait settings shot from stretching the whole row */
+.meetings .screenshot-item img {
+    max-height: 340px;
+    align-self: center;
+}
+
+.meeting-highlights {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem 2rem;
+    margin-top: 2.5rem;
+}
+
+.meeting-highlight {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50px;
+    padding: 0.75rem 1.5rem;
+    color: var(--deep-blue);
+    font-size: 1rem;
+    font-weight: 500;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+}
+
+.meeting-highlight svg {
+    flex-shrink: 0;
+    color: var(--primary-blue);
+}
+
 /* Use Cases Section */
 .use-cases {
     background: linear-gradient(180deg, #f8f9fa 0%, white 100%);
@@ -922,10 +974,21 @@ body {
     .features h2,
     .how-it-works h2,
     .screenshots h2,
+    .meetings h2,
     .use-cases h2,
     .support h2,
     .onboarding h2 {
         font-size: 2rem;
+    }
+
+    .meeting-highlights {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .meeting-highlight {
+        justify-content: flex-start;
+        font-size: 0.9375rem;
     }
     
     .feature-grid,
