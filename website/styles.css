@@ -752,10 +752,10 @@ body {
     align-self: center;
 }
 
+/* Mirrors .screenshot-grid so each pill is centred under its own screenshot */
 .meeting-highlights {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1rem 2rem;
     margin-top: 2.5rem;
 }
@@ -763,13 +763,17 @@ body {
 .meeting-highlight {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.75rem;
+    justify-self: center;
+    max-width: 100%;
     background: rgba(255, 255, 255, 0.7);
     border-radius: 50px;
     padding: 0.75rem 1.5rem;
     color: var(--deep-blue);
     font-size: 1rem;
     font-weight: 500;
+    text-align: center;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
 }
 
@@ -982,12 +986,13 @@ body {
     }
 
     .meeting-highlights {
-        flex-direction: column;
-        align-items: stretch;
+        grid-template-columns: 1fr;
     }
 
     .meeting-highlight {
+        justify-self: stretch;
         justify-content: flex-start;
+        text-align: left;
         font-size: 0.9375rem;
     }
     
