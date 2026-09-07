@@ -24,6 +24,9 @@ website/
 │   ├── menu.png
 │   ├── settings.png
 │   ├── model-management.png
+│   ├── transcriber-1.png
+│   ├── transcriber-2.png
+│   ├── transcriber-3.png
 │   ├── onboarding-01.png
 │   ├── onboarding-02.png
 │   ├── onboarding-03.png
@@ -43,9 +46,10 @@ The website is completely self-contained with all assets included.
 4. **How It Works** - Three-step process explanation
 5. **Onboarding** - Interactive carousel showing the 6-step onboarding experience
 6. **Screenshots** - Visual showcase of the app interface
-7. **Use Cases** - Four different user scenarios
-8. **Support** - Donation call-to-action with Revolut link
-9. **Footer** - Links and copyright information
+7. **Meeting Transcription** - Meeting transcriber showcase with speaker separation
+8. **Use Cases** - Four different user scenarios
+9. **Support** - Donation call-to-action with Revolut link
+10. **Footer** - Links and copyright information
 
 ## Usage
 
@@ -104,6 +108,7 @@ All images are included in the website directory:
 - `screenshots/menu.png` - Menu bar screenshot
 - `screenshots/settings.png` - Settings screenshot
 - `screenshots/model-management.png` - Model management screenshot
+- `screenshots/transcriber-1.png` through `transcriber-3.png` - Meeting transcription screenshots
 - `screenshots/onboarding-01.png` through `onboarding-06.png` - Onboarding flow screenshots
 
 The website is completely self-contained and portable.
