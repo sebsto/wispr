@@ -69,6 +69,7 @@ struct SettingsView: View {
         // Feedback section
         static let soundFeedback = "When enabled, plays audio cues when recording starts and stops"
         static let showRecordingOverlay = "When enabled, a floating overlay appears while recording"
+        static let showRealtimeText = "When enabled, shows partial transcription text in the recording overlay as you speak. Requires Hands-Free Mode and a supported model."
         static let meetingDetection = "When enabled, Wispr notifies you when another app starts using your microphone so you can start meeting transcription in one click"
 
         // Meeting section
@@ -250,6 +251,18 @@ struct SettingsView: View {
         whisperModels.filter { $0.status == .downloaded || $0.status == .active }
     }
 
+    /// Whether real-time partial transcription can currently be enabled: the
+    /// active model must support partial results AND Hands-Free Mode must be on
+    /// (partial results are delivered through the EOU streaming path, which only
+    /// runs in hands-free mode).
+    private var activeModelSupportsPartialResults: Bool {
+        whisperModels.first(where: { $0.id == settingsStore.activeModelName })?.supportsPartialResults ?? false
+    }
+
+    private var realtimeTextAvailable: Bool {
+        activeModelSupportsPartialResults && settingsStore.handsFreeMode
+    }
+
     private var recognitionSection: some View {
         Section {
             if availableModels.isEmpty {
@@ -391,6 +404,16 @@ struct SettingsView: View {
 
             Toggle("Show Recording Overlay", isOn: $store.showRecordingOverlay)
                 .accessibilityHint(AccessibilityHints.showRecordingOverlay)
+
+            Toggle("Show Real-Time Transcription", isOn: $store.showRealtimeText)
+                .disabled(!realtimeTextAvailable)
+                .accessibilityHint(AccessibilityHints.showRealtimeText)
+
+            if !realtimeTextAvailable {
+                Text("Requires Hands-Free Mode and a supported model (Realtime 120M)")
+                    .font(.caption)
+                    .foregroundStyle(theme.secondaryTextColor)
+            }
 
             Toggle("Detect Meetings", isOn: $store.meetingDetectionEnabled)
                 .accessibilityHint(AccessibilityHints.meetingDetection)

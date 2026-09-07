@@ -22,18 +22,23 @@ public nonisolated struct ModelInfo: Identifiable, Sendable, Equatable {
     public let estimatedSize: Int64    // bytes, used for download progress
     public var status: ModelStatus
 
+    /// Whether this model supports real-time partial transcription results
+    /// ("ghost text") during streaming. Defaults to false.
+    public let supportsPartialResults: Bool
+
     /// The provider that owns this model, derived from the model ID.
     public var provider: ModelProvider {
         id.hasPrefix("parakeet") ? .nvidiaParakeet : .whisper
     }
 
-    public init(id: String, displayName: String, sizeDescription: String, qualityDescription: String, estimatedSize: Int64, status: ModelStatus) {
+    public init(id: String, displayName: String, sizeDescription: String, qualityDescription: String, estimatedSize: Int64, status: ModelStatus, supportsPartialResults: Bool = false) {
         self.id = id
         self.displayName = displayName
         self.sizeDescription = sizeDescription
         self.qualityDescription = qualityDescription
         self.estimatedSize = estimatedSize
         self.status = status
+        self.supportsPartialResults = supportsPartialResults
     }
 
     // MARK: - Known Model IDs

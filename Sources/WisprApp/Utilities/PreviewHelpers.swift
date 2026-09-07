@@ -164,11 +164,12 @@ actor PreviewTranscriptionEngine: TranscriptionEngine {
         TranscriptionResult(text: "", detectedLanguage: nil, duration: 0)
     }
 
-    func transcribeStream(_ audioStream: AsyncStream<[Float]>, language: TranscriptionLanguage) async -> AsyncThrowingStream<TranscriptionResult, Error> {
+    func transcribeStream(_ audioStream: AsyncStream<[Float]>, language: TranscriptionLanguage, emitPartialResults: Bool) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         AsyncThrowingStream { $0.finish() }
     }
 
     func supportsEndOfUtteranceDetection() async -> Bool { false }
+    func supportsPartialResults() async -> Bool { false }
 }
 
 #endif

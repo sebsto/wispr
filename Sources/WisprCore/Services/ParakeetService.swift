@@ -21,6 +21,18 @@ public actor ParakeetService {
     // MARK: - EOU State
     nonisolated(unsafe) private var eouManager: StreamingEouAsrManager?
 
+    /// Monotonic token identifying the most recent partial-callback registration.
+    /// Incremented each time a streaming session registers a partial callback so
+    /// that an older session can't clobber a newer one during a fast stop→start.
+    ///
+    /// Held behind a lock (not just actor state) because it is read
+    /// synchronously from inside the `@Sendable` partial callback, which fires
+    /// on FluidAudio's threads. The callback compares its own captured
+    /// generation against this value and becomes a no-op when stale — so even if
+    /// actor reentrancy causes an older session's `setPartialCallback` to land
+    /// last, its callback does nothing.
+    private let partialCallbackGeneration = OSAllocatedUnfairLock(initialState: 0)
+
     // MARK: - Shared State
     private let defaults: UserDefaults
     private var activeModelName: String?
@@ -119,6 +131,43 @@ public actor ParakeetService {
         Log.whisperService.debug("ParakeetService — EOU model unloaded")
     }
 
+    /// Registers a partial-result callback on the given manager and returns the
+    /// generation token identifying this registration. Each call bumps the
+    /// generation so a later session always wins over an earlier one.
+    ///
+    /// The installed callback is wrapped with a generation check: it forwards to
+    /// `callback` only while its own generation is still current. This makes
+    /// registration itself order-safe — if actor reentrancy causes an older
+    /// session's `setPartialCallback` to land last, its wrapped callback is
+    /// already stale and does nothing.
+    private func registerPartialCallback(
+        on manager: StreamingEouAsrManager,
+        _ callback: @escaping @Sendable (String) -> Void
+    ) async -> Int {
+        let generation = partialCallbackGeneration.withLock { value in
+            value += 1
+            return value
+        }
+        let currentGeneration = partialCallbackGeneration
+        await manager.setPartialCallback { text in
+            // Inert once a newer session has registered.
+            guard currentGeneration.withLock({ $0 }) == generation else { return }
+            callback(text)
+        }
+        return generation
+    }
+
+    /// Clears the partial callback (with a no-op) only if `generation` is still
+    /// the most recent registration. This prevents a stopped session's cleanup
+    /// from clobbering a newer session's callback during a fast stop→start.
+    private func clearPartialCallbackIfCurrent(
+        on manager: StreamingEouAsrManager,
+        generation: Int
+    ) async {
+        guard partialCallbackGeneration.withLock({ $0 }) == generation else { return }
+        await manager.setPartialCallback { _ in }
+    }
+
     // MARK: - Audio Helpers
 
     private nonisolated func createPCMBuffer(from samples: [Float], sampleRate: Double) throws -> AVAudioPCMBuffer {
@@ -160,7 +209,10 @@ public actor ParakeetService {
         return TranscriptionResult(text: trimmed, detectedLanguage: nil, duration: duration)
     }
 
-    private func transcribeStreamWithEou(_ audioStream: AsyncStream<[Float]>) -> AsyncThrowingStream<TranscriptionResult, Error> {
+    private func transcribeStreamWithEou(
+        _ audioStream: AsyncStream<[Float]>,
+        emitPartialResults: Bool = false
+    ) -> AsyncThrowingStream<TranscriptionResult, Error> {
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
 
         let manager = self.eouManager
@@ -172,6 +224,36 @@ public actor ParakeetService {
             }
             await manager.reset()
             let startTime = Date()
+
+            // Always register a partial-result callback for this session, even
+            // when partials are disabled — StreamingEouAsrManager.reset() does
+            // NOT clear the previous session's callback, so registering (and
+            // bumping the generation) is what deterministically supersedes it.
+            // Emission is gated on `emitPartialResults` INSIDE the callback, so
+            // a session with partials off installs an effectively inert callback
+            // rather than leaving a stale one that keeps firing.
+            //
+            // `startTime` is an immutable value captured by copy (no race), and
+            // the callback yields into the thread-safe stream continuation, so
+            // it is safe to fire from whatever thread FluidAudio uses. The
+            // generation token identifies THIS registration; on any exit path we
+            // clear only if our generation is still current, so a stopped session
+            // can't clobber a newer session's callback during a fast stop→start.
+            let partialGeneration = await self.registerPartialCallback(on: manager) { [startTime] partialText in
+                guard emitPartialResults else { return }
+                let trimmed = partialText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                continuation.yield(TranscriptionResult(
+                    text: trimmed,
+                    detectedLanguage: nil,
+                    duration: Date().timeIntervalSince(startTime),
+                    isPartial: true
+                ))
+            }
+            defer {
+                Task { await self.clearPartialCallbackIfCurrent(on: manager, generation: partialGeneration) }
+            }
+
             do {
                 var eouDetected = false
                 for await chunk in audioStream {
@@ -201,7 +283,11 @@ public actor ParakeetService {
             }
         }
 
-        continuation.onTermination = { _ in task.cancel() }
+        // On termination, cancel the processing task. The task's `defer` handles
+        // clearing the partial callback (guarded by generation token).
+        continuation.onTermination = { _ in
+            task.cancel()
+        }
         return stream
     }
 }
@@ -226,7 +312,8 @@ extension ParakeetService: TranscriptionEngine {
                 sizeDescription: "~150 MB",
                 qualityDescription: "Low-latency streaming with end-of-utterance detection (English only)",
                 estimatedSize: 150 * 1024 * 1024,
-                status: .notDownloaded
+                status: .notDownloaded,
+                supportsPartialResults: true
             )
         ]
     }
@@ -504,12 +591,17 @@ extension ParakeetService: TranscriptionEngine {
         return activeModelName == ModelInfo.KnownID.parakeetEou && eouManager != nil
     }
 
+    public func supportsPartialResults() async -> Bool {
+        return activeModelName == ModelInfo.KnownID.parakeetEou && eouManager != nil
+    }
+
     public func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         if activeModelName == ModelInfo.KnownID.parakeetEou {
-            return transcribeStreamWithEou(audioStream)
+            return transcribeStreamWithEou(audioStream, emitPartialResults: emitPartialResults)
         }
 
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
