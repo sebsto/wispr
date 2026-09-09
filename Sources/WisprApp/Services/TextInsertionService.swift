@@ -262,14 +262,29 @@ final class TextInsertionService: TextInserting {
         keyUpEvent.post(tap: .cghidEventTap)
     }
     
+    /// Physical key position of "V" on an ANSI/QWERTY keyboard (`kVK_ANSI_V`).
+    /// Used as the fallback when the active layout has no key producing "v"
+    /// (e.g. a non-Latin layout), so behaviour matches QWERTY at worst.
+    private static let ansiVKeyCode: UInt16 = 0x09
+
     /// Simulates a ⌘V keystroke using CGEvent.
+    ///
+    /// The V keycode is resolved from the user's active keyboard layout rather
+    /// than hardcoded, because `CGEvent(virtualKey:)` posts a physical key
+    /// position and macOS maps that position to a character through the current
+    /// layout. Hardcoding the ANSI V position (`0x09`) sends ⌘V on QWERTY but
+    /// ⌘D on Colemak DH and other letters on Dvorak, which pastes into the wrong
+    /// command (issue #105). Resolving "v" against the live layout keeps ⌘V
+    /// correct on every Latin layout; QWERTY naturally resolves back to `0x09`.
     ///
     /// - Returns: `true` if the keystroke was successfully posted
     private static func postCommandV() -> Bool {
+        let vKeyCode = LayoutKeyResolver.keyCode(for: "v") ?? ansiVKeyCode
+
         // Create key down event for ⌘V
         guard let keyDownEvent = CGEvent(
             keyboardEventSource: nil,
-            virtualKey: 0x09, // V key
+            virtualKey: vKeyCode,
             keyDown: true
         ) else {
             return false
@@ -281,7 +296,7 @@ final class TextInsertionService: TextInserting {
         // Create key up event
         guard let keyUpEvent = CGEvent(
             keyboardEventSource: nil,
-            virtualKey: 0x09, // V key
+            virtualKey: vKeyCode,
             keyDown: false
         ) else {
             return false
