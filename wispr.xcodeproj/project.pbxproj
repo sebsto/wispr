@@ -87,6 +87,7 @@
 		1CA1B2C301000000000000A2 /* TranscriptLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA1B2C301000000000000B2 /* TranscriptLocation.swift */; };
 		1CA1B2C301000000000000A3 /* TranscriptDirectoryWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA1B2C301000000000000B3 /* TranscriptDirectoryWatcher.swift */; };
 		1CAEA51D301608D800565CF0 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAEA51C301608D800565CF0 /* ClipboardService.swift */; };
+		1CAEA51E301608D800565CF1 /* LayoutKeyResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAEA51F301608D800565CF2 /* LayoutKeyResolver.swift */; };
 		1CAEA51F301608EE00565CF0 /* UIThemeEngineMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAEA51E301608EE00565CF0 /* UIThemeEngineMonitor.swift */; };
 		24D1D37198DFC731F192C278 /* MeetingWindowPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654DB8601B81B3E819BC5A5C /* MeetingWindowPanel.swift */; };
 		5871C9411CAF50B12419F9DA /* MeetingTranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66665AA7D70423B4954925F /* MeetingTranscriptView.swift */; };
@@ -225,6 +226,7 @@
 		1CA1B2C301000000000000B2 /* TranscriptLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLocation.swift; sourceTree = "<group>"; };
 		1CA1B2C301000000000000B3 /* TranscriptDirectoryWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDirectoryWatcher.swift; sourceTree = "<group>"; };
 		1CAEA51C301608D800565CF0 /* ClipboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardService.swift; sourceTree = "<group>"; };
+		1CAEA51F301608D800565CF2 /* LayoutKeyResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutKeyResolver.swift; sourceTree = "<group>"; };
 		1CAEA51E301608EE00565CF0 /* UIThemeEngineMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIThemeEngineMonitor.swift; sourceTree = "<group>"; };
 		422A849C5A34DC9AE1B8437C /* TranscriptDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptDocument.swift; sourceTree = "<group>"; };
 		654DB8601B81B3E819BC5A5C /* MeetingWindowPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingWindowPanel.swift; sourceTree = "<group>"; };
@@ -445,6 +447,7 @@
 				1CA1B2C301000000000000B3 /* TranscriptDirectoryWatcher.swift */,
 				1C74D2DB2FA632B700208826 /* UpdateChecker.swift */,
 				1CAEA51C301608D800565CF0 /* ClipboardService.swift */,
+				1CAEA51F301608D800565CF2 /* LayoutKeyResolver.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -792,6 +795,7 @@
 				1C74D3442FA632B700208826 /* OnboardingPreview.swift in Sources */,
 				1C74D3452FA632B700208826 /* OnboardingAccessibilityStep.swift in Sources */,
 				1CAEA51D301608D800565CF0 /* ClipboardService.swift in Sources */,
+				1CAEA51E301608D800565CF1 /* LayoutKeyResolver.swift in Sources */,
 				1C74D3462FA632B700208826 /* AudioEngine.swift in Sources */,
 				E4782D9F9369B23177982DC0 /* MeetingAudioEngine.swift in Sources */,
 				D1AD12340000000000000001 /* MeetingDiarizer.swift in Sources */,
