@@ -17,24 +17,24 @@ struct LayoutKeyResolverTests {
     /// `kVK_ANSI_V` (0x09). This is the layout the macOS CI runner uses, so it
     /// also confirms QWERTY users see no behaviour change from the fix.
     ///
-    /// Skipped on any machine whose active layout is not ANSI-based, so a
-    /// developer running the suite on Colemak/Dvorak doesn't get a false red.
+    /// The assertion only runs on an ANSI layout. On Colemak/Dvorak/non-Latin
+    /// layouts the resolver returns a different keycode or nil (the fallback
+    /// case), so a developer running the suite on such a layout skips rather
+    /// than gets a false failure.
     @Test("v resolves to the ANSI V position on a US layout")
     func vResolvesToAnsiPositionOnUSLayout() throws {
-        // Sanity-check the environment: on a US layout the ANSI 'a' key (0)
-        // produces "a". If it doesn't, we're not on an ANSI layout, skip.
         let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue()
         try #require(source != nil, "No active keyboard layout input source")
 
-        // Only assert the exact keycode when we can confirm an ANSI layout,
-        // otherwise the resolver is still expected to find *some* key.
-        let resolved = LayoutKeyResolver.keyCode(for: "v")
+        // Only meaningful on a US ANSI layout; skip elsewhere so a non-QWERTY
+        // dev machine (where "v" may resolve to a different key, or to nil on a
+        // non-Latin layout) doesn't produce a false failure.
+        guard isAnsiLayout else { return }
 
-        if isAnsiLayout {
-            #expect(resolved == 0x09, "On a US ANSI layout, 'v' should resolve to kVK_ANSI_V (0x09)")
-        } else {
-            #expect(resolved != nil, "'v' should resolve to some key on any Latin layout")
-        }
+        #expect(
+            LayoutKeyResolver.keyCode(for: "v") == 0x09,
+            "On a US ANSI layout, 'v' should resolve to kVK_ANSI_V (0x09)"
+        )
     }
 
     /// A character no physical key produces (a control character) returns nil,
