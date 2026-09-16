@@ -684,7 +684,8 @@ actor FakeMeetingTranscriptionEngine: TranscriptionEngine {
 
     func transcribeStream(
         _ audioStream: AsyncStream<[Float]>,
-        language: TranscriptionLanguage
+        language: TranscriptionLanguage,
+        emitPartialResults: Bool
     ) async -> AsyncThrowingStream<TranscriptionResult, Error> {
         let (stream, continuation) = AsyncThrowingStream.makeStream(of: TranscriptionResult.self)
         continuation.yield(
@@ -694,6 +695,10 @@ actor FakeMeetingTranscriptionEngine: TranscriptionEngine {
     }
 
     func supportsEndOfUtteranceDetection() async -> Bool {
+        false
+    }
+
+    func supportsPartialResults() async -> Bool {
         false
     }
 }

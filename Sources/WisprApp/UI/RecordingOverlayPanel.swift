@@ -34,6 +34,7 @@ final class RecordingOverlayPanel {
     // MARK: - Properties
 
     private var panel: NSPanel?
+    private var contentSizeObservation: NSKeyValueObservation?
     private let stateManager: StateManager
     private let settingsStore: SettingsStore
     private let themeEngine: UIThemeEngine
@@ -111,8 +112,13 @@ final class RecordingOverlayPanel {
             .environment(settingsStore)
             .environment(themeEngine)
 
-        let hostingView = NSHostingView(rootView: overlayView)
-        hostingView.setFrameSize(NSSize(width: 260, height: 92))
+        // Use a hosting *controller* with .preferredContentSize so the panel
+        // resizes itself to fit the SwiftUI content. This lets the overlay grow
+        // vertically when real-time partial transcription text is shown, and
+        // shrink back when it is cleared — the fixed-size NSHostingView we used
+        // before would clip the extra text.
+        let hostingController = NSHostingController(rootView: overlayView)
+        hostingController.sizingOptions = [.preferredContentSize]
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 260, height: 92),
@@ -120,6 +126,9 @@ final class RecordingOverlayPanel {
             backing: .buffered,
             defer: false
         )
+        // Assigning the content view controller (rather than a fixed-size
+        // content view) lets .preferredContentSize drive the panel's size.
+        panel.contentViewController = hostingController
 
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -129,9 +138,33 @@ final class RecordingOverlayPanel {
         panel.isMovableByWindowBackground = false
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.contentView = hostingView
 
         self.panel = panel
+
+        // Keep the panel bottom-centered as its size changes. KVO callbacks
+        // arrive on an unspecified thread, so hop to the main actor explicitly
+        // rather than asserting isolation. Only the Sendable size deltas cross
+        // the boundary; the panel is re-read via `self.panel` on-main.
+        contentSizeObservation = panel.observe(\.frame, options: [.old, .new]) { [weak self] _, change in
+            guard let old = change.oldValue, let new = change.newValue else { return }
+            let heightDelta = new.size.height - old.size.height
+            let widthDelta = new.size.width - old.size.width
+            guard heightDelta != 0 || widthDelta != 0 else { return }
+            Task { @MainActor [weak self] in
+                self?.repositionForResize(heightDelta: heightDelta, widthDelta: widthDelta)
+            }
+        }
+    }
+
+    /// Re-anchors the panel to its bottom-center as its content size changes,
+    /// so it grows from a stable baseline instead of shifting: the bottom edge
+    /// stays put (grow upward) and the horizontal center is preserved.
+    private func repositionForResize(heightDelta: CGFloat, widthDelta: CGFloat) {
+        guard let panel else { return }
+        var origin = panel.frame.origin
+        origin.y -= heightDelta
+        origin.x -= widthDelta / 2
+        panel.setFrameOrigin(origin)
     }
 
     private func positionPanel(_ panel: NSPanel) {

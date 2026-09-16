@@ -48,7 +48,11 @@ struct RecordingOverlayView: View {
         ZStack {
             overlayContent
         }
-        .frame(width: overlayWidth, height: overlayHeight)
+        // Fixed width, but flexible height so the overlay can grow when
+        // real-time partial transcription ("ghost text") is displayed.
+        // The hosting panel tracks this via preferredContentSize.
+        .frame(width: overlayWidth)
+        .frame(minHeight: overlayHeight)
         .liquidGlassOverlay()
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .highContrastBorder(cornerRadius: 16)
@@ -75,6 +79,10 @@ struct RecordingOverlayView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabelForState)
+        // Surface live partial transcription on the root element. The child
+        // Text's own label is ignored under `.combine` + explicit label, so
+        // expose the ghost text as the root's accessibilityValue instead.
+        .accessibilityValue(partialTranscriptionAccessibilityValue)
         .accessibilityHint(
             settingsStore.handsFreeMode
                 ? "Press the hotkey again to stop recording. Recording may also stop automatically, depending on the model."
@@ -117,24 +125,42 @@ struct RecordingOverlayView: View {
         }
     }
 
-    /// Recording state: microphone icon + animated audio level bars.
+    /// Recording state: microphone icon + animated audio level bars, plus
+    /// optional real-time partial transcription ("ghost text") below.
     private var recordingContent: some View {
-        HStack(spacing: 10) {
-            Image(systemName: SFSymbols.recordingMicrophone)
-                .font(.title)
-                .foregroundStyle(theme.accentColor)
-                .symbolEffect(.pulse, isActive: !theme.reduceMotion)
-                .shadow(
-                    color: theme.reduceMotion
-                        ? .clear
-                        : theme.accentColor.opacity(isGlowActive ? 0.6 : 0.0),
-                    radius: isGlowActive ? 8 : 0
-                )
-                .accessibilityHidden(true)
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: SFSymbols.recordingMicrophone)
+                    .font(.title)
+                    .foregroundStyle(theme.accentColor)
+                    .symbolEffect(.pulse, isActive: !theme.reduceMotion)
+                    .shadow(
+                        color: theme.reduceMotion
+                            ? .clear
+                            : theme.accentColor.opacity(isGlowActive ? 0.6 : 0.0),
+                        radius: isGlowActive ? 8 : 0
+                    )
+                    .accessibilityHidden(true)
 
-            audioLevelMeter
+                audioLevelMeter
+            }
+
+            if let partialText = stateManager.partialTranscriptionText, !partialText.isEmpty {
+                Text(partialText)
+                    .font(.caption)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .lineLimit(2)
+                    .truncationMode(.head)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+                    .accessibilityHidden(true)  // surfaced via the root's accessibilityValue
+            }
         }
         .padding(.horizontal, 20)
+        .animation(
+            theme.reduceMotion ? nil : .easeInOut(duration: 0.2),
+            value: stateManager.partialTranscriptionText
+        )
     }
 
     /// Processing state: spinner + label.
@@ -275,6 +301,16 @@ struct RecordingOverlayView: View {
     }
 
     // MARK: - Accessibility
+
+    /// Live partial transcription surfaced as the root element's value, so
+    /// VoiceOver announces ghost text updates during recording. Empty when
+    /// there is no partial text.
+    private var partialTranscriptionAccessibilityValue: String {
+        guard case .recording = stateManager.appState,
+              let partial = stateManager.partialTranscriptionText, !partial.isEmpty
+        else { return "" }
+        return partial
+    }
 
     private var accessibilityLabelForState: String {
         switch stateManager.appState {

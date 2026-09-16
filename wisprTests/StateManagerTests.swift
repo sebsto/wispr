@@ -365,6 +365,24 @@ struct StateManagerTests {
         #expect(sm.appState == .idle)
     }
 
+    @Test("resetToIdle clears partial transcription text")
+    func testResetToIdleClearsPartialTranscriptionText() async {
+        let (sm, _) = createTestStateManager()
+
+        sm.partialTranscriptionText = "partial ghost text"
+
+        await sm.resetToIdle()
+
+        #expect(sm.partialTranscriptionText == nil, "Partial text should be cleared when returning to idle")
+    }
+
+    @Test("partialTranscriptionText defaults to nil")
+    func testPartialTranscriptionTextDefaultsToNil() async {
+        let (sm, _) = createTestStateManager()
+
+        #expect(sm.partialTranscriptionText == nil)
+    }
+
     // MARK: - endRecording Guards
 
     @Test("endRecording is ignored when not recording")
