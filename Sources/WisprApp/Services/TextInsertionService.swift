@@ -77,15 +77,22 @@ final class TextInsertionService: TextInserting {
     /// Returns `true` on success.
     private let performPaste: @MainActor () -> Bool
 
+    /// Checked on each insertion so changes to macOS permissions take effect immediately.
+    private let canPostEvents: @MainActor () -> Bool
+
     // MARK: - Init
 
     init(
         pasteboard: any TextPasteboard = NSPasteboard.general,
         restoreDelay: Duration = .seconds(2),
+        canPostEvents: @escaping @MainActor () -> Bool = {
+            CGPreflightPostEventAccess() || AXIsProcessTrusted()
+        },
         performPaste: (@MainActor () -> Bool)? = nil
     ) {
         self.pasteboard = pasteboard
         self.restoreDelay = restoreDelay
+        self.canPostEvents = canPostEvents
         // Default paste posts a real ⌘V; captured lazily to avoid referencing
         // `self` before initialization completes.
         self.performPaste = performPaste ?? { Self.postCommandV() }
@@ -140,7 +147,7 @@ final class TextInsertionService: TextInserting {
             "Clipboard overwritten with transcription (\(text.count, privacy: .public) chars) for ⌘V paste")
 
         // Simulate ⌘V keystroke
-        let success = performPaste()
+        let success = canPostEvents() && performPaste()
 
         guard success else {
             // A failed paste leaves text available for manual pasting, but must
@@ -290,9 +297,6 @@ final class TextInsertionService: TextInserting {
     ///
     /// - Returns: `true` if the keystroke was successfully posted
     private static func postCommandV() -> Bool {
-        guard CGPreflightPostEventAccess() || AXIsProcessTrusted() else {
-            return false
-        }
         let vKeyCode = LayoutKeyResolver.keyCode(for: "v") ?? ansiVKeyCode
 
         // Create key down event for ⌘V

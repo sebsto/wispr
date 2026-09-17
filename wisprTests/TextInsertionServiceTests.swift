@@ -88,6 +88,7 @@ struct TextInsertionClipboardTests {
         let service = TextInsertionService(
             pasteboard: pb,
             restoreDelay: .zero,
+            canPostEvents: { true },
             performPaste: { pasteSucceeds }
         )
 
@@ -111,6 +112,7 @@ struct TextInsertionClipboardTests {
         let service = TextInsertionService(
             pasteboard: pb,
             restoreDelay: .zero,
+            canPostEvents: { true },
             performPaste: { pasteCalls += 1; return true }
         )
         pb.failSetString = true
@@ -125,6 +127,33 @@ struct TextInsertionClipboardTests {
         #expect(pb.string == "new user copy")
     }
 
+    @Test("denied paste access preserves fallback text and permission changes are rechecked")
+    func deniedAccessDoesNotPostEvents() async throws {
+        let pb = FakePasteboard()
+        pb.setString("original", forType: .string)
+        var accessGranted = false
+        var pasteCalls = 0
+        let service = TextInsertionService(
+            pasteboard: pb,
+            restoreDelay: .zero,
+            canPostEvents: { accessGranted },
+            performPaste: { pasteCalls += 1; return true }
+        )
+        await #expect(throws: WisprError.textInsertionFailed("Failed to simulate ⌘V keystroke")) {
+            try await service.insertText("manual fallback")
+        }
+        #expect(pasteCalls == 0)
+        await service.awaitPendingPasteboardRestore()
+        #expect(pb.string == "manual fallback")
+
+        pb.setString("new user copy", forType: .string)
+        accessGranted = true
+        try await service.insertText("next dictation")
+        await service.awaitPendingPasteboardRestore()
+        #expect(pasteCalls == 1)
+        #expect(pb.string == "new user copy")
+    }
+
     /// Bug 1: a manual copy made during the restore window must NOT be clobbered
     /// by the restore. If the user copies something new after Wispr pastes, the
     /// restore should not overwrite it with the pre-transcription snapshot.
@@ -136,6 +165,7 @@ struct TextInsertionClipboardTests {
         let service = TextInsertionService(
             pasteboard: pb,
             restoreDelay: .zero,
+            canPostEvents: { true },
             performPaste: { true }
         )
 
@@ -160,6 +190,7 @@ struct TextInsertionClipboardTests {
         let service = TextInsertionService(
             pasteboard: pb,
             restoreDelay: .zero,
+            canPostEvents: { true },
             performPaste: { true }
         )
 
@@ -178,6 +209,7 @@ struct TextInsertionClipboardTests {
         let service = TextInsertionService(
             pasteboard: pb,
             restoreDelay: .zero,
+            canPostEvents: { true },
             performPaste: { true }
         )
 
