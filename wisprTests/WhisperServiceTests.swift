@@ -431,12 +431,33 @@ struct WhisperServiceTests {
 /// Run with WISPR_OFFLINE_TEST_MODEL set to its ID and network access blocked.
 @Suite("Whisper offline model loading")
 struct WhisperOfflineModelTests {
+    @Test("missing local files produce a load error without deletion wording")
+    func missingModelHasLoadError() async {
+        let service = WhisperService()
+        let model = "wispr-missing-test-\(UUID().uuidString)"
+        do {
+            try await service.loadModel(model)
+            Issue.record("Expected missing model to fail")
+        } catch {
+            #expect(error as? WisprError == .modelLoadFailed(
+                "Local files for \(model) are unavailable. Download the model again."))
+        }
+    }
+
+    nonisolated private static var modelName: String? {
+        guard let model = ProcessInfo.processInfo.environment["WISPR_OFFLINE_TEST_MODEL"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !model.isEmpty else { return nil }
+        return model
+    }
+
     @Test("loads and reloads a downloaded model and its tokenizer",
-          .enabled(if: ProcessInfo.processInfo.environment["WISPR_OFFLINE_TEST_MODEL"] != nil))
+          .enabled(if: modelName != nil))
     func loadDownloadedModel() async throws {
-        let model = try #require(ProcessInfo.processInfo.environment["WISPR_OFFLINE_TEST_MODEL"])
+        let model = try #require(Self.modelName)
         let service = WhisperService()
         try await service.loadModel(model)
+        #expect(await service.activeModel() == model)
+        try await service.reloadModelWithRetry(maxAttempts: 1)
         #expect(await service.activeModel() == model)
         await service.unloadCurrentModel()
         try await service.loadModel(model)

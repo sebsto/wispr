@@ -299,10 +299,15 @@ public actor WhisperService {
             return
         }
         Log.whisperService.debug("loadModel — loading '\(modelName)'")
+        let modelFolder: URL
+        do {
+            modelFolder = try getModelPath(for: modelName)
+        } catch {
+            throw WisprError.modelLoadFailed("Local files for \(modelName) are unavailable. Download the model again.")
+        }
         do {
             // Passing only a model name lets WhisperKit resolve it through
             // the Hub, even when the model is already downloaded locally.
-            let modelFolder = try getModelPath(for: modelName)
             let config = WhisperKitConfig(
                 model: modelName,
                 downloadBase: ModelPaths.base,
@@ -314,7 +319,7 @@ public actor WhisperService {
             activeModelName = modelName
             Log.whisperService.debug("loadModel — '\(modelName)' loaded and prewarmed successfully")
         } catch {
-            throw WisprError.modelLoadFailed("Failed to load model \(modelName): \(error.localizedDescription)")
+            throw WisprError.modelLoadFailed("\(modelName): \(error.localizedDescription)")
         }
     }
     
@@ -512,12 +517,7 @@ public actor WhisperService {
         for attempt in 0..<maxAttempts {
             do {
                 whisperKit = nil
-                let config = WhisperKitConfig(
-                    model: modelName,
-                    downloadBase: ModelPaths.base,
-                    prewarm: true
-                )
-                whisperKit = try await WhisperKit(config)
+                try await loadModel(modelName)
                 // Reload succeeded
                 return
             } catch {
