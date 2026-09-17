@@ -39,6 +39,7 @@ final class HotkeyMonitor {
     static let rightOptionKeyCode: UInt32 = 61  // kVK_RightOption
 
     /// Device-specific flags distinguish the two Option keys even when both are held.
+    // If device-specific bits are absent, Right Option does not activate.
     private static let rightOptionMask: UInt64 = 0x40  // NX_DEVICERALTKEYMASK
     static let leftOptionMask: UInt64 = 0x20  // NX_DEVICELALTKEYMASK
 
@@ -444,6 +445,8 @@ final class HotkeyMonitor {
             return true
         }
 
+        // Right Option itself sets maskAlternate; exclude Left Option separately.
+        // Keep this filter aligned with HotkeyRecorderView.installFnMonitor.
         let otherModifiers: CGEventFlags = [.maskCommand, .maskControl, .maskShift, .maskSecondaryFn]
         guard flags.intersection(otherModifiers).isEmpty,
               flags.rawValue & Self.leftOptionMask == 0 else { return false }

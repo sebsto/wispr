@@ -83,7 +83,8 @@ struct HotkeyRecorderView: View {
             guard isRecording else { return event }
 
             // Accept bare Right Option before the generic Option/chord filter.
-            // Caps Lock is allowed, matching the global hotkey handler.
+            // Caps Lock is allowed, matching HotkeyMonitor.handleRightOptionFlagsChanged.
+            // Keep the chord modifiers and Left Option exclusion aligned with that handler.
             let chordModifiers: NSEvent.ModifierFlags = [.command, .control, .shift, .function]
             if event.keyCode == UInt16(HotkeyMonitor.rightOptionKeyCode),
                event.modifierFlags.contains(.option),
