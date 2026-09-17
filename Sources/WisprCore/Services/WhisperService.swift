@@ -303,7 +303,7 @@ public actor WhisperService {
         do {
             modelFolder = try getModelPath(for: modelName)
         } catch {
-            throw WisprError.modelLoadFailed("Local files for \(modelName) are unavailable. Download the model again.")
+            throw WisprError.modelLoadFailed(Self.loadErrorDetail(error))
         }
         do {
             // Passing only a model name lets WhisperKit resolve it through
@@ -530,12 +530,22 @@ public actor WhisperService {
         
         // All retries exhausted — enter degraded state
         whisperKit = nil
-        let description = lastError?.localizedDescription ?? "Unknown error"
+        let description = lastError.map { Self.loadErrorDetail($0) } ?? "Unknown error"
         throw WisprError.modelLoadFailed(
             "Failed to reload model \(modelName) after \(maxAttempts) attempts: \(description)"
         )
     }
     
+    /// Preserve the underlying failure without nesting operation-specific prefixes.
+    static func loadErrorDetail(_ error: Error) -> String {
+        switch error {
+        case WisprError.modelLoadFailed(let message), WisprError.modelDeletionFailed(let message):
+            return message
+        default:
+            return error.localizedDescription
+        }
+    }
+
     // MARK: - Warmup
 
     /// Runs a short silent transcription to force CoreML Neural Engine pipeline compilation.

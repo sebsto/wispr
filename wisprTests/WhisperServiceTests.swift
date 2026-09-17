@@ -9,7 +9,7 @@
 import Testing
 import Foundation
 @testable import WisprApp
-import WisprCore
+@testable import WisprCore
 
 // MARK: - Mock for download tests (no network)
 
@@ -439,9 +439,23 @@ struct WhisperOfflineModelTests {
             try await service.loadModel(model)
             Issue.record("Expected missing model to fail")
         } catch {
-            #expect(error as? WisprError == .modelLoadFailed(
-                "Local files for \(model) are unavailable. Download the model again."))
+            guard case .modelLoadFailed(let detail) = error as? WisprError else {
+                Issue.record("Expected a model load error, got \(error)")
+                return
+            }
+            #expect(!detail.contains("Model deletion failed"))
+            #expect(detail.contains("not found"))
         }
+    }
+
+    @Test("load error details retain filesystem diagnostics and avoid nested prefixes")
+    func loadErrorDetails() {
+        let filesystemError = NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError)
+        #expect(WhisperService.loadErrorDetail(filesystemError) == filesystemError.localizedDescription)
+        let loadError = WisprError.modelLoadFailed("Local model is unavailable")
+        #expect(WhisperService.loadErrorDetail(loadError) == "Local model is unavailable")
+        let pathError = WisprError.modelDeletionFailed("Model directory not found")
+        #expect(WhisperService.loadErrorDetail(pathError) == "Model directory not found")
     }
 
     nonisolated private static var modelName: String? {
