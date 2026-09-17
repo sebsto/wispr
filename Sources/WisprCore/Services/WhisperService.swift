@@ -300,10 +300,15 @@ public actor WhisperService {
         }
         Log.whisperService.debug("loadModel — loading '\(modelName)'")
         do {
+            // Passing only a model name lets WhisperKit resolve it through
+            // the Hub, even when the model is already downloaded locally.
+            let modelFolder = try getModelPath(for: modelName)
             let config = WhisperKitConfig(
                 model: modelName,
                 downloadBase: ModelPaths.base,
-                prewarm: true
+                modelFolder: modelFolder.path,
+                prewarm: true,
+                download: false
             )
             whisperKit = try await WhisperKit(config)
             activeModelName = modelName

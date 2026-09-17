@@ -426,3 +426,21 @@ struct WhisperServiceTests {
         }
     }
 }
+
+/// Opt-in integration coverage using a model already downloaded by Wispr.
+/// Run with WISPR_OFFLINE_TEST_MODEL set to its ID and network access blocked.
+@Suite("Whisper offline model loading")
+struct WhisperOfflineModelTests {
+    @Test("loads and reloads a downloaded model and its tokenizer",
+          .enabled(if: ProcessInfo.processInfo.environment["WISPR_OFFLINE_TEST_MODEL"] != nil))
+    func loadDownloadedModel() async throws {
+        let model = try #require(ProcessInfo.processInfo.environment["WISPR_OFFLINE_TEST_MODEL"])
+        let service = WhisperService()
+        try await service.loadModel(model)
+        #expect(await service.activeModel() == model)
+        await service.unloadCurrentModel()
+        try await service.loadModel(model)
+        #expect(await service.activeModel() == model)
+        await service.unloadCurrentModel()
+    }
+}
