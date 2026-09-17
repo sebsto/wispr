@@ -40,6 +40,7 @@ final class MockTextInsertionService: TextInserting {
 final class FakePasteboard: TextPasteboard {
     private var storage: [NSPasteboard.PasteboardType: Data] = [:]
     private(set) var changeCount: Int = 0
+    var failSetString = false
 
     var types: [NSPasteboard.PasteboardType]? { Array(storage.keys) }
 
@@ -54,6 +55,7 @@ final class FakePasteboard: TextPasteboard {
 
     @discardableResult
     func setString(_ string: String, forType type: NSPasteboard.PasteboardType) -> Bool {
+        guard !failSetString else { return false }
         storage[type] = Data(string.utf8)
         changeCount += 1
         return true
@@ -97,6 +99,28 @@ struct TextInsertionClipboardTests {
         pb.setString("new user copy", forType: .string)
         pasteSucceeds = true
         try await service.insertText("next dictation")
+        await service.awaitPendingPasteboardRestore()
+        #expect(pb.string == "new user copy")
+    }
+
+    @Test("failed clipboard write does not reuse a stale snapshot")
+    func failedWriteDoesNotReuseSnapshot() async throws {
+        let pb = FakePasteboard()
+        pb.setString("before failure", forType: .string)
+        var pasteCalls = 0
+        let service = TextInsertionService(
+            pasteboard: pb,
+            restoreDelay: .zero,
+            performPaste: { pasteCalls += 1; return true }
+        )
+        pb.failSetString = true
+        await #expect(throws: WisprError.self) {
+            try await service.insertText("failed transcription")
+        }
+        #expect(pasteCalls == 0)
+        pb.failSetString = false
+        pb.setString("new user copy", forType: .string)
+        try await service.insertText("next transcription")
         await service.awaitPendingPasteboardRestore()
         #expect(pb.string == "new user copy")
     }

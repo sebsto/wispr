@@ -124,6 +124,7 @@ final class TextInsertionService: TextInserting {
         // Clear and set new text
         pasteboard.clearContents()
         guard pasteboard.setString(text, forType: .string) else {
+            discardPendingPasteboardRestore()
             throw WisprError.textInsertionFailed("Failed to copy text to pasteboard")
         }
 
@@ -144,9 +145,7 @@ final class TextInsertionService: TextInserting {
         guard success else {
             // A failed paste leaves text available for manual pasting, but must
             // not retain a snapshot that a later insertion could restore.
-            pasteboardRestoreTask?.cancel()
-            pasteboardRestoreTask = nil
-            originalPasteboardContents = nil
+            discardPendingPasteboardRestore()
             throw WisprError.textInsertionFailed("Failed to simulate ⌘V keystroke")
         }
 
@@ -169,6 +168,12 @@ final class TextInsertionService: TextInserting {
             self.originalPasteboardContents = nil
             self.pasteboardRestoreTask = nil
         }
+    }
+
+    private func discardPendingPasteboardRestore() {
+        pasteboardRestoreTask?.cancel()
+        pasteboardRestoreTask = nil
+        originalPasteboardContents = nil
     }
 
     /// Awaits the currently-scheduled pasteboard restore, if any. Test hook so a
