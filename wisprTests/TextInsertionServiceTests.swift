@@ -78,6 +78,29 @@ final class FakePasteboard: TextPasteboard {
 @MainActor
 struct TextInsertionClipboardTests {
 
+    @Test("failed paste does not reuse its clipboard snapshot on the next insertion")
+    func failedPasteDoesNotReuseSnapshot() async throws {
+        let pb = FakePasteboard()
+        pb.setString("before failure", forType: .string)
+        var pasteSucceeds = false
+        let service = TextInsertionService(
+            pasteboard: pb,
+            restoreDelay: .zero,
+            performPaste: { pasteSucceeds }
+        )
+
+        await #expect(throws: WisprError.self) {
+            try await service.insertText("manual fallback")
+        }
+        #expect(pb.string == "manual fallback")
+
+        pb.setString("new user copy", forType: .string)
+        pasteSucceeds = true
+        try await service.insertText("next dictation")
+        await service.awaitPendingPasteboardRestore()
+        #expect(pb.string == "new user copy")
+    }
+
     /// Bug 1: a manual copy made during the restore window must NOT be clobbered
     /// by the restore. If the user copies something new after Wispr pastes, the
     /// restore should not overwrite it with the pre-transcription snapshot.

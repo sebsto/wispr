@@ -1,6 +1,7 @@
 import WisprCore
 import Foundation
 import AppKit
+import ApplicationServices
 import os
 
 /// Protocol for text insertion, enabling test mocking.
@@ -141,6 +142,11 @@ final class TextInsertionService: TextInserting {
         let success = performPaste()
 
         guard success else {
+            // A failed paste leaves text available for manual pasting, but must
+            // not retain a snapshot that a later insertion could restore.
+            pasteboardRestoreTask?.cancel()
+            pasteboardRestoreTask = nil
+            originalPasteboardContents = nil
             throw WisprError.textInsertionFailed("Failed to simulate ⌘V keystroke")
         }
 
@@ -279,6 +285,9 @@ final class TextInsertionService: TextInserting {
     ///
     /// - Returns: `true` if the keystroke was successfully posted
     private static func postCommandV() -> Bool {
+        guard CGPreflightPostEventAccess() || AXIsProcessTrusted() else {
+            return false
+        }
         let vKeyCode = LayoutKeyResolver.keyCode(for: "v") ?? ansiVKeyCode
 
         // Create key down event for ⌘V
