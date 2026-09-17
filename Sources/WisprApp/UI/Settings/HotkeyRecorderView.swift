@@ -82,6 +82,19 @@ struct HotkeyRecorderView: View {
         fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
             guard isRecording else { return event }
 
+            // Accept bare Right Option before the generic Option/chord filter.
+            let chordModifiers: NSEvent.ModifierFlags = [.command, .control, .shift, .function]
+            if event.keyCode == UInt16(HotkeyMonitor.rightOptionKeyCode),
+               event.modifierFlags.contains(.option),
+               event.modifierFlags.intersection(chordModifiers).isEmpty,
+               event.modifierFlags.rawValue & 0x20 == 0 { // NX_DEVICELALTKEYMASK
+                keyCode = HotkeyMonitor.rightOptionKeyCode
+                modifiers = 0
+                isRecording = false
+                errorMessage = nil
+                return nil
+            }
+
             // Pass through if other modifiers are held (Fn+Cmd, Fn+Opt, etc.)
             // This matches HotkeyMonitor.handleFnFlagsChanged() which also
             // rejects combined modifier presses.

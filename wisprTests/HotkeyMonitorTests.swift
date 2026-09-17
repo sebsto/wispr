@@ -10,6 +10,7 @@
 
 import Testing
 import Foundation
+import CoreGraphics
 @testable import WisprApp
 import WisprCore
 
@@ -210,5 +211,77 @@ struct HotkeyMonitorTests {
         )) {
             try monitor.updateHotkey(keyCode: 49, modifiers: 1280)
         }
+    }
+}
+
+@MainActor
+@Suite("Right Option hotkey")
+struct RightOptionHotkeyTests {
+    private let right: CGEventFlags = [.maskAlternate, CGEventFlags(rawValue: 0x40)]
+    private let left: CGEventFlags = [.maskAlternate, CGEventFlags(rawValue: 0x20)]
+
+    @Test("bare right Option triggers once per press and release")
+    func pressAndRelease() {
+        let monitor = HotkeyMonitor()
+        var events: [String] = []
+        monitor.onHotkeyDown = { events.append("down") }
+        monitor.onHotkeyUp = { events.append("up") }
+        #expect(monitor.handleRightOptionFlagsChanged(flags: right))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: right))
+        #expect(monitor.handleRightOptionFlagsChanged(flags: []))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: []))
+        #expect(events == ["down", "up"])
+    }
+
+    @Test("left Option does not trigger dictation")
+    func leftOptionIsIgnored() {
+        let monitor = HotkeyMonitor()
+        var presses = 0
+        monitor.onHotkeyDown = { presses += 1 }
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: left))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: []))
+        #expect(presses == 0)
+    }
+
+    @Test("a chord does not start dictation when its other modifier is released",
+          arguments: [CGEventFlags.maskCommand, .maskControl, .maskShift, .maskSecondaryFn,
+                      CGEventFlags(rawValue: 0x20)])
+    func chordIsIgnored(modifier: CGEventFlags) {
+        let monitor = HotkeyMonitor()
+        var presses = 0
+        monitor.onHotkeyDown = { presses += 1 }
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: right.union(modifier)))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: right))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: []))
+        #expect(presses == 0)
+        #expect(monitor.handleRightOptionFlagsChanged(flags: right))
+        #expect(presses == 1)
+    }
+
+    @Test("right Option release still stops dictation while another modifier is held",
+          arguments: [CGEventFlags.maskCommand, .maskControl, .maskShift,
+                      CGEventFlags([.maskAlternate, CGEventFlags(rawValue: 0x20)])])
+    func releaseWithOtherModifier(modifier: CGEventFlags) {
+        let monitor = HotkeyMonitor()
+        var releases = 0
+        monitor.onHotkeyUp = { releases += 1 }
+        #expect(monitor.handleRightOptionFlagsChanged(flags: right))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: right.union(modifier)))
+        #expect(monitor.handleRightOptionFlagsChanged(flags: modifier))
+        #expect(releases == 1)
+    }
+
+    @Test("unregister clears right Option tracking")
+    func unregisterResetsState() {
+        let monitor = HotkeyMonitor()
+        #expect(monitor.handleRightOptionFlagsChanged(flags: right))
+        monitor.unregister()
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: []))
+        #expect(monitor.handleRightOptionFlagsChanged(flags: right))
+    }
+
+    @Test("the configured hotkey is displayed as Right Option")
+    func displayName() {
+        #expect(KeyCodeMapping.shared.hotkeyDisplayString(keyCode: 61, modifiers: 0) == "Right ⌥")
     }
 }

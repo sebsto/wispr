@@ -18,7 +18,7 @@ import os
 ///
 /// Internally uses one of two backends:
 /// - **Carbon** (`RegisterEventHotKey`) for standard modifier+key combos
-/// - **CGEventTap** for the bare Fn/Globe key (keycode 63, no modifiers)
+/// - **CGEventTap** for bare Fn/Globe or Right Option (no modifiers)
 ///
 /// Callers interact with the same public API regardless of which backend is active.
 @Observable
@@ -36,6 +36,11 @@ final class HotkeyMonitor {
 
     /// Virtual key code for the Fn/Globe key.
     static let fnKeyCode: UInt32 = 63  // kVK_Function
+    static let rightOptionKeyCode: UInt32 = 61  // kVK_RightOption
+
+    /// Device-specific flags distinguish the two Option keys even when both are held.
+    private static let rightOptionMask: UInt64 = 0x40  // NX_DEVICERALTKEYMASK
+    private static let leftOptionMask: UInt64 = 0x20  // NX_DEVICELALTKEYMASK
 
     // MARK: - Registration Status
 
@@ -43,7 +48,7 @@ final class HotkeyMonitor {
     var isRegistered: Bool {
         switch activeBackend {
         case .none: false
-        case .carbon, .fnEventTap: true
+        case .carbon, .modifierEventTap: true
         }
     }
 
@@ -53,7 +58,7 @@ final class HotkeyMonitor {
     private enum ActiveBackend {
         case none
         case carbon(hotkeyRef: EventHotKeyRef, handlerRef: EventHandlerRef)
-        case fnEventTap(machPort: CFMachPort, runLoopSource: CFRunLoopSource)
+        case modifierEventTap(machPort: CFMachPort, runLoopSource: CFRunLoopSource)
     }
 
     private var activeBackend: ActiveBackend = .none
@@ -68,6 +73,8 @@ final class HotkeyMonitor {
 
     /// Tracks whether the Fn key is currently held down (CGEventTap path only).
     private var fnIsDown = false
+    private var rightOptionIsDown = false
+    private var rightOptionDidTrigger = false
 
     /// Number of times we've tried to re-enable a disabled event tap.
     private var tapReEnableAttempts = 0
@@ -97,12 +104,12 @@ final class HotkeyMonitor {
 
     /// Registers a global hotkey with the given key code and modifier flags.
     ///
-    /// For keyCode 63 (Fn/Globe) with no modifiers, uses a CGEventTap.
+    /// For bare Fn/Globe or Right Option, uses a CGEventTap.
     /// For all other combinations, uses Carbon's RegisterEventHotKey.
     ///
     /// - Parameters:
     ///   - keyCode: The virtual key code (e.g., 49 for Space, 63 for Fn).
-    ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048). Use 0 for Fn key.
+    ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048). Use 0 for modifier-only keys.
     /// - Throws: `WisprError.hotkeyConflict` if the combination is system-reserved,
     ///           `WisprError.hotkeyRegistrationFailed` if registration fails.
     func register(keyCode: UInt32, modifiers: UInt32) throws {
@@ -117,9 +124,9 @@ final class HotkeyMonitor {
             )
         }
 
-        if keyCode == Self.fnKeyCode && modifiers == 0 {
-            Log.hotkey.info("register — routing to CGEventTap backend for Fn key")
-            try setupFnEventTap()
+        if modifiers == 0 && (keyCode == Self.fnKeyCode || keyCode == Self.rightOptionKeyCode) {
+            Log.hotkey.info("register — routing to CGEventTap backend for key \(keyCode)")
+            try setupModifierEventTap()
         } else {
             Log.hotkey.info("register — routing to Carbon backend for keyCode \(keyCode), modifiers \(modifiers)")
             try registerCarbonHotkey(keyCode: keyCode, modifiers: modifiers)
@@ -136,7 +143,7 @@ final class HotkeyMonitor {
         case .carbon(let hotkeyRef, let handlerRef):
             UnregisterEventHotKey(hotkeyRef)
             RemoveEventHandler(handlerRef)
-        case .fnEventTap(let machPort, let runLoopSource):
+        case .modifierEventTap(let machPort, let runLoopSource):
             CGEvent.tapEnable(tap: machPort, enable: false)
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             CFMachPortInvalidate(machPort)
@@ -145,6 +152,8 @@ final class HotkeyMonitor {
         }
         activeBackend = .none
         fnIsDown = false
+        rightOptionIsDown = false
+        rightOptionDidTrigger = false
         tapReEnableAttempts = 0
         registeredKeyCode = 0
         registeredModifiers = 0
@@ -175,7 +184,7 @@ final class HotkeyMonitor {
         switch activeBackend {
         case .none:
             return false
-        case .carbon, .fnEventTap:
+        case .carbon, .modifierEventTap:
             break
         }
         guard registeredKeyCode != 0 else { return false }
@@ -315,10 +324,10 @@ final class HotkeyMonitor {
         return noErr
     }
 
-    // MARK: - Fn/Globe CGEventTap Backend
+    // MARK: - Modifier-only CGEventTap Backend
 
-    /// Creates a CGEventTap that intercepts flagsChanged events to detect Fn key.
-    private func setupFnEventTap() throws {
+    /// Creates a CGEventTap that intercepts flagsChanged events for modifier-only hotkeys.
+    private func setupModifierEventTap() throws {
         let eventMask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
 
         // C callback — runs on main run loop. The callback executes synchronously
@@ -340,11 +349,11 @@ final class HotkeyMonitor {
                     Log.hotkey.warning("CGEventTap disabled by \(type == .tapDisabledByTimeout ? "timeout" : "user input"), attempt \(monitor.tapReEnableAttempts + 1)")
                     monitor.tapReEnableAttempts += 1
                     if monitor.tapReEnableAttempts <= monitor.maxTapReEnableAttempts {
-                        if case .fnEventTap(let port, _) = monitor.activeBackend {
+                        if case .modifierEventTap(let port, _) = monitor.activeBackend {
                             CGEvent.tapEnable(tap: port, enable: true)
                         }
                     } else {
-                        Log.hotkey.error("CGEventTap failed to re-enable after \(monitor.maxTapReEnableAttempts) attempts — unregistering Fn hotkey")
+                        Log.hotkey.error("CGEventTap failed to re-enable after \(monitor.maxTapReEnableAttempts) attempts — unregistering modifier hotkey")
                         monitor.unregister()
                     }
                     return false
@@ -353,6 +362,9 @@ final class HotkeyMonitor {
                 // Reset re-enable counter on successful callback
                 monitor.tapReEnableAttempts = 0
 
+                if monitor.registeredKeyCode == HotkeyMonitor.rightOptionKeyCode {
+                    return monitor.handleRightOptionFlagsChanged(flags: flags)
+                }
                 return monitor.handleFnFlagsChanged(flags: flags)
             }
 
@@ -369,20 +381,20 @@ final class HotkeyMonitor {
             callback: callback,
             userInfo: selfPtr
         ) else {
-            Log.hotkey.error("setupFnEventTap — CGEvent.tapCreate returned nil (missing Accessibility permission?)")
+            Log.hotkey.error("setupModifierEventTap — CGEvent.tapCreate returned nil (missing Accessibility permission?)")
             throw WisprError.hotkeyRegistrationFailed
         }
 
         guard let source = CFMachPortCreateRunLoopSource(nil, tap, 0) else {
-            Log.hotkey.error("setupFnEventTap — CFMachPortCreateRunLoopSource returned nil")
+            Log.hotkey.error("setupModifierEventTap — CFMachPortCreateRunLoopSource returned nil")
             CFMachPortInvalidate(tap)
             throw WisprError.hotkeyRegistrationFailed
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        activeBackend = .fnEventTap(machPort: tap, runLoopSource: source)
-        Log.hotkey.info("setupFnEventTap — event tap created and enabled")
+        activeBackend = .modifierEventTap(machPort: tap, runLoopSource: source)
+        Log.hotkey.info("setupModifierEventTap — event tap created and enabled")
     }
 
     /// Processes a flagsChanged event looking for bare Fn press/release.
@@ -414,6 +426,29 @@ final class HotkeyMonitor {
         }
 
         return false
+    }
+
+    /// Handles only physical Right Option transitions. A modifier chord must
+    /// not become a new dictation when its other modifiers are released.
+    /// Internal so the event state machine can be tested without a global tap.
+    func handleRightOptionFlagsChanged(flags: CGEventFlags) -> Bool {
+        let isDown = flags.rawValue & Self.rightOptionMask != 0
+        guard isDown != rightOptionIsDown else { return false }
+        rightOptionIsDown = isDown
+
+        if !isDown {
+            guard rightOptionDidTrigger else { return false }
+            rightOptionDidTrigger = false
+            onHotkeyUp?()
+            return true
+        }
+
+        let otherModifiers: CGEventFlags = [.maskCommand, .maskControl, .maskShift, .maskSecondaryFn]
+        guard flags.intersection(otherModifiers).isEmpty,
+              flags.rawValue & Self.leftOptionMask == 0 else { return false }
+        rightOptionDidTrigger = true
+        onHotkeyDown?()
+        return true
     }
 
     // MARK: - Cleanup
