@@ -1,7 +1,6 @@
 import WisprCore
 import Foundation
 import AppKit
-import ApplicationServices
 import os
 
 /// Protocol for text insertion, enabling test mocking.
@@ -86,7 +85,7 @@ final class TextInsertionService: TextInserting {
         pasteboard: any TextPasteboard = NSPasteboard.general,
         restoreDelay: Duration = .seconds(2),
         canPostEvents: @escaping @MainActor () -> Bool = {
-            CGPreflightPostEventAccess() || AXIsProcessTrusted()
+            CGPreflightPostEventAccess()
         },
         performPaste: (@MainActor () -> Bool)? = nil
     ) {
