@@ -40,7 +40,7 @@ final class HotkeyMonitor {
 
     /// Device-specific flags distinguish the two Option keys even when both are held.
     private static let rightOptionMask: UInt64 = 0x40  // NX_DEVICERALTKEYMASK
-    private static let leftOptionMask: UInt64 = 0x20  // NX_DEVICELALTKEYMASK
+    static let leftOptionMask: UInt64 = 0x20  // NX_DEVICELALTKEYMASK
 
     // MARK: - Registration Status
 
@@ -109,7 +109,7 @@ final class HotkeyMonitor {
     ///
     /// - Parameters:
     ///   - keyCode: The virtual key code (e.g., 49 for Space, 63 for Fn).
-    ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048). Use 0 for modifier-only keys.
+    ///   - modifiers: Carbon modifier flags (e.g., optionKey = 2048). Use 0 for bare Fn/Globe or Right Option.
     /// - Throws: `WisprError.hotkeyConflict` if the combination is system-reserved,
     ///           `WisprError.hotkeyRegistrationFailed` if registration fails.
     func register(keyCode: UInt32, modifiers: UInt32) throws {
@@ -430,6 +430,7 @@ final class HotkeyMonitor {
 
     /// Handles only physical Right Option transitions. A modifier chord must
     /// not become a new dictation when its other modifiers are released.
+    /// Caps Lock is a latched state and does not block dictation.
     /// Internal so the event state machine can be tested without a global tap.
     func handleRightOptionFlagsChanged(flags: CGEventFlags) -> Bool {
         let isDown = flags.rawValue & Self.rightOptionMask != 0

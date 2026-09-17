@@ -220,16 +220,17 @@ struct RightOptionHotkeyTests {
     private let right: CGEventFlags = [.maskAlternate, CGEventFlags(rawValue: 0x40)]
     private let left: CGEventFlags = [.maskAlternate, CGEventFlags(rawValue: 0x20)]
 
-    @Test("bare right Option triggers once per press and release")
-    func pressAndRelease() {
+    @Test("bare right Option triggers once per press and release, including with Caps Lock",
+          arguments: [CGEventFlags(), .maskAlphaShift])
+    func pressAndRelease(capsLock: CGEventFlags) {
         let monitor = HotkeyMonitor()
         var events: [String] = []
         monitor.onHotkeyDown = { events.append("down") }
         monitor.onHotkeyUp = { events.append("up") }
-        #expect(monitor.handleRightOptionFlagsChanged(flags: right))
-        #expect(!monitor.handleRightOptionFlagsChanged(flags: right))
-        #expect(monitor.handleRightOptionFlagsChanged(flags: []))
-        #expect(!monitor.handleRightOptionFlagsChanged(flags: []))
+        #expect(monitor.handleRightOptionFlagsChanged(flags: right.union(capsLock)))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: right.union(capsLock)))
+        #expect(monitor.handleRightOptionFlagsChanged(flags: capsLock))
+        #expect(!monitor.handleRightOptionFlagsChanged(flags: capsLock))
         #expect(events == ["down", "up"])
     }
 

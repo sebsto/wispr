@@ -83,11 +83,12 @@ struct HotkeyRecorderView: View {
             guard isRecording else { return event }
 
             // Accept bare Right Option before the generic Option/chord filter.
+            // Caps Lock is allowed, matching the global hotkey handler.
             let chordModifiers: NSEvent.ModifierFlags = [.command, .control, .shift, .function]
             if event.keyCode == UInt16(HotkeyMonitor.rightOptionKeyCode),
                event.modifierFlags.contains(.option),
                event.modifierFlags.intersection(chordModifiers).isEmpty,
-               event.modifierFlags.rawValue & 0x20 == 0 { // NX_DEVICELALTKEYMASK
+               event.modifierFlags.rawValue & UInt(HotkeyMonitor.leftOptionMask) == 0 {
                 keyCode = HotkeyMonitor.rightOptionKeyCode
                 modifiers = 0
                 isRecording = false
