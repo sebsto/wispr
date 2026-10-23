@@ -13,6 +13,31 @@ import Foundation
 
 // MARK: - Mock for download tests (no network)
 
+@Suite("Short Utterance Regression Tests")
+struct ShortUtteranceRegressionTests {
+    @Test("Sub-half-second speech is preserved and padded instead of rejected")
+    func shortSpeechReachesDecoder() throws {
+        let word = (0..<3200).map { Float(sin(Double($0) * 0.1)) }
+        let padded = try TranscriptionAudio.paddedForDecoding(word)
+        #expect(Array(padded.prefix(word.count)) == word)
+        #expect(padded.count >= 8000)
+        #expect(padded.dropFirst(word.count).allSatisfy { $0 == 0 })
+    }
+
+    @Test("Empty captures still report no speech")
+    func emptyCaptureIsRejected() {
+        #expect(throws: WisprError.emptyTranscription) {
+            try TranscriptionAudio.paddedForDecoding([])
+        }
+    }
+
+    @Test("Normal-length audio is unchanged")
+    func longerSpeechIsUnchanged() throws {
+        let speech = [Float](repeating: 0.1, count: 16000)
+        #expect(try TranscriptionAudio.paddedForDecoding(speech) == speech)
+    }
+}
+
 /// Lightweight mock that simulates download behaviour entirely in-memory.
 /// @MainActor because the project uses default MainActor isolation (Swift 6).
 @MainActor

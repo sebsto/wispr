@@ -8,10 +8,94 @@
 
 import Testing
 import Foundation
+import CoreAudio
 @testable import WisprApp
 import WisprCore
 
 // MARK: - Test Helpers
+
+private actor DelayedCaptureEngine: AudioCapturing {
+    nonisolated let started: AsyncStream<Void>
+    private let startedContinuation: AsyncStream<Void>.Continuation
+    private var startContinuation: CheckedContinuation<AsyncStream<Float>, Error>?
+    private(set) var stopCount = 0
+    private(set) var capturing = false
+
+    init() {
+        (started, startedContinuation) = AsyncStream.makeStream(of: Void.self)
+    }
+
+    func setInputDevice(_ deviceID: AudioDeviceID?) {}
+    func deviceIDForUID(_ uid: String) -> AudioDeviceID? { nil }
+    func prepareCapture() {}
+    var captureStream: AsyncStream<[Float]> { AsyncStream { $0.finish() } }
+
+    func startCapture() async throws -> AsyncStream<Float> {
+        try await withCheckedThrowingContinuation { continuation in
+            startContinuation = continuation
+            startedContinuation.yield(())
+        }
+    }
+
+    func completeStartup() {
+        capturing = true
+        startContinuation?.resume(returning: AsyncStream { $0.finish() })
+        startContinuation = nil
+    }
+
+    func stopCapture() -> [Float] {
+        stopCount += 1
+        capturing = false
+        return []
+    }
+
+    func cancelCapture() { capturing = false }
+}
+
+@MainActor
+@Suite("Recording Startup Regression Tests")
+struct RecordingStartupRegressionTests {
+    @Test("Releasing during startup waits and stops exactly once")
+    func releaseDuringStartup() async {
+        let capture = DelayedCaptureEngine()
+        let permissions = PermissionManager()
+        permissions.microphoneStatus = .authorized
+        permissions.accessibilityStatus = .authorized
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test.wispr.startup.\(UUID().uuidString)")!)
+        settings.soundFeedbackEnabled = false
+        let manager = StateManager(
+            audioEngine: capture,
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: permissions,
+            settingsStore: settings
+        )
+        manager.markAsReady()
+        let start = Task { await manager.beginRecording() }
+        var startup = capture.started.makeAsyncIterator()
+        _ = await startup.next()
+        #expect(manager.appState == .recording)
+
+        let (released, signal) = AsyncStream.makeStream(of: Void.self)
+        let release = Task {
+            signal.yield(())
+            await manager.endRecording()
+        }
+        var releaseSignal = released.makeAsyncIterator()
+        _ = await releaseSignal.next()
+        #expect(manager.appState == .processing)
+        #expect(await capture.stopCount == 0)
+        await capture.completeStartup()
+        await start.value
+        await release.value
+        #expect(await capture.stopCount == 1)
+        #expect(await capture.capturing == false)
+        #expect(manager.appState == .idle)
+        #expect(manager.audioLevelStream == nil)
+    }
+}
 
 /// Creates a StateManager with real dependencies suitable for unit testing.
 /// PermissionManager properties are directly set since they are writable vars.

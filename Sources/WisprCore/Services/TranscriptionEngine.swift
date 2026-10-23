@@ -8,6 +8,16 @@
 
 import Foundation
 
+/// Short words still contain valid speech. Supply trailing silence for the
+/// decoder's minimum context instead of rejecting sub-half-second recordings.
+nonisolated enum TranscriptionAudio {
+    static func paddedForDecoding(_ samples: [Float]) throws -> [Float] {
+        guard !samples.isEmpty else { throw WisprError.emptyTranscription }
+        guard samples.count < 8000 else { return samples }
+        return samples + [Float](repeating: 0, count: 8000 - samples.count)
+    }
+}
+
 /// Abstract interface for any on-device speech-to-text engine.
 ///
 /// Conforming types must be actors to guarantee thread-safe access

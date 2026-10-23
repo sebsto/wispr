@@ -46,7 +46,7 @@ final class StateManager {
 
     // MARK: - Dependencies
 
-    private let audioEngine: AudioEngine
+    private let audioEngine: any AudioCapturing
     private let whisperService: any TranscriptionEngine
     private let textInsertionService: any TextInserting
     private let textCorrectionService: any TextCorrecting
@@ -64,6 +64,9 @@ final class StateManager {
     /// Task for monitoring end-of-utterance detection in hands-free mode.
     private var eouMonitoringTask: Task<Void, Never>?
 
+    /// Key-up can arrive while the microphone is still starting.
+    private var recordingStartTask: Task<AsyncStream<Float>, Error>?
+
     // MARK: - Initialization
 
     /// Creates a new StateManager with all required service dependencies.
@@ -77,7 +80,7 @@ final class StateManager {
     ///   - permissionManager: The permission manager.
     ///   - settingsStore: The persistent settings store.
     init(
-        audioEngine: AudioEngine,
+        audioEngine: any AudioCapturing,
         whisperService: any TranscriptionEngine,
         textInsertionService: any TextInserting,
         textCorrectionService: any TextCorrecting,
@@ -142,6 +145,7 @@ final class StateManager {
     private func setupHotkeyCallbacks() {
         hotkeyMonitor.onHotkeyDown = { [weak self] in
             guard let self else { return }
+            Log.stateManager.info("Dictation hotkey pressed")
             Task { @MainActor in
                 if self.settingsStore.handsFreeMode {
                     await self.toggleRecording()
@@ -153,6 +157,7 @@ final class StateManager {
 
         hotkeyMonitor.onHotkeyUp = { [weak self] in
             guard let self else { return }
+            Log.stateManager.info("Dictation hotkey released")
             Task { @MainActor in
                 if !self.settingsStore.handsFreeMode {
                     await self.endRecording()
@@ -426,30 +431,35 @@ final class StateManager {
         appState = .recording
         errorMessage = nil
 
-        soundFeedback.play(.recordingStarted)
-
-        // Requirement 17.3, 17.11: Announce state change to assistive technologies
-        AccessibilityNotification.Announcement("Recording started")
-            .post()
-
-        do {
+        let deviceUID = settingsStore.selectedAudioDeviceUID
+        let audioEngine = self.audioEngine
+        let startTask = Task {
             // Requirement 8.2: Use the user's selected input device.
             // Always set the device (including nil) so a previously-selected
             // device doesn't persist when the user switches back to "System Default"
             // or the saved device is no longer available.
-            if let deviceUID = settingsStore.selectedAudioDeviceUID,
+            if let deviceUID,
                let deviceID = await audioEngine.deviceIDForUID(deviceUID) {
                 try await audioEngine.setInputDevice(deviceID)
             } else {
-                if let uid = settingsStore.selectedAudioDeviceUID {
+                if let uid = deviceUID {
                     Log.stateManager.debug("beginRecording — selected device UID '\(uid)' not found, falling back to system default")
                 }
                 try await audioEngine.setInputDevice(nil)
             }
 
             // Requirement 2.1: Start audio capture
-            let levelStream = try await audioEngine.startCapture()
+            return try await audioEngine.startCapture()
+        }
+        recordingStartTask = startTask
+
+        do {
+            let levelStream = try await startTask.value
+            guard appState == .recording else { return }
             audioLevelStream = levelStream
+            // The ready cue must follow microphone startup, never precede it.
+            soundFeedback.play(.recordingStarted)
+            AccessibilityNotification.Announcement("Recording started").post()
             // Start EOU monitoring only in hands-free mode.
             // Push-to-talk users control duration by holding the key,
             // so auto-stopping on silence would be unexpected.
@@ -457,9 +467,11 @@ final class StateManager {
                 await startEouMonitoringIfSupported()
             }
         } catch let error as WisprError {
-            await handleError(error)
+            if appState == .recording { await handleError(error) }
         } catch {
-            await handleError(.audioRecordingFailed(error.localizedDescription))
+            if appState == .recording {
+                await handleError(.audioRecordingFailed(error.localizedDescription))
+            }
         }
     }
 
@@ -485,17 +497,30 @@ final class StateManager {
         // Only end if we're actually recording
         guard appState == .recording else { return }
 
+        // Claim this release before suspending, so another release cannot stop
+        // the same session twice. Wait for startup rather than stopping an
+        // engine that has not started yet and stranding the new recording.
+        appState = .processing
+        do {
+            _ = try await recordingStartTask?.value
+        } catch {
+            await handleError(.audioRecordingFailed(error.localizedDescription))
+            return
+        }
+        recordingStartTask = nil
+
         // Cancel any active EOU monitoring so it doesn't race with this path
         cancelEouMonitoring()
+
+        // Keep the end of the last word and the final hardware buffer when the
+        // user releases the hotkey while still finishing a syllable.
+        try? await Task.sleep(for: .milliseconds(200))
 
         // Requirement 2.2: Stop capture and get audio samples
         let audioSamples = await audioEngine.stopCapture()
         audioLevelStream = nil
 
         Log.stateManager.debug("endRecording — received \(audioSamples.count) samples from stopCapture()")
-
-        // Requirement 3.6: Transition to processing
-        appState = .processing
 
         soundFeedback.play(.recordingStopped)
 
@@ -640,6 +665,10 @@ final class StateManager {
             Log.stateManager.debug("loadActiveModel — loading '\(modelName)'")
             try await whisperService.loadModel(modelName)
             Log.stateManager.debug("loadActiveModel — '\(modelName)' loaded successfully")
+            if permissionManager.microphoneStatus == .authorized,
+               settingsStore.selectedAudioDeviceUID == nil {
+                await audioEngine.prepareCapture()
+            }
             markAsReady()
         } catch {
             Log.stateManager.error("loadActiveModel — failed to load '\(modelName)': \(error.localizedDescription)")
