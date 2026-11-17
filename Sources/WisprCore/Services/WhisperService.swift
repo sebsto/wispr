@@ -42,24 +42,23 @@ public actor WhisperService {
 
     public init() {}
 
-    /// Builds the WhisperKit callbacks that turn decoder events into `ProgressUpdate`s.
+    /// Builds the WhisperKit segment callback that turns decoded windows into
+    /// `ProgressUpdate`s, or nil when no handler is supplied.
     ///
-    /// Only the segment callback reports progress. It fires once per decoded
-    /// window with absolute timestamps, so the furthest segment end is the real
-    /// position in the audio. `token` is deliberately nil: the per-token
-    /// callback only knows how many windows have been decoded, and WhisperKit
-    /// starts each window at the last timestamp it found, which is usually
-    /// earlier than 30 s after the previous window began. Multiplying the window
-    /// count by 30 s therefore drifts ahead of the audio, and on a long file the
-    /// bar reaches 100% minutes before decoding ends. The reporter keeps its
-    /// spinner and elapsed time moving between segment reports by itself.
-    ///
-    /// The segment callback is nil when no handler is supplied.
-    nonisolated static func makeProgressCallbacks(
+    /// The segment callback fires once per decoded window with absolute
+    /// timestamps, so the furthest segment end is the real position in the
+    /// audio. WhisperKit's per-token callback is not used for progress: it only
+    /// knows how many windows have been decoded, and WhisperKit starts each
+    /// window at the last timestamp it found, which is usually earlier than 30 s
+    /// after the previous window began. A window count times 30 s therefore
+    /// drifts ahead of the audio, and on a long file the bar would reach 100%
+    /// minutes before decoding ends. The reporter keeps its spinner and elapsed
+    /// time moving between segment reports by itself.
+    nonisolated static func makeSegmentCallback(
         audioDuration: Double,
         onProgress: TranscriptionProgressHandler?
-    ) -> (token: TranscriptionCallback, segment: SegmentDiscoveryCallback?) {
-        let segment: SegmentDiscoveryCallback? = onProgress.map { report in
+    ) -> SegmentDiscoveryCallback? {
+        onProgress.map { report in
             { segments in
                 guard let furthest = segments.map(\.end).max() else { return }
                 report(ProgressUpdate(
@@ -69,7 +68,6 @@ public actor WhisperService {
                 ))
             }
         }
-        return (nil, segment)
     }
 
     /// Ensures the `ModelPaths.base` directory exists on disk.
@@ -479,9 +477,9 @@ public actor WhisperService {
             // WhisperKit runs its language identification pass instead of
             // falling back to the default "en".
             //
-            // The progress callbacks are nil when no handler was supplied,
+            // The segment callback is nil when no handler was supplied,
             // so the app's code path is exactly the call it makes today.
-            let callbacks = Self.makeProgressCallbacks(
+            let segmentCallback = Self.makeSegmentCallback(
                 audioDuration: audioDuration,
                 onProgress: onProgress
             )
@@ -491,8 +489,7 @@ public actor WhisperService {
                     language: languageCode,
                     detectLanguage: languageCode == nil
                 ),
-                callback: callbacks.token,
-                segmentCallback: callbacks.segment
+                segmentCallback: segmentCallback
             )
             
             Log.whisperService.debug("transcribe — WhisperKit returned \(results.count) segment(s)")

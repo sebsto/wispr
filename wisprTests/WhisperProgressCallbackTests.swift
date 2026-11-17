@@ -3,13 +3,12 @@
 //  wisprTests
 //
 //  Tests for the progress events WhisperService derives from WhisperKit's
-//  callbacks.
+//  segment callback.
 //
 //  WhisperKit starts each decoding window where the previous one stopped, and
 //  that point is the last timestamp it found, so a window usually advances by
-//  less than its 30 s length. The number of windows decoded therefore says
-//  nothing reliable about how much audio has been covered. These tests replay
-//  that behaviour and check that no event claims more audio than was decoded.
+//  less than its 30 s length. These tests replay that behaviour and check that
+//  the reported position follows the decoded segments, never the window count.
 //
 
 import Testing
@@ -20,91 +19,77 @@ import Foundation
 @Suite("Whisper progress callbacks")
 struct WhisperProgressCallbackTests {
 
-    /// Collects every update the callbacks emit.
-    private nonisolated final class Recorder: @unchecked Sendable {
-        private let lock = NSLock()
-        private var _updates: [ProgressUpdate] = []
-
-        func record(_ update: ProgressUpdate) {
-            lock.lock()
-            _updates.append(update)
-            lock.unlock()
-        }
-
-        var updates: [ProgressUpdate] {
-            lock.lock()
-            defer { lock.unlock() }
-            return _updates
-        }
-    }
-
-    @Test("Progress never runs ahead of the audio actually decoded")
-    func progressNeverExceedsDecodedAudio() {
+    @Test("Progress follows segment ends and never runs ahead of the decoded audio")
+    func progressFollowsSegmentEnds() throws {
         // A 1h38m file where every window advances 24 s instead of 30 s.
         let audioDuration = 5880.0
         let advancePerWindow = 24.0
         let windowCount = Int(audioDuration / advancePerWindow)
 
-        let recorder = Recorder()
-        let callbacks = WhisperService.makeProgressCallbacks(
+        let collector = ProgressUpdateCollector()
+        guard let callback = WhisperService.makeSegmentCallback(
             audioDuration: audioDuration,
-            onProgress: { recorder.record($0) }
-        )
-
-        var checked = 0
-        for window in 0..<windowCount {
-            let decodedBefore = Double(window) * advancePerWindow
-
-            // Tokens of window `window` are being decoded: only `decodedBefore`
-            // seconds of audio have been covered so far.
-            let progress = TranscriptionProgress(
-                timings: TranscriptionTimings(),
-                text: "",
-                tokens: [],
-                windowId: window
-            )
-            _ = callbacks.token?(progress)
-
-            let fresh = recorder.updates.dropFirst(checked)
-            checked += fresh.count
-            for update in fresh {
-                #expect(
-                    update.processedSeconds <= decodedBefore + 0.001,
-                    "window \(window): reported \(update.processedSeconds) s but only \(decodedBefore) s are decoded"
-                )
-            }
-
-            // The window finishes and WhisperKit reports its segments.
-            let segment = TranscriptionSegment(
-                start: Float(decodedBefore),
-                end: Float(decodedBefore + advancePerWindow),
-                text: "x"
-            )
-            callbacks.segment?([segment])
+            onProgress: { collector.record($0) }
+        ) else {
+            Issue.record("expected a segment callback when a handler is supplied")
+            return
         }
+
+        for window in 0..<windowCount {
+            let windowStart = Double(window) * advancePerWindow
+            let windowEnd = windowStart + advancePerWindow
+            callback([
+                TranscriptionSegment(start: Float(windowStart), end: Float(windowStart + 10), text: "a"),
+                TranscriptionSegment(start: Float(windowStart + 10), end: Float(windowEnd), text: "b"),
+            ])
+
+            let latest = try #require(collector.updates.last)
+            #expect(latest.processedSeconds == windowEnd)
+        }
+
+        #expect(collector.updates.count == windowCount)
+        #expect(collector.updates.last?.processedSeconds == Double(windowCount) * advancePerWindow)
+        #expect(collector.updates.allSatisfy { $0.totalSeconds == audioDuration })
     }
 
-    @Test("A finished window reports the end of its last segment")
-    func segmentEndIsReported() {
-        let recorder = Recorder()
-        let callbacks = WhisperService.makeProgressCallbacks(
+    @Test("A window reports its furthest segment end and its last text")
+    func reportsFurthestSegmentEnd() {
+        let collector = ProgressUpdateCollector()
+        guard let callback = WhisperService.makeSegmentCallback(
             audioDuration: 100,
-            onProgress: { recorder.record($0) }
-        )
+            onProgress: { collector.record($0) }
+        ) else {
+            Issue.record("expected a segment callback when a handler is supplied")
+            return
+        }
 
-        callbacks.segment?([
+        callback([
             TranscriptionSegment(start: 0, end: 10, text: "a"),
             TranscriptionSegment(start: 10, end: 24, text: "b"),
         ])
 
-        #expect(recorder.updates.last?.processedSeconds == 24)
-        #expect(recorder.updates.last?.totalSeconds == 100)
+        #expect(collector.updates.last?.processedSeconds == 24)
+        #expect(collector.updates.last?.textTail == "b")
     }
 
-    @Test("No handler means no callbacks")
-    func noHandlerMeansNoCallbacks() {
-        let callbacks = WhisperService.makeProgressCallbacks(audioDuration: 100, onProgress: nil)
-        #expect(callbacks.token == nil)
-        #expect(callbacks.segment == nil)
+    @Test("A window with no segments reports nothing")
+    func emptyWindowReportsNothing() {
+        let collector = ProgressUpdateCollector()
+        guard let callback = WhisperService.makeSegmentCallback(
+            audioDuration: 100,
+            onProgress: { collector.record($0) }
+        ) else {
+            Issue.record("expected a segment callback when a handler is supplied")
+            return
+        }
+
+        callback([])
+
+        #expect(collector.updates.isEmpty)
+    }
+
+    @Test("No handler means no callback")
+    func noHandlerMeansNoCallback() {
+        #expect(WhisperService.makeSegmentCallback(audioDuration: 100, onProgress: nil) == nil)
     }
 }
