@@ -101,6 +101,14 @@ public actor WhisperService {
                 status: .notDownloaded
             ),
             ModelInfo(
+                id: ModelInfo.KnownID.largeV3Turbo,
+                displayName: "Large v3 Turbo",
+                sizeDescription: "~1.6 GB",
+                qualityDescription: "Fast, near Large v3 accuracy",
+                estimatedSize: 1638 * 1024 * 1024,
+                status: .notDownloaded
+            ),
+            ModelInfo(
                 id: ModelInfo.KnownID.largeV3,
                 displayName: "Large v3",
                 sizeDescription: "~3 GB",
@@ -266,8 +274,8 @@ public actor WhisperService {
     /// HubApi stores snapshots under:
     ///   `<downloadBase>/models/argmaxinc/whisperkit-coreml/`
     /// The variant folder name is resolved by WhisperKit during download
-    /// (e.g. `openai_whisper-large-v3`), so we scan for a directory
-    /// whose name contains the model id.
+    /// (e.g. `openai_whisper-large-v3`), so we scan for the directory
+    /// named `openai_whisper-<id>`.
     private func getModelPath(for modelName: String) throws -> URL {
         let repoDir = ModelPaths.whisperModels
         
@@ -276,15 +284,23 @@ public actor WhisperService {
             throw WisprError.modelDeletionFailed("Model directory not found at \(repoDir.path)")
         }
         
-        // Find the variant folder that contains the model name
         let contents = try fm.contentsOfDirectory(atPath: repoDir.path)
-        if let match = contents.first(where: { $0.contains(modelName) }) {
+        if let match = Self.variantFolder(for: modelName, in: contents) {
             return repoDir.appendingPathComponent(match, isDirectory: true)
         }
         
         throw WisprError.modelDeletionFailed("Model \(modelName) not found on disk")
     }
     
+    /// Picks the folder that holds `modelName` from the folder names in the model repository.
+    ///
+    /// Folder names are `openai_whisper-<id>`, so the match is exact. A substring
+    /// match would confuse `large-v3` with `large-v3-v20240930_turbo`.
+    static func variantFolder(for modelName: String, in folders: [String]) -> String? {
+        let expected = "openai_whisper-\(modelName)"
+        return folders.first { $0 == expected }
+    }
+
     /// Loads a Whisper model into memory.
     ///
     /// Requirement 7.6: Load a downloaded model and make it ready for transcription.

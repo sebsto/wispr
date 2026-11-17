@@ -156,11 +156,11 @@ struct ModelStatusDisplayLogicTests {
 @Suite("ModelManagement Available Models List")
 struct AvailableModelsListTests {
 
-    @Test("Available models returns exactly 5 models")
+    @Test("Available models returns exactly 6 models")
     func testAvailableModelsCount() async {
         let service = WhisperService()
         let models = await service.availableModels()
-        #expect(models.count == 5)
+        #expect(models.count == 6)
     }
 
     @Test("Available models are ordered by size: tiny → large")
@@ -168,7 +168,7 @@ struct AvailableModelsListTests {
         let service = WhisperService()
         let models = await service.availableModels()
 
-        let expectedOrder = ["Tiny", "Base", "Small", "Medium", "Large v3"]
+        let expectedOrder = ["Tiny", "Base", "Small", "Medium", "Large v3 Turbo", "Large v3"]
         let actualOrder = models.map { $0.displayName }
         #expect(actualOrder == expectedOrder)
     }
