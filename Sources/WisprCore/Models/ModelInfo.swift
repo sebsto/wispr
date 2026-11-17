@@ -45,6 +45,7 @@ public nonisolated struct ModelInfo: Identifiable, Sendable, Equatable {
         public static let small = "small"
         public static let medium = "medium"
         public static let largeV3 = "large-v3"
+        public static let largeV3Turbo = "large-v3-v20240930_turbo"
         // Parakeet
         public static let parakeetV3 = "parakeet-v3"
         public static let parakeetEou = "parakeet-eou-160ms"

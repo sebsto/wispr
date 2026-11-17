@@ -121,6 +121,8 @@ enum PreviewMocks {
                   qualityDescription: "Balanced speed and accuracy", estimatedSize: 460 * 1024 * 1024, status: .notDownloaded),
         ModelInfo(id: ModelInfo.KnownID.medium, displayName: "Medium", sizeDescription: "~1.5 GB",
                   qualityDescription: "Slower, high accuracy", estimatedSize: 1536 * 1024 * 1024, status: .downloading(progress: 0.45)),
+        ModelInfo(id: ModelInfo.KnownID.largeV3Turbo, displayName: "Large v3 Turbo", sizeDescription: "~1.6 GB",
+                  qualityDescription: "Fast, near Large v3 accuracy", estimatedSize: 1638 * 1024 * 1024, status: .notDownloaded),
         ModelInfo(id: ModelInfo.KnownID.largeV3, displayName: "Large v3", sizeDescription: "~3 GB",
                   qualityDescription: "Slowest, highest accuracy", estimatedSize: 3072 * 1024 * 1024, status: .notDownloaded),
         ModelInfo(id: ModelInfo.KnownID.parakeetV3, displayName: "Parakeet V3", sizeDescription: "~400 MB",

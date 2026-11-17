@@ -249,7 +249,7 @@ struct EndToEndIntegrationTests {
         let services = createServices()
         let models = await services.whisperService.availableModels()
 
-        #expect(models.count == 5, "Should have 5 available models")
+        #expect(models.count == 6, "Should have 6 available models")
 
         let ids = models.map(\.id)
         #expect(ids.contains("tiny"))
@@ -257,6 +257,7 @@ struct EndToEndIntegrationTests {
         #expect(ids.contains("small"))
         #expect(ids.contains("medium"))
         #expect(ids.contains("large-v3"))
+        #expect(ids.contains("large-v3-v20240930_turbo"))
     }
 
     @Test("E2E: modelStatus returns notDownloaded for undownloaded models")

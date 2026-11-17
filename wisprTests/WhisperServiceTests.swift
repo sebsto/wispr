@@ -59,6 +59,28 @@ private final class MockDownloadService {
 @Suite("WhisperService Tests")
 struct WhisperServiceTests {
     
+    // MARK: - Model Folder Resolution
+
+    /// `large-v3` is a substring of the turbo folder name, so matching must be exact.
+    @Test("Folder resolution does not confuse large-v3 with its turbo variant")
+    func variantFolderIsExact() {
+        let folders = [
+            "openai_whisper-large-v3-v20240930_turbo",
+            "openai_whisper-large-v3",
+            "openai_whisper-small",
+        ]
+        #expect(WhisperService.variantFolder(for: "large-v3", in: folders) == "openai_whisper-large-v3")
+        #expect(WhisperService.variantFolder(for: "large-v3-v20240930_turbo", in: folders)
+                == "openai_whisper-large-v3-v20240930_turbo")
+        #expect(WhisperService.variantFolder(for: "medium", in: folders) == nil)
+    }
+
+    @Test("Folder resolution finds only the turbo model when large-v3 is absent")
+    func variantFolderTurboOnly() {
+        let folders = ["openai_whisper-large-v3-v20240930_turbo"]
+        #expect(WhisperService.variantFolder(for: "large-v3", in: folders) == nil)
+    }
+
     // MARK: - Model Lifecycle Tests
     
     /// Test that availableModels returns the expected list of models.
@@ -69,7 +91,7 @@ struct WhisperServiceTests {
         let service = WhisperService()
         let models = await service.availableModels()
         
-        #expect(models.count == 5)
+        #expect(models.count == 6)
         
         // Wrap property access in MainActor to avoid Swift 6 strict concurrency issues
         await MainActor.run {
@@ -78,14 +100,16 @@ struct WhisperServiceTests {
             #expect(models[1].id == "base")
             #expect(models[2].id == "small")
             #expect(models[3].id == "medium")
-            #expect(models[4].id == "large-v3")
+            #expect(models[4].id == "large-v3-v20240930_turbo")
+            #expect(models[5].id == "large-v3")
             
             // Verify display names
             #expect(models[0].displayName == "Tiny")
             #expect(models[1].displayName == "Base")
             #expect(models[2].displayName == "Small")
             #expect(models[3].displayName == "Medium")
-            #expect(models[4].displayName == "Large v3")
+            #expect(models[4].displayName == "Large v3 Turbo")
+            #expect(models[5].displayName == "Large v3")
         }
     }
     
