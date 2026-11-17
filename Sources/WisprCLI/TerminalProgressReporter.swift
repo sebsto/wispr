@@ -217,9 +217,9 @@ actor TerminalProgressReporter {
     /// or nil when progress is disabled.
     ///
     /// Returning nil rather than a no-op closure matters: the engines build their
-    /// backend callbacks with `onProgress.map`, so a nil handler means WhisperKit
-    /// is handed nil callbacks and does no per-token work at all. A no-op closure
-    /// would still cost a call for every decoded token.
+    /// backend callbacks with `onProgress.map`, so a nil handler means the engine
+    /// is handed nil callbacks and does no progress work at all. A no-op closure
+    /// would still cost a call for every report.
     ///
     /// Must be called *after* `begin(_:total:)` for the phase it belongs to, so
     /// it captures that phase's generation.
@@ -339,9 +339,8 @@ actor TerminalProgressReporter {
             total = reported
         }
 
-        // Clamp monotonic. WhisperKit's per-token signal is a coarse lower bound
-        // (start of the current window), so without this the bar would jump
-        // backwards after each finer segment report.
+        // Clamp monotonic, so an out-of-order or stale report from an engine
+        // can never move the bar backwards.
         let candidate = min(update.processedSeconds, total ?? .greatestFiniteMagnitude)
         guard candidate > position || !hasPosition else { return }
         position = max(position, candidate)
