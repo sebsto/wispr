@@ -107,6 +107,22 @@ public nonisolated enum ModelPaths {
         models
     }
 
+    /// Qwen3-ASR download root: `<base>/models/qwen3-asr/`.
+    ///
+    /// The Hub client lays files out as `<root>/models/<org>/<repo>/`, which
+    /// `qwen3ASR(repoId:)` mirrors so the SDK finds them again.
+    public static var qwen3ASRRoot: URL {
+        models.appendingPathComponent("qwen3-asr", isDirectory: true)
+    }
+
+    /// Directory holding one Qwen3-ASR Hugging Face repo, for example
+    /// `<base>/models/qwen3-asr/models/aufklarer/Qwen3-ASR-0.6B-MLX-4bit/`.
+    public static func qwen3ASR(repoId: String) -> URL {
+        qwen3ASRRoot
+            .appendingPathComponent("models", isDirectory: true)
+            .appendingPathComponent(repoId, isDirectory: true)
+    }
+
     /// Sortformer streaming diarizer model cache: `<base>/models/sortformer/`
     public static var sortformer: URL {
         models.appendingPathComponent("sortformer", isDirectory: true)

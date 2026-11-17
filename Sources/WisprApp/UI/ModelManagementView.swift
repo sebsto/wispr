@@ -17,6 +17,7 @@ extension ModelProvider {
         switch self {
         case .whisper: SFSymbols.providerWhisper
         case .nvidiaParakeet: SFSymbols.providerParakeet
+        case .alibabaQwen: SFSymbols.providerQwen
         }
     }
 
@@ -24,6 +25,7 @@ extension ModelProvider {
         switch self {
         case .whisper: .blue
         case .nvidiaParakeet: .green
+        case .alibabaQwen: .orange
         }
     }
 }

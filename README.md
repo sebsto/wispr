@@ -1,17 +1,17 @@
 # Wispr
 
-A macOS menu bar app for local speech-to-text transcription powered by [OpenAI Whisper](https://github.com/openai/whisper) and [NVIDIA Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/intro.html).
+A macOS menu bar app for local speech-to-text transcription powered by [OpenAI Whisper](https://github.com/openai/whisper), [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) and [NVIDIA Parakeet](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/intro.html).
 
 Wispr runs entirely on-device — your audio never leaves your Mac.
 
 ## Features
 
 - **Hotkey-triggered dictation** — press a shortcut to start/stop recording, transcribed text is inserted at the cursor
-- **Dual engine architecture** — choose between OpenAI Whisper and NVIDIA Parakeet models through a unified interface
+- **Multi-engine architecture** — choose between OpenAI Whisper, NVIDIA Parakeet and Qwen3-ASR models through a unified interface
 - **Multiple models** — Whisper Tiny (~75 MB) to Large v3 (~3 GB) including Large v3 Turbo (~1.6 GB), Parakeet V3 (~400 MB), and Realtime 120M (~150 MB)
 - **Low-latency streaming** — Parakeet Realtime 120M provides end-of-utterance detection for near-instant results (English)
 - **Model management** — download, activate, switch, and delete models from a single UI
-- **Multi-language support** — Whisper supports 90+ languages, Parakeet V3 supports 25 languages and honors `--language` only for non-Latin scripts (Cyrillic, Greek). For Latin-script languages it is only a hint, so use Whisper to fix the language
+- **Multi-language support** — Whisper supports 90+ languages, Parakeet V3 supports 25 languages and honors `--language` only for non-Latin scripts (Cyrillic, Greek). For Latin-script languages it is only a hint, so use Whisper to fix the language, Qwen3-ASR supports 52 languages and dialects
 - **Menu bar native** — lives in your menu bar, stays out of the way
 - **Onboarding flow** — guided setup for permissions, model selection, and a test dictation
 - **Accessibility-first** — full keyboard navigation, VoiceOver support, and high-contrast mode
@@ -28,6 +28,8 @@ Wispr runs entirely on-device — your audio never leaves your Mac.
 | Large v3 | Whisper | ~3 GB | No | 90+ | Best Whisper accuracy |
 | Parakeet V3 | Parakeet | ~400 MB | No | 25 | Fast, high accuracy, multilingual |
 | Realtime 120M | Parakeet | ~150 MB | Yes | English | Low-latency with end-of-utterance detection |
+| Qwen3-ASR 0.6B | Qwen | ~710 MB | No | 52 | Fast, multilingual |
+| Qwen3-ASR 1.7B | Qwen | ~2.5 GB | No | 52 | Higher accuracy, multilingual |
 
 ## Installation
 
@@ -101,7 +103,7 @@ Note that Full Disk Access applies to every command run in that terminal, not ju
 | UI | `wispr/UI/` | SwiftUI views — menu bar, recording overlay, settings, onboarding |
 | Utilities | `wispr/Utilities/` | Logging, theming, SF Symbols, preview helpers |
 
-The app uses a `CompositeTranscriptionEngine` that routes to the correct backend (WhisperService or ParakeetService) based on the selected model. Both engines conform to a shared `TranscriptionEngine` protocol, so switching between them is seamless.
+The app uses a `CompositeTranscriptionEngine` that routes to the correct backend (WhisperService, ParakeetService or Qwen3ASRService) based on the selected model. Both engines conform to a shared `TranscriptionEngine` protocol, so switching between them is seamless.
 
 ## License
 
