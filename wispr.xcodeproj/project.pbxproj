@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00C110242F60A00100000001 /* Qwen3ASR in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110212F60A00100000001 /* Qwen3ASR */; };
+		00C110252F60A00100000001 /* Qwen3ASR in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110222F60A00100000001 /* Qwen3ASR */; };
+		00C110262F60A00100000001 /* Qwen3ASR in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110232F60A00100000001 /* Qwen3ASR */; };
 		00C1100A2F60A00100000004 /* WisprCLI in CopyFiles */ = {isa = PBXBuildFile; fileRef = 00C110012F60A00100000005 /* WisprCLI */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 00C110122F60A00100000003 /* ArgumentParser */; };
 		0AF8E6B5B2AC76E3983230BF /* MeetingStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA7524D483751DC8BD496D3 /* MeetingStateManager.swift */; };
@@ -18,6 +21,7 @@
 		1C74D2B72FA6328D00208826 /* TranscriptionLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29B2FA6328D00208826 /* TranscriptionLanguage.swift */; };
 		1C74D2B82FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */; };
 		1C74D2B92FA6328D00208826 /* ModelInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2992FA6328D00208826 /* ModelInfo.swift */; };
+		00C110312F60A00100000001 /* Qwen3ASRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C110302F60A00100000001 /* Qwen3ASRService.swift */; };
 		1C74D2BA2FA6328D00208826 /* ParakeetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2A12FA6328D00208826 /* ParakeetService.swift */; };
 		1C74D2BB2FA6328D00208826 /* DownloadProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D2982FA6328D00208826 /* DownloadProgress.swift */; };
 		1C74D2BC2FA6328D00208826 /* AudioFileDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */; };
@@ -172,6 +176,7 @@
 		1C74D29D2FA6328D00208826 /* WisprError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WisprError.swift; sourceTree = "<group>"; };
 		1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFileDecoder.swift; sourceTree = "<group>"; };
 		1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompositeTranscriptionEngine.swift; sourceTree = "<group>"; };
+		00C110302F60A00100000001 /* Qwen3ASRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Qwen3ASRService.swift; sourceTree = "<group>"; };
 		1C74D2A12FA6328D00208826 /* ParakeetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetService.swift; sourceTree = "<group>"; };
 		1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionEngine.swift; sourceTree = "<group>"; };
 		1C74D2A32FA6328D00208826 /* WhisperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperService.swift; sourceTree = "<group>"; };
@@ -271,6 +276,7 @@
 			files = (
 				1C74D4212FA6394300208826 /* FluidAudio in Frameworks */,
 				1C74D4202FA6394300208826 /* WhisperKit in Frameworks */,
+				00C110242F60A00100000001 /* Qwen3ASR in Frameworks */,
 				1C74D1A12FA6032700208826 /* libWisprCore.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -295,6 +301,7 @@
 			files = (
 				1C74D4232FA6394300208826 /* FluidAudio in Frameworks */,
 				1C74D4222FA6394300208826 /* WhisperKit in Frameworks */,
+				00C110252F60A00100000001 /* Qwen3ASR in Frameworks */,
 				1C74D1A02FA6031B00208826 /* libWisprCore.a in Frameworks */,
 				00C1100F2F60A00100000003 /* ArgumentParser in Frameworks */,
 			);
@@ -306,6 +313,7 @@
 			files = (
 				1C74D2972FA6048400208826 /* WhisperKit in Frameworks */,
 				1C74D2952FA6047B00208826 /* FluidAudio in Frameworks */,
+				00C110262F60A00100000001 /* Qwen3ASR in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,6 +371,7 @@
 				1C74D29F2FA6328D00208826 /* AudioFileDecoder.swift */,
 				1C74D2A02FA6328D00208826 /* CompositeTranscriptionEngine.swift */,
 				1C74D2A12FA6328D00208826 /* ParakeetService.swift */,
+				00C110302F60A00100000001 /* Qwen3ASRService.swift */,
 				FB00000000000000000000F1 /* ProgressUpdate.swift */,
 				1C74D2A22FA6328D00208826 /* TranscriptionEngine.swift */,
 				1C74D2A32FA6328D00208826 /* WhisperService.swift */,
@@ -588,6 +597,7 @@
 			packageProductDependencies = (
 				000C012E2F50C874003B4CDA /* WhisperKit */,
 				00FA01012F58A00000000001 /* FluidAudio */,
+				00C110212F60A00100000001 /* Qwen3ASR */,
 			);
 			productName = wispr;
 			productReference = 00A1C0B62F50AD06001D1A22 /* Wispr.app */;
@@ -656,6 +666,7 @@
 			packageProductDependencies = (
 				00C110102F60A00100000001 /* WhisperKit */,
 				00C110112F60A00100000002 /* FluidAudio */,
+				00C110222F60A00100000001 /* Qwen3ASR */,
 				00C110122F60A00100000003 /* ArgumentParser */,
 			);
 			productName = "wispr-cli";
@@ -678,6 +689,7 @@
 			packageProductDependencies = (
 				1C74D2942FA6047B00208826 /* FluidAudio */,
 				1C74D2962FA6048400208826 /* WhisperKit */,
+				00C110232F60A00100000001 /* Qwen3ASR */,
 			);
 			productName = WisprCore;
 			productReference = 1C74D0D02FA6027300208826 /* libWisprCore.a */;
@@ -724,6 +736,7 @@
 			packageReferences = (
 				000C012D2F50C874003B4CDA /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				00FA01022F58A00000000001 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				00C110202F60A00100000001 /* XCRemoteSwiftPackageReference "speech-swift" */,
 				00C110132F60A0010000000F /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -875,6 +888,7 @@
 				1C74D2B82FA6328D00208826 /* CompositeTranscriptionEngine.swift in Sources */,
 				1C74D2B92FA6328D00208826 /* ModelInfo.swift in Sources */,
 				1C74D2BA2FA6328D00208826 /* ParakeetService.swift in Sources */,
+				00C110312F60A00100000001 /* Qwen3ASRService.swift in Sources */,
 				FB00000000000000000000A1 /* ProgressUpdate.swift in Sources */,
 				1C74D2BB2FA6328D00208826 /* DownloadProgress.swift in Sources */,
 				1C74D2BC2FA6328D00208826 /* AudioFileDecoder.swift in Sources */,
@@ -1401,6 +1415,14 @@
 				version = 0.15.5;
 			};
 		};
+		00C110202F60A00100000001 /* XCRemoteSwiftPackageReference "speech-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/soniqo/speech-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.0.19;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1438,6 +1460,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 000C012D2F50C874003B4CDA /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
+		};
+		00C110212F60A00100000001 /* Qwen3ASR */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00C110202F60A00100000001 /* XCRemoteSwiftPackageReference "speech-swift" */;
+			productName = Qwen3ASR;
+		};
+		00C110222F60A00100000001 /* Qwen3ASR */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00C110202F60A00100000001 /* XCRemoteSwiftPackageReference "speech-swift" */;
+			productName = Qwen3ASR;
+		};
+		00C110232F60A00100000001 /* Qwen3ASR */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00C110202F60A00100000001 /* XCRemoteSwiftPackageReference "speech-swift" */;
+			productName = Qwen3ASR;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
