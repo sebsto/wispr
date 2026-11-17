@@ -8,7 +8,7 @@ Wispr runs entirely on-device — your audio never leaves your Mac.
 
 - **Hotkey-triggered dictation** — press a shortcut to start/stop recording, transcribed text is inserted at the cursor
 - **Dual engine architecture** — choose between OpenAI Whisper and NVIDIA Parakeet models through a unified interface
-- **Multiple models** — Whisper Tiny (~75 MB) to Large v3 (~3 GB), Parakeet V3 (~400 MB), and Realtime 120M (~150 MB)
+- **Multiple models** — Whisper Tiny (~75 MB) to Large v3 (~3 GB) including Large v3 Turbo (~1.6 GB), Parakeet V3 (~400 MB), and Realtime 120M (~150 MB)
 - **Low-latency streaming** — Parakeet Realtime 120M provides end-of-utterance detection for near-instant results (English)
 - **Model management** — download, activate, switch, and delete models from a single UI
 - **Multi-language support** — Whisper supports 90+ languages, Parakeet V3 supports 25 languages
@@ -24,6 +24,7 @@ Wispr runs entirely on-device — your audio never leaves your Mac.
 | Base | Whisper | ~140 MB | No | 90+ | Good balance for quick tasks |
 | Small | Whisper | ~460 MB | No | 90+ | Solid general-purpose |
 | Medium | Whisper | ~1.5 GB | No | 90+ | High accuracy |
+| Large v3 Turbo | Whisper | ~1.6 GB | No | 90+ | Near Large v3 accuracy, much faster |
 | Large v3 | Whisper | ~3 GB | No | 90+ | Best Whisper accuracy |
 | Parakeet V3 | Parakeet | ~400 MB | No | 25 | Fast, high accuracy, multilingual |
 | Realtime 120M | Parakeet | ~150 MB | Yes | English | Low-latency with end-of-utterance detection |
