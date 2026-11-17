@@ -212,8 +212,7 @@ struct ProgressReporterStateTests {
         await reporter.begin(.transcribing, total: 100)
 
         await reporter.ingestForTesting(processedSeconds: 50)
-        // WhisperKit's per-token signal is a coarse lower bound and can report
-        // behind the last segment report.
+        // A report behind the current position is ignored.
         await reporter.ingestForTesting(processedSeconds: 30)
         #expect(await reporter.fractionForTesting == 0.50)
     }
@@ -298,7 +297,7 @@ struct ProgressReporterStateTests {
         #expect(second != first)
     }
 
-    @Test("No handlers are produced when progress is silent, so engines do no per-token work")
+    @Test("No handlers are produced when progress is silent, so engines do no progress work")
     func silentStyleProducesNoHandlers() async {
         let reporter = makeReporter()
         await reporter.begin(.transcribing, total: 10)

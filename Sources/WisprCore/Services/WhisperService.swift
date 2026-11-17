@@ -40,12 +40,35 @@ public actor WhisperService {
     /// Stores true when a model is being downloaded (for concurrent download prevention)
     private var downloadTasks: [String: Bool] = [:]
 
-    /// Length of one Whisper decoding window, in seconds. Whisper's architecture
-    /// fixes this at 30 s (480 000 samples at 16 kHz); it is not configurable.
-    /// Used to turn a window index into an audio position for progress reporting.
-    nonisolated static let windowSeconds: Double = 30.0
-
     public init() {}
+
+    /// Builds the WhisperKit segment callback that turns decoded windows into
+    /// `ProgressUpdate`s, or nil when no handler is supplied.
+    ///
+    /// The segment callback fires once per decoded window with absolute
+    /// timestamps, so the furthest segment end is the real position in the
+    /// audio. WhisperKit's per-token callback is not used for progress: it only
+    /// knows how many windows have been decoded, and WhisperKit starts each
+    /// window at the last timestamp it found, which is usually earlier than 30 s
+    /// after the previous window began. A window count times 30 s therefore
+    /// drifts ahead of the audio, and on a long file the bar would reach 100%
+    /// minutes before decoding ends. The reporter keeps its spinner and elapsed
+    /// time moving between segment reports by itself.
+    nonisolated static func makeSegmentCallback(
+        audioDuration: Double,
+        onProgress: TranscriptionProgressHandler?
+    ) -> SegmentDiscoveryCallback? {
+        onProgress.map { report in
+            { segments in
+                guard let furthest = segments.map(\.end).max() else { return }
+                report(ProgressUpdate(
+                    processedSeconds: Double(furthest),
+                    totalSeconds: audioDuration,
+                    textTail: segments.last?.text
+                ))
+            }
+        }
+    }
 
     /// Ensures the `ModelPaths.base` directory exists on disk.
     /// Called before any download or model-status query that needs the path.
@@ -417,17 +440,10 @@ public actor WhisperService {
     /// decode options, filtering, and result are the same, so passing a handler
     /// cannot change the transcript.
     ///
-    /// Progress comes from two WhisperKit hooks:
-    ///
-    /// - `segmentCallback` fires once per completed 30 s window with segments
-    ///   carrying absolute timestamps, so `max(end)` is the authoritative audio
-    ///   position. This is the accurate but coarse signal (~2 ticks/minute of
-    ///   audio) and it also supplies the text tail.
-    /// - `callback` fires per decoded token. Used only as a liveness signal, via
-    ///   `windowId` as a lower bound on position, so a caller can tell "slow"
-    ///   from "hung" between window boundaries. It returns nil so decoding is
-    ///   never interrupted, and does no work beyond one comparison and the
-    ///   handler call.
+    /// Progress comes from WhisperKit's `segmentCallback`, which fires once per
+    /// completed window with segments carrying absolute timestamps, so
+    /// `max(end)` is the authoritative audio position. It is coarse (about two
+    /// reports per minute of audio) and also supplies the text tail.
     ///
     /// - Parameters:
     ///   - audioSamples: The audio samples to transcribe (Float array, 16kHz sample rate)
@@ -477,40 +493,18 @@ public actor WhisperService {
             // WhisperKit runs its language identification pass instead of
             // falling back to the default "en".
             //
-            // The two progress callbacks are nil when no handler was supplied,
+            // The segment callback is nil when no handler was supplied,
             // so the app's code path is exactly the call it makes today.
-            let tokenCallback: TranscriptionCallback = onProgress.map { report in
-                { progress in
-                    // Coarse lower bound: the start of the window being decoded.
-                    // Consumers clamp monotonically, so this never walks the
-                    // displayed position backwards after a segment report.
-                    report(ProgressUpdate(
-                        processedSeconds: Double(progress.windowId) * Self.windowSeconds,
-                        totalSeconds: audioDuration,
-                        textTail: nil
-                    ))
-                    return nil  // never interrupt decoding
-                }
-            }
-
-            let segmentCallback: SegmentDiscoveryCallback? = onProgress.map { report in
-                { segments in
-                    guard let furthest = segments.map(\.end).max() else { return }
-                    report(ProgressUpdate(
-                        processedSeconds: Double(furthest),
-                        totalSeconds: audioDuration,
-                        textTail: segments.last?.text
-                    ))
-                }
-            }
-
+            let segmentCallback = Self.makeSegmentCallback(
+                audioDuration: audioDuration,
+                onProgress: onProgress
+            )
             let results = try await whisperKit.transcribe(
                 audioArray: audioSamples,
                 decodeOptions: DecodingOptions(
                     language: languageCode,
                     detectLanguage: languageCode == nil
                 ),
-                callback: tokenCallback,
                 segmentCallback: segmentCallback
             )
             

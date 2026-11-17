@@ -126,27 +126,6 @@ private actor NonReportingEngine: TranscriptionEngine {
     }
 }
 
-/// Thread-safe collector for handler invocations.
-///
-/// `nonisolated` because the package builds with `MainActor` default isolation,
-/// and the handler is `@Sendable` and called from the engine's own context.
-private nonisolated final class UpdateCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: [ProgressUpdate] = []
-
-    func record(_ update: ProgressUpdate) {
-        lock.lock()
-        defer { lock.unlock() }
-        storage.append(update)
-    }
-
-    var updates: [ProgressUpdate] {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
-}
-
 private func makeModel(_ id: String) -> ModelInfo {
     ModelInfo(
         id: id,
@@ -205,7 +184,7 @@ struct TranscriptionEngineProgressTests {
         let engine = NonReportingEngine(models: [makeModel("model-a")])
         try await engine.loadModel("model-a")
 
-        let collector = UpdateCollector()
+        let collector = ProgressUpdateCollector()
         let result = try await engine.transcribe(
             [0.0, 0.1],
             language: .autoDetect,
@@ -228,7 +207,7 @@ struct TranscriptionEngineProgressTests {
         )
         try await engine.loadModel("model-a")
 
-        let collector = UpdateCollector()
+        let collector = ProgressUpdateCollector()
         let result = try await engine.transcribe(
             [0.0],
             language: .autoDetect,
@@ -269,7 +248,7 @@ struct CompositeProgressForwardingTests {
         let composite = CompositeTranscriptionEngine(engines: [engine])
         try await composite.loadModel("model-a")
 
-        let collector = UpdateCollector()
+        let collector = ProgressUpdateCollector()
         let result = try await composite.transcribe(
             [0.0],
             language: .autoDetect,
@@ -291,7 +270,7 @@ struct CompositeProgressForwardingTests {
         let composite = CompositeTranscriptionEngine(engines: [silent, reporting])
         try await composite.loadModel("model-b")
 
-        let collector = UpdateCollector()
+        let collector = ProgressUpdateCollector()
         let result = try await composite.transcribe(
             [0.0],
             language: .autoDetect,
@@ -311,7 +290,7 @@ struct CompositeProgressForwardingTests {
         )
         let composite = CompositeTranscriptionEngine(engines: [engine])
 
-        let collector = UpdateCollector()
+        let collector = ProgressUpdateCollector()
         await #expect(throws: WisprError.self) {
             try await composite.transcribe(
                 [0.0],
