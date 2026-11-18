@@ -12,6 +12,28 @@ import Foundation
 import Qwen3ASR
 import os
 
+/// Owns a loaded model and runs its blocking inference.
+///
+/// Inference is synchronous and can take seconds per window. It lives on this
+/// actor, not on `Qwen3ASRService`, so the service keeps answering status and
+/// delete requests while a transcription runs.
+private actor Qwen3Runner {
+    private let model: Qwen3ASRModel
+
+    init(model: sending Qwen3ASRModel) {
+        self.model = model
+    }
+
+    func transcribe(_ samples: [Float], sampleRate: Int, language: String?) -> String {
+        model.transcribe(audio: samples, sampleRate: sampleRate, language: language)
+    }
+
+    /// Frees the weights and the MLX buffer cache.
+    func unload() {
+        model.unload()
+    }
+}
+
 public actor Qwen3ASRService {
 
     // MARK: - Catalog
@@ -65,7 +87,7 @@ public actor Qwen3ASRService {
 
     // MARK: - State
 
-    private var model: Qwen3ASRModel?
+    private var runner: Qwen3Runner?
     private var activeModelName: String?
     private var downloadTasks: [String: Task<Void, Never>] = [:]
 
@@ -156,12 +178,18 @@ public actor Qwen3ASRService {
             offlineMode: offline,
             progressHandler: progressHandler
         )
-        model = loaded
+        // A cancelled load must not replace the current model or activate.
+        try Task.checkCancellation()
+        runner = Qwen3Runner(model: loaded)
         Log.whisperService.debug("Qwen3ASRService — loaded \(variant.info.id)")
     }
 
-    private func unload() {
-        model = nil
+    private func unload() async {
+        // Free weights and MLX's buffer cache; dropping the reference alone
+        // leaves the cache allocated.
+        let old = runner
+        runner = nil
+        await old?.unload()
         activeModelName = nil
         Log.whisperService.debug("Qwen3ASRService — model unloaded")
     }
@@ -239,7 +267,7 @@ extension Qwen3ASRService: TranscriptionEngine {
         downloadTasks.removeValue(forKey: modelName)
 
         guard let variant = Self.variant(for: modelName) else { return }
-        if activeModelName == modelName { unload() }
+        if activeModelName == modelName { await unload() }
 
         let dir = ModelPaths.qwen3ASR(repoId: variant.repoId)
         if FileManager.default.fileExists(atPath: dir.path) {
@@ -256,7 +284,7 @@ extension Qwen3ASRService: TranscriptionEngine {
         guard let variant = Self.variant(for: modelName) else {
             throw WisprError.modelLoadFailed("Unknown model \(modelName)")
         }
-        guard activeModelName != modelName || model == nil else { return }
+        guard activeModelName != modelName || runner == nil else { return }
         guard Self.filesExist(for: variant) else { throw WisprError.modelNotDownloaded }
 
         do {
@@ -268,13 +296,13 @@ extension Qwen3ASRService: TranscriptionEngine {
     }
 
     public func switchModel(to modelName: String) async throws {
-        guard activeModelName != modelName || model == nil else { return }
-        unload()
+        guard activeModelName != modelName || runner == nil else { return }
+        await unload()
         try await loadModel(modelName)
     }
 
     public func unloadCurrentModel() async {
-        unload()
+        await unload()
     }
 
     public func validateModelIntegrity(_ modelName: String) async throws -> Bool {
@@ -286,7 +314,7 @@ extension Qwen3ASRService: TranscriptionEngine {
         guard let variant = Self.variant(for: modelName) else { return .notDownloaded }
         if downloadTasks[modelName] != nil { return .downloading(progress: 0.0) }
         guard Self.filesExist(for: variant) else { return .notDownloaded }
-        return (modelName == activeModelName && model != nil) ? .active : .downloaded
+        return (modelName == activeModelName && runner != nil) ? .active : .downloaded
     }
 
     public func activeModel() async -> String? {
@@ -301,7 +329,7 @@ extension Qwen3ASRService: TranscriptionEngine {
         var lastError: Error?
         for attempt in 0..<maxAttempts {
             do {
-                unload()
+                await unload()
                 try await loadModel(current)
                 return
             } catch {
@@ -325,7 +353,7 @@ extension Qwen3ASRService: TranscriptionEngine {
         language: TranscriptionLanguage,
         onProgress: TranscriptionProgressHandler?
     ) async throws -> TranscriptionResult {
-        guard let model else { throw WisprError.modelNotDownloaded }
+        guard let runner else { throw WisprError.modelNotDownloaded }
         guard audioSamples.count >= Self.minimumSamples else {
             throw WisprError.emptyTranscription
         }
@@ -337,11 +365,13 @@ extension Qwen3ASRService: TranscriptionEngine {
 
         for range in Self.chunkRanges(for: audioSamples) {
             try Task.checkCancellation()
-            let raw = model.transcribe(
-                audio: Array(audioSamples[range]),
+            let raw = await runner.transcribe(
+                Array(audioSamples[range]),
                 sampleRate: Self.sampleRate,
                 language: hint
             )
+            // Cancelled mid-inference: drop the result instead of reporting it.
+            try Task.checkCancellation()
             let text = Self.cleanedText(raw)
             if !text.isEmpty { pieces.append(text) }
             onProgress?(ProgressUpdate(
@@ -357,7 +387,7 @@ extension Qwen3ASRService: TranscriptionEngine {
         let duration = Date().timeIntervalSince(startTime)
         Log.whisperService.debug("Qwen3ASRService — transcribed \(audioSamples.count) samples in \(duration, format: .fixed(precision: 2))s")
 
-        return TranscriptionResult(text: joined, detectedLanguage: hint, duration: duration)
+        return TranscriptionResult(text: joined, detectedLanguage: nil, duration: duration)
     }
 
     public func supportsEndOfUtteranceDetection() async -> Bool {
