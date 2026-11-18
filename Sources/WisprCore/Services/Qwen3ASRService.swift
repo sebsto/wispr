@@ -19,17 +19,22 @@ import os
 /// delete requests while a transcription runs.
 private actor Qwen3Runner {
     private let model: Qwen3ASRModel
+    private var isUnloaded = false
 
     init(model: sending Qwen3ASRModel) {
         self.model = model
     }
 
-    func transcribe(_ samples: [Float], sampleRate: Int, language: String?) -> String {
-        model.transcribe(audio: samples, sampleRate: sampleRate, language: language)
+    func transcribe(_ samples: [Float], sampleRate: Int, language: String?) throws -> String {
+        // Unloading clears the weights, so inference after it is invalid.
+        guard !isUnloaded else { throw WisprError.modelNotDownloaded }
+        return model.transcribe(audio: samples, sampleRate: sampleRate, language: language)
     }
 
     /// Frees the weights and the MLX buffer cache.
     func unload() {
+        guard !isUnloaded else { return }
+        isUnloaded = true
         model.unload()
     }
 }
@@ -189,8 +194,9 @@ public actor Qwen3ASRService {
         // leaves the cache allocated.
         let old = runner
         runner = nil
-        await old?.unload()
+        // Cleared before the await so a load that starts meanwhile keeps its name.
         activeModelName = nil
+        await old?.unload()
         Log.whisperService.debug("Qwen3ASRService — model unloaded")
     }
 }
@@ -365,7 +371,7 @@ extension Qwen3ASRService: TranscriptionEngine {
 
         for range in Self.chunkRanges(for: audioSamples) {
             try Task.checkCancellation()
-            let raw = await runner.transcribe(
+            let raw = try await runner.transcribe(
                 Array(audioSamples[range]),
                 sampleRate: Self.sampleRate,
                 language: hint
