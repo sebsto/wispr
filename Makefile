@@ -9,6 +9,8 @@ PARAKEET_DIR := $(HOME)/Library/Application Support/FluidAudio
 
 SCHEME       := wispr
 XCODEPROJ    := wispr.xcodeproj
+# Xcode 27.2 JSON project file. The release targets edit version keys in it with sed.
+PROJECT_FILE := $(XCODEPROJ)/project.xcproj
 ARCHIVE_PATH := $(CURDIR)/build/wispr.xcarchive
 EXPORT_DIR   := $(CURDIR)/build/export
 
@@ -58,7 +60,7 @@ DISTRIBUTION_XML   := $(CURDIR)/pkg/distribution.xml
 # VERSION: a caller-supplied value (make pkg VERSION=x.y.z or pkg-release) always wins;
 # otherwise fall back to the project's current MARKETING_VERSION so the output filename
 # and package version stay deterministic.
-VERSION ?= $(shell grep -m1 'MARKETING_VERSION' $(XCODEPROJ)/project.pbxproj | sed 's/.*= *//;s/;.*//')
+VERSION ?= $(shell grep -m1 '"MARKETING_VERSION"' $(PROJECT_FILE) | sed 's/.*: *"//;s/".*//')
 FINAL_PKG          := $(EXPORT_DIR)/wispr-$(VERSION).pkg
 # Stable-named copy of the installer. Uploaded alongside the versioned .pkg so the
 # website can link to the fixed URL releases/latest/download/Wispr.pkg (no GitHub
@@ -102,7 +104,7 @@ _commit-and-tag:
 	@test -n "$(VERSION)" || { echo "Error: VERSION not set for _commit-and-tag"; exit 1; }
 	$(eval TAG := v$(VERSION))
 	@echo "📌 Committing version bump…"
-	@git add $(XCODEPROJ)/project.pbxproj
+	@git add $(PROJECT_FILE)
 	@git diff --cached --quiet || git commit --no-verify -m "chore: release $(TAG)"
 	@git push --no-verify origin HEAD
 	@echo "🏷️  Tagging $(TAG)…"
@@ -148,7 +150,7 @@ _generate-cask:
 
 bump-build: ## Set build number (CFBundleVersion) to git commit count
 	$(eval BUILD_NUM := $(shell date +%y%m%d).$(shell git rev-list --count HEAD))
-	@xcrun agvtool new-version -all $(BUILD_NUM) > /dev/null
+	@sed -i '' 's/"CURRENT_PROJECT_VERSION": "[^"]*"/"CURRENT_PROJECT_VERSION": "$(BUILD_NUM)"/g' $(PROJECT_FILE)
 	@echo "Build number set to $(BUILD_NUM)"
 
 archive: bump-build ## Bump build number and create Release archive (version is unchanged)
@@ -298,7 +300,7 @@ pkg-release: ## Upload only the .pkg to GitHub Releases (usage: make pkg-release
 	@command -v gh >/dev/null || { echo "Error: gh CLI not installed"; exit 1; }
 	$(eval TAG := v$(VERSION))
 	@echo "📝 Setting version to $(VERSION)…"
-	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
+	@sed -i '' 's/"MARKETING_VERSION": "[^"]*"/"MARKETING_VERSION": "$(VERSION)"/g' $(PROJECT_FILE)
 	@$(MAKE) pkg VERSION=$(VERSION)
 	@$(MAKE) _commit-and-tag VERSION=$(VERSION)
 	@echo "🏷️  Creating GitHub release $(TAG)…"
@@ -338,7 +340,7 @@ brew-release: ## Create Homebrew cask release only (usage: make brew-release VER
 	$(eval TAG := v$(VERSION))
 	$(eval ZIP_NAME := wispr-$(VERSION).zip)
 	@echo "📝 Setting version to $(VERSION)..."
-	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
+	@sed -i '' 's/"MARKETING_VERSION": "[^"]*"/"MARKETING_VERSION": "$(VERSION)"/g' $(PROJECT_FILE)
 	@$(MAKE) notarize
 	@echo "🗜️  Creating release zip..."
 	@cp "$(ZIP_PATH)" "$(EXPORT_DIR)/$(ZIP_NAME)"
@@ -363,7 +365,7 @@ release: ## Release BOTH .pkg and Homebrew cask under one version (usage: make r
 	$(eval TAG := v$(VERSION))
 	$(eval ZIP_NAME := wispr-$(VERSION).zip)
 	@echo "📝 Setting version to $(VERSION)…"
-	@sed -i '' 's/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $(VERSION)/g' $(XCODEPROJ)/project.pbxproj
+	@sed -i '' 's/"MARKETING_VERSION": "[^"]*"/"MARKETING_VERSION": "$(VERSION)"/g' $(PROJECT_FILE)
 	@# `pkg` depends on `notarize`, which produces both the stapled app and the
 	@# Homebrew .zip — so one notarization round-trip yields both artifacts.
 	@$(MAKE) pkg VERSION=$(VERSION)
