@@ -162,19 +162,19 @@ struct PkgInstallerTests {
 
             let dir = try tempDir()
             defer { try? FileManager.default.removeItem(at: dir) }
-            let pbxURL = dir.appendingPathComponent("project.pbxproj")
+            let pbxURL = dir.appendingPathComponent("project.xcproj")
 
             let content = """
-            \t\t\t\tPRODUCT_NAME = wispr;
-            \t\t\t\tMARKETING_VERSION = \(old);
-            \t\t\t\tOTHER_SETTING = 1;
-            \t\t\t\tMARKETING_VERSION = \(old);
+            \t\t"PRODUCT_NAME": "wispr",
+            \t\t"MARKETING_VERSION": "\(old)",
+            \t\t"OTHER_SETTING": "1",
+            \t\t"MARKETING_VERSION": "\(old)",
             """
             try content.write(to: pbxURL, atomically: true, encoding: .utf8)
 
             let (code, _) = run("/usr/bin/sed", [
                 "-i", "",
-                "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = \(new)/g",
+                "s/\"MARKETING_VERSION\": \"[^\"]*\"/\"MARKETING_VERSION\": \"\(new)\"/g",
                 pbxURL.path,
             ])
             #expect(code == 0)
@@ -184,7 +184,7 @@ struct PkgInstallerTests {
                 .filter { $0.contains("MARKETING_VERSION") }
             #expect(!entries.isEmpty)
             for entry in entries {
-                #expect(entry.contains("MARKETING_VERSION = \(new);"))
+                #expect(entry.contains("\"MARKETING_VERSION\": \"\(new)\""))
                 #expect(!entry.contains("= \(old);"))
             }
         }
