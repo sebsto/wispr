@@ -40,7 +40,7 @@ brew install wispr
 
 ### Building from Source
 
-Requires macOS 26.2+ and Xcode 26+ (Apple Silicon only)
+Requires macOS 26.2+ and Xcode 27.2+ (Apple Silicon only)
 
 1. Clone the repo
 2. Open `wispr.xcodeproj` in Xcode

@@ -8,9 +8,9 @@ on:
 
 jobs:
   build-spm:
-    runs-on: macos-26
+    runs-on: xcode-27
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v5
 
@@ -25,9 +25,9 @@ jobs:
         run: swift build
 
   test-spm:
-    runs-on: macos-26
+    runs-on: xcode-27
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v5
 
@@ -52,9 +52,9 @@ jobs:
         run: swift test
 
   build-xcode:
-    runs-on: macos-26
+    runs-on: xcode-27
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       SPM_PACKAGES: .spm-packages
     steps:
       - uses: actions/checkout@v5

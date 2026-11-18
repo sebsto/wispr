@@ -24,7 +24,7 @@ struct CLIInstallDialogTests {
             encoding: .utf8
         )
         let xcodeProjectContents = try String(
-            contentsOf: repoRoot.appendingPathComponent("wispr.xcodeproj/project.pbxproj"),
+            contentsOf: repoRoot.appendingPathComponent("wispr.xcodeproj/project.xcproj"),
             encoding: .utf8
         )
 
@@ -46,9 +46,9 @@ struct CLIInstallDialogTests {
 
     private func extractXcodeCLIExecutableName(from contents: String) throws -> String {
         // Capture the CLI executable file reference specifically (not the app executable).
-        let regex = #/\/\*\s*WisprCLI\s*\*\/\s*=\s*\{isa = PBXFileReference; explicitFileType = "compiled\.mach-o\.executable";[^\n]* path = ([^;]+);/#
+        let regex = #/\{\s*"path":\s*"<PRODUCTS>\/([^"]+)",[^\n]*"type":\s*"compiled\.mach-o\.executable"/#
         guard let match = contents.firstMatch(of: regex) else {
-            throw ParseError.patternNotFound("WisprCLI PBXFileReference executable path")
+            throw ParseError.patternNotFound("WisprCLI executable product entry")
         }
         return String(match.1)
     }
