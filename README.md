@@ -31,6 +31,8 @@ Wispr runs entirely on-device — your audio never leaves your Mac.
 | Qwen3-ASR 0.6B | Qwen | ~710 MB | No | 52 | Fast, multilingual |
 | Qwen3-ASR 1.7B | Qwen | ~2.5 GB | No | 52 | Higher accuracy, multilingual |
 
+Qwen3-ASR weights are the MLX conversions published by [aufklarer](https://huggingface.co/aufklarer) on Hugging Face.
+
 ## Installation
 
 ### Homebrew (Recommended)
