@@ -172,11 +172,12 @@ public actor Qwen3ASRService {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func loadModelFromDisk(
+    /// Loads a model into memory and returns it without making it active.
+    private func loadRunner(
         _ variant: Variant,
         offline: Bool,
         progressHandler: (@Sendable (Double, String) -> Void)? = nil
-    ) async throws {
+    ) async throws -> Qwen3Runner {
         let loaded = try await Qwen3ASRModel.fromPretrained(
             modelId: variant.repoId,
             cacheDir: ModelPaths.qwen3ASR(repoId: variant.repoId),
@@ -185,8 +186,16 @@ public actor Qwen3ASRService {
         )
         // A cancelled load must not replace the current model or activate.
         try Task.checkCancellation()
-        runner = Qwen3Runner(model: loaded)
         Log.whisperService.debug("Qwen3ASRService — loaded \(variant.info.id)")
+        return Qwen3Runner(model: loaded)
+    }
+
+    /// Makes `newRunner` the active model and frees the one it replaces.
+    private func activate(_ newRunner: Qwen3Runner, name: String) async {
+        let old = runner
+        runner = newRunner
+        activeModelName = name
+        await old?.unload()
     }
 
     private func unload() async {
@@ -233,7 +242,7 @@ extension Qwen3ASRService: TranscriptionEngine {
                 // The SDK reports 0...0.8 while fetching files, then 0.8...1.0
                 // while it reads weights into memory.
                 let downloadShare = 0.8
-                try await self.loadModelFromDisk(variant, offline: false) { fraction, _ in
+                let loaded = try await self.loadRunner(variant, offline: false) { fraction, _ in
                     if fraction < downloadShare {
                         let download = fraction / downloadShare
                         continuation.yield(DownloadProgress(
@@ -251,7 +260,14 @@ extension Qwen3ASRService: TranscriptionEngine {
                         ))
                     }
                 }
-                self.activeModelName = model.id
+                // A download only activates the model when nothing else is
+                // active; otherwise the new weights are released again.
+                if self.runner == nil {
+                    self.runner = loaded
+                    self.activeModelName = model.id
+                } else {
+                    await loaded.unload()
+                }
 
                 continuation.yield(DownloadProgress(
                     phase: .warmingUp, fractionCompleted: 1.0, bytesDownloaded: estimatedSize, totalBytes: estimatedSize
@@ -294,8 +310,8 @@ extension Qwen3ASRService: TranscriptionEngine {
         guard Self.filesExist(for: variant) else { throw WisprError.modelNotDownloaded }
 
         do {
-            try await loadModelFromDisk(variant, offline: true)
-            activeModelName = modelName
+            let loaded = try await loadRunner(variant, offline: true)
+            await activate(loaded, name: modelName)
         } catch {
             throw WisprError.modelLoadFailed("Failed to load \(variant.info.displayName): \(error.localizedDescription)")
         }
@@ -340,6 +356,7 @@ extension Qwen3ASRService: TranscriptionEngine {
                 return
             } catch {
                 lastError = error
+                if attempt == maxAttempts - 1 { break }
                 try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
             }
         }
