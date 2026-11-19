@@ -101,6 +101,32 @@ struct Qwen3ASRServiceTests {
         #expect(Qwen3ASRService.cleanedText("language is hard") == "language is hard")
     }
 
+    @Test("cleanedText drops a bare asr_text tag")
+    func cleanBareTag() {
+        #expect(Qwen3ASRService.cleanedText("<asr_text>Bonjour") == "Bonjour")
+    }
+
+    // MARK: - Repetition guard
+
+    @Test("a single word repeated is a runaway")
+    func runawaySingleWord() {
+        let text = Array(repeating: "petits", count: 28).joined(separator: " ")
+        #expect(Qwen3ASRService.isRunawayRepetition(text))
+    }
+
+    @Test("a repeated four-word loop is a runaway")
+    func runawayPhrase() {
+        let text = Array(repeating: "des gens qui sont", count: 10).joined(separator: " ")
+        #expect(Qwen3ASRService.isRunawayRepetition(text))
+    }
+
+    @Test("normal sentences and short repeats are not runaways")
+    func notRunaway() {
+        #expect(!Qwen3ASRService.isRunawayRepetition("It was very, very good and we left at nine."))
+        #expect(!Qwen3ASRService.isRunawayRepetition("no no no no"))
+        #expect(!Qwen3ASRService.isRunawayRepetition(""))
+    }
+
     // MARK: - Chunking
 
     @Test("empty audio gives no chunks")

@@ -18,6 +18,10 @@ import os
 /// actor, not on `Qwen3ASRService`, so the service keeps answering status and
 /// delete requests while a transcription runs.
 private actor Qwen3Runner {
+    /// Windows up to this length (meeting mode sends 3 s slices) get the
+    /// repetition controls.
+    private static let shortWindowSeconds = 10.0
+
     private let model: Qwen3ASRModel
     private var isUnloaded = false
 
@@ -28,7 +32,20 @@ private actor Qwen3Runner {
     func transcribe(_ samples: [Float], sampleRate: Int, language: String?) throws -> String {
         // Unloading clears the weights, so inference after it is invalid.
         guard !isUnloaded else { throw WisprError.modelNotDownloaded }
-        return model.transcribe(audio: samples, sampleRate: sampleRate, language: language)
+        // Plain greedy decoding can lock onto one token and repeat it until
+        // the token cap, typical on short windows with half words or noise.
+        // Short windows get repetition controls and a cap proportional to
+        // their length. Long windows are left alone: a 30 s window of real
+        // speech legitimately repeats phrases, which the n-gram block would cut.
+        let seconds = Double(samples.count) / Double(sampleRate)
+        let isShortWindow = seconds <= Self.shortWindowSeconds
+        let options = Qwen3DecodingOptions(
+            maxTokens: isShortWindow ? min(448, 32 + Int(8 * seconds)) : 448,
+            language: language,
+            repetitionPenalty: isShortWindow ? 1.15 : 1.0,
+            noRepeatNgramSize: isShortWindow ? 3 : 0
+        )
+        return model.transcribe(audio: samples, sampleRate: sampleRate, options: options)
     }
 
     /// Frees the weights and the MLX buffer cache.
@@ -163,13 +180,32 @@ public actor Qwen3ASRService {
         return ranges
     }
 
-    /// Strips the "language XX" prefix auto-detection can leave in the output.
+    /// Strips the "language XX" prefix and the `<asr_text>` tag auto-detection
+    /// can leave in the output.
     nonisolated static func cleanedText(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.hasPrefix("language "), let marker = text.range(of: "<asr_text>") {
+        if let marker = text.range(of: "<asr_text>") {
             text = String(text[marker.upperBound...])
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// True when a short phrase (1 to 4 words) makes up most of the text,
+    /// the signature of a decoder stuck in a loop.
+    nonisolated static func isRunawayRepetition(_ text: String) -> Bool {
+        let words = text.split(whereSeparator: { $0.isWhitespace })
+            .map { $0.lowercased() }
+        guard words.count >= 6 else { return false }
+        for n in 1...4 where words.count >= n {
+            var counts: [ArraySlice<String>: Int] = [:]
+            for start in 0...(words.count - n) {
+                counts[words[start..<(start + n)], default: 0] += 1
+            }
+            if let top = counts.values.max(), top >= 4, top * n * 2 > words.count {
+                return true
+            }
+        }
+        return false
     }
 
     /// Loads a model into memory and returns it without making it active.
@@ -242,6 +278,8 @@ extension Qwen3ASRService: TranscriptionEngine {
                 // The SDK reports 0...0.8 while fetching files, then 0.8...1.0
                 // while it reads weights into memory.
                 let downloadShare = 0.8
+                // The SDK has no download-only call: fetching the files goes
+                // through loading the weights, so the model is in memory here.
                 let loaded = try await self.loadRunner(variant, offline: false) { fraction, _ in
                     if fraction < downloadShare {
                         let download = fraction / downloadShare
@@ -285,8 +323,11 @@ extension Qwen3ASRService: TranscriptionEngine {
     }
 
     public func deleteModel(_ modelName: String) async throws {
-        downloadTasks[modelName]?.cancel()
-        downloadTasks.removeValue(forKey: modelName)
+        // Wait for a cancelled download to stop writing before removing its files.
+        if let task = downloadTasks.removeValue(forKey: modelName) {
+            task.cancel()
+            await task.value
+        }
 
         guard let variant = Self.variant(for: modelName) else { return }
         if activeModelName == modelName { await unload() }
@@ -312,6 +353,8 @@ extension Qwen3ASRService: TranscriptionEngine {
         do {
             let loaded = try await loadRunner(variant, offline: true)
             await activate(loaded, name: modelName)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw WisprError.modelLoadFailed("Failed to load \(variant.info.displayName): \(error.localizedDescription)")
         }
@@ -396,7 +439,11 @@ extension Qwen3ASRService: TranscriptionEngine {
             // Cancelled mid-inference: drop the result instead of reporting it.
             try Task.checkCancellation()
             let text = Self.cleanedText(raw)
-            if !text.isEmpty { pieces.append(text) }
+            if Self.isRunawayRepetition(text) {
+                Log.whisperService.debug("Qwen3ASRService — dropped a repeating window")
+            } else if !text.isEmpty {
+                pieces.append(text)
+            }
             onProgress?(ProgressUpdate(
                 processedSeconds: Double(range.upperBound) / Double(Self.sampleRate),
                 totalSeconds: totalSeconds,
