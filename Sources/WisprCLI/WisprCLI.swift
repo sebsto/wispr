@@ -259,7 +259,7 @@ struct WisprCLI: AsyncParsableCommand {
         // 1. Load the model. Length is unknowable up front (CoreML/ANE
         //    compilation dominates), so this phase is indeterminate.
         let engine = CompositeTranscriptionEngine(
-            engines: [WhisperService(), ParakeetService()]
+            engines: [WhisperService(), ParakeetService(), Qwen3ASRService()]
         )
         await reporter.begin(.loadingModel(modelName))
         try await engine.loadModel(modelName)
@@ -420,6 +420,15 @@ struct WisprCLI: AsyncParsableCommand {
         if fm.fileExists(atPath: eouPath.path) {
             let size = directorySize(at: eouPath)
             results.append(DownloadedModelInfo(name: "parakeet-eou-160ms", sizeOnDisk: size, path: eouPath))
+        }
+
+        // Scan Qwen3-ASR models
+        for model in Qwen3ASRService.downloadedModels() {
+            results.append(DownloadedModelInfo(
+                name: model.id,
+                sizeOnDisk: directorySize(at: model.directory),
+                path: model.directory
+            ))
         }
 
         return results

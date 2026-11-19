@@ -170,4 +170,7 @@ enum SFSymbols {
 
     /// Icon representing the NVIDIA Parakeet provider.
     static let providerParakeet = "bird"
+
+    /// Icon representing the Alibaba Qwen provider.
+    static let providerQwen = "sparkles"
 }

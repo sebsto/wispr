@@ -11,6 +11,7 @@ import Foundation
 public nonisolated enum ModelProvider: String, Sendable, Equatable, Hashable, CaseIterable {
     case whisper = "OpenAI Whisper"
     case nvidiaParakeet = "NVIDIA Parakeet"
+    case alibabaQwen = "Alibaba Qwen"
 }
 
 /// Information about a transcription model
@@ -24,7 +25,9 @@ public nonisolated struct ModelInfo: Identifiable, Sendable, Equatable {
 
     /// The provider that owns this model, derived from the model ID.
     public var provider: ModelProvider {
-        id.hasPrefix("parakeet") ? .nvidiaParakeet : .whisper
+        if id.hasPrefix("parakeet") { return .nvidiaParakeet }
+        if id.hasPrefix("qwen3-asr") { return .alibabaQwen }
+        return .whisper
     }
 
     public init(id: String, displayName: String, sizeDescription: String, qualityDescription: String, estimatedSize: Int64, status: ModelStatus) {
@@ -49,5 +52,8 @@ public nonisolated struct ModelInfo: Identifiable, Sendable, Equatable {
         // Parakeet
         public static let parakeetV3 = "parakeet-v3"
         public static let parakeetEou = "parakeet-eou-160ms"
+        // Qwen3-ASR
+        public static let qwen3ASR06B = "qwen3-asr-0.6b"
+        public static let qwen3ASR17B = "qwen3-asr-1.7b"
     }
 }

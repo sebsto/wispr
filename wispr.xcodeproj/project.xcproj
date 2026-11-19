@@ -25,6 +25,12 @@
       },
     }, {
       "kind": "remote",
+      "repository": "https://github.com/soniqo/speech-swift.git",
+      "version": {
+        "version": "0.0.19",
+      },
+    }, {
+      "kind": "remote",
       "repository": "https://github.com/apple/swift-argument-parser.git",
       "version": {
         "up-to-next-major-version": "1.5.0",
@@ -203,6 +209,7 @@
             { "path": "AudioFileDecoder.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "CompositeTranscriptionEngine.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "ParakeetService.swift", "target-membership": [ "WisprCore/compile-sources" ] },
+            { "path": "Qwen3ASRService.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "ProgressUpdate.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "TranscriptionEngine.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "WhisperService.swift", "target-membership": [ "WisprCore/compile-sources" ] },
@@ -262,6 +269,10 @@
           "package": "WhisperKit",
           "product-name": "WhisperKit",
           "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "speech-swift",
+          "product-name": "Qwen3ASR",
+          "build-phase": { "build-phase": "frameworks" },
         },
       ],
       "build-settings": {
@@ -300,6 +311,10 @@
         }, {
           "package": "WhisperKit",
           "product-name": "WhisperKit",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "speech-swift",
+          "product-name": "Qwen3ASR",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],
@@ -364,6 +379,10 @@
         }, {
           "package": "WhisperKit",
           "product-name": "WhisperKit",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "speech-swift",
+          "product-name": "Qwen3ASR",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "swift-argument-parser",

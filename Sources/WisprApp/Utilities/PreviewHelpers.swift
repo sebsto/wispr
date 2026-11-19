@@ -129,6 +129,8 @@ enum PreviewMocks {
                   qualityDescription: "Fast, high accuracy, multilingual", estimatedSize: 400 * 1024 * 1024, status: .notDownloaded),
         ModelInfo(id: ModelInfo.KnownID.parakeetEou, displayName: "Realtime 120M", sizeDescription: "~150 MB",
                   qualityDescription: "Low-latency streaming (English only)", estimatedSize: 150 * 1024 * 1024, status: .notDownloaded),
+        ModelInfo(id: ModelInfo.KnownID.qwen3ASR06B, displayName: "Qwen3-ASR 0.6B", sizeDescription: "~710 MB",
+                  qualityDescription: "Fast, multilingual", estimatedSize: 713 * 1000 * 1000, status: .notDownloaded),
     ]
 }
 
