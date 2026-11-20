@@ -101,6 +101,7 @@ struct WisprCLI: AsyncParsableCommand {
             Examples:
               wispr-cli recording.m4a
               wispr-cli meeting.mp4 --model large-v3 --language en
+              wispr-cli lecture.m4a --model turbo
               wispr-cli podcast.mp3 --output transcript.txt --verbose
               wispr-cli --list-models
             """,
@@ -336,11 +337,14 @@ struct WisprCLI: AsyncParsableCommand {
             throw CLIError.noDownloadedModels(searched: ModelPaths.models.path)
         }
 
-        if let name = explicitName {
+        if let requested = explicitName {
+            let name = ModelInfo.canonicalID(for: requested)
             guard downloadedModels.contains(where: { $0.name == name }) else {
                 throw CLIError.modelNotFound(
-                    name,
-                    available: downloadedModels.map(\.name)
+                    requested,
+                    available: downloadedModels.map {
+                        Self.displayName(for: $0.name)
+                    }
                 )
             }
             return name
@@ -460,6 +464,12 @@ struct WisprCLI: AsyncParsableCommand {
 
     // MARK: - List Models
 
+    /// A model name followed by its short aliases, e.g. `x (alias: turbo)`.
+    static func displayName(for name: String) -> String {
+        let aliases = ModelInfo.aliases(for: name)
+        return aliases.isEmpty ? name : "\(name) (alias: \(aliases.joined(separator: ", ")))"
+    }
+
     func doListModels() throws {
         let models = try discoverDownloadedModels()
         if models.isEmpty {
@@ -471,7 +481,7 @@ struct WisprCLI: AsyncParsableCommand {
         for model in models {
             let sizeMB = Double(model.sizeOnDisk) / 1_000_000
             let active = model.name == activeModel ? " (active)" : ""
-            print("\(model.name)\t\(String(format: "%.0f", sizeMB)) MB\(active)")
+            print("\(Self.displayName(for: model.name))\t\(String(format: "%.0f", sizeMB)) MB\(active)")
         }
     }
 
