@@ -143,11 +143,11 @@ public actor ParakeetService {
 
     private func transcribeWithEou(_ audioSamples: [Float]) async throws -> TranscriptionResult {
         guard let manager = eouManager else { throw WisprError.modelNotDownloaded }
-        guard audioSamples.count >= 8000 else { throw WisprError.emptyTranscription }
+        let decodingSamples = try TranscriptionAudio.paddedForDecoding(audioSamples)
 
         await manager.reset()
         let startTime = Date()
-        let buffer = try createPCMBuffer(from: audioSamples, sampleRate: 16000)
+        let buffer = try createPCMBuffer(from: decodingSamples, sampleRate: 16000)
         _ = try await manager.process(audioBuffer: buffer)
         let text = try await manager.finish()
 
@@ -497,10 +497,7 @@ extension ParakeetService: TranscriptionEngine {
             throw WisprError.modelNotDownloaded
         }
 
-        guard audioSamples.count >= 8000 else {
-            Log.whisperService.debug("ParakeetService — audio too short (\(audioSamples.count) samples), skipping")
-            throw WisprError.emptyTranscription
-        }
+        let decodingSamples = try TranscriptionAudio.paddedForDecoding(audioSamples)
 
         let startTime = Date()
 
@@ -529,7 +526,7 @@ extension ParakeetService: TranscriptionEngine {
         defer { progressPump?.cancel() }
 
         var decoderState = try TdtDecoderState()
-        let result = try await asrManager.transcribe(audioSamples, decoderState: &decoderState)
+        let result = try await asrManager.transcribe(decodingSamples, decoderState: &decoderState)
 
         let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {

@@ -11,25 +11,83 @@ import AVFoundation
 import CoreAudio
 import os
 
+protocol AudioCapturing: Actor {
+    func setInputDevice(_ deviceID: AudioDeviceID?) async throws
+    func deviceIDForUID(_ uid: String) async -> AudioDeviceID?
+    func prepareCapture() async
+    func startCapture() async throws -> AsyncStream<Float>
+    func stopCapture() async -> [Float]
+    func cancelCapture() async
+    var captureStream: AsyncStream<[Float]> { get async }
+}
+
+/// Each tap owns its buffer. Synchronous appends cannot be overtaken by an
+/// actor task stopping capture, or leak into the next recording session.
+nonisolated final class CaptureAudioBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var samples: [Float] = []
+    private var finished = false
+    private let levels: AsyncStream<Float>.Continuation
+    private var chunks: AsyncStream<[Float]>.Continuation?
+
+    init(levels: AsyncStream<Float>.Continuation) {
+        self.levels = levels
+    }
+
+    func append(_ data: [Float]) {
+        guard !data.isEmpty else { return }
+        lock.withLock {
+            guard !finished else { return }
+            samples.append(contentsOf: data)
+            let rms = sqrt(data.reduce(0) { $0 + $1 * $1 } / Float(data.count))
+            levels.yield(min(max(rms * 5, 0), 1))
+            chunks?.yield(data)
+        }
+    }
+
+    func stream() -> AsyncStream<[Float]> {
+        lock.withLock {
+            let (stream, continuation) = AsyncStream.makeStream(of: [Float].self)
+            if finished {
+                continuation.finish()
+            } else {
+                chunks?.finish()
+                chunks = continuation
+            }
+            return stream
+        }
+    }
+
+    func finish() -> [Float] {
+        lock.withLock {
+            finished = true
+            levels.finish()
+            chunks?.finish()
+            chunks = nil
+            let captured = samples
+            samples.removeAll()
+            return captured
+        }
+    }
+}
+
 /// Actor responsible for audio capture using AVAudioEngine.
 /// Provides real-time audio level streaming and recorded audio data.
 ///
 /// ## Privacy Guarantees (Requirements 11.1, 11.2)
 ///
 /// - **No temporary audio files**: All audio data is captured and held exclusively
-///   in an in-memory `[Float]` buffer (`audioBuffer`). No audio is ever written to
+///   in an in-memory `[Float]` buffer. No audio is ever written to
 ///   disk as a temporary file, so there is nothing to clean up on the file system.
 /// - **Immediate buffer cleanup**: When `stopCapture()` is called, the in-memory
-///   buffer is copied for return and then immediately cleared via `teardownEngine()`.
+///   buffer is copied for return and then immediately cleared.
 ///   When `cancelCapture()` is called, the buffer is discarded without returning data.
 /// - **No network connections**: Audio capture uses only local `AVAudioEngine` APIs.
 ///   No audio data is transmitted over any network connection.
-actor AudioEngine {
+actor AudioEngine: AudioCapturing {
     // MARK: - State
     private var engine: AVAudioEngine?
-    private var audioBuffer: [Float] = []
-    private var levelContinuation: AsyncStream<Float>.Continuation?
-    private var audioContinuation: AsyncStream<[Float]>.Continuation?
+    private var captureBuffer: CaptureAudioBuffer?
     private var selectedDeviceID: AudioDeviceID?
     private var isCapturing = false
     
@@ -39,6 +97,9 @@ actor AudioEngine {
     /// - Parameter deviceID: The AudioDeviceID to use for input
     /// - Throws: WisprError if the device cannot be set
     func setInputDevice(_ deviceID: AudioDeviceID?) throws {
+        if selectedDeviceID != deviceID, !isCapturing {
+            engine = nil
+        }
         selectedDeviceID = deviceID
     }
 
@@ -67,11 +128,22 @@ actor AudioEngine {
     }
     
     // MARK: - Recording
+
+    /// Allocate the default input graph ahead of the hotkey without starting
+    /// the microphone or collecting idle audio.
+    func prepareCapture() {
+        guard !isCapturing, engine == nil, selectedDeviceID == nil else { return }
+        let prepared = AVAudioEngine()
+        _ = prepared.inputNode
+        prepared.prepare()
+        engine = prepared
+    }
     
     /// Starts audio capture and returns a stream of audio levels
     /// - Returns: AsyncStream of Float values representing audio levels (0.0 to 1.0)
     /// - Throws: WisprError if capture cannot be started
     func startCapture() async throws -> AsyncStream<Float> {
+        let requestedAt = Date()
         guard !isCapturing else {
             throw WisprError.audioRecordingFailed("Already capturing")
         }
@@ -86,15 +158,14 @@ actor AudioEngine {
             throw WisprError.audioRecordingFailed("Failed to create 16kHz target format")
         }
 
-        // Reset audio buffer
-        audioBuffer.removeAll()
         isCapturing = true
 
         // Create the AsyncStream for audio levels
         let (stream, continuation) = AsyncStream.makeStream(of: Float.self)
-        self.levelContinuation = continuation
+        let captureBuffer = CaptureAudioBuffer(levels: continuation)
+        self.captureBuffer = captureBuffer
 
-        let audioEngine = AVAudioEngine()
+        let audioEngine = engine ?? AVAudioEngine()
         self.engine = audioEngine
         let inputNode = audioEngine.inputNode
 
@@ -143,8 +214,8 @@ actor AudioEngine {
                     interleaved: false
                 ) else {
                     isCapturing = false
-                    levelContinuation?.finish()
-                    levelContinuation = nil
+                    _ = captureBuffer.finish()
+                    self.captureBuffer = nil
                     self.engine = nil
                     throw WisprError.audioRecordingFailed("Failed to create tap format at \(rate)Hz \(channels)ch")
                 }
@@ -159,8 +230,8 @@ actor AudioEngine {
         nonisolated(unsafe) var converter: AVAudioConverter?
         nonisolated(unsafe) var sampleRateRatio: Double = 0
         nonisolated(unsafe) var hasLoggedFirstBuffer = false
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: tapFormat) { [weak self] buffer, _ in
-            guard let self, buffer.frameLength > 0 else { return }
+        inputNode.installTap(onBus: 0, bufferSize: 256, format: tapFormat) { buffer, _ in
+            guard buffer.frameLength > 0 else { return }
 
             // Lazily create converter from the actual buffer format
             if converter == nil {
@@ -174,15 +245,21 @@ actor AudioEngine {
 
             guard let tapConverter = converter else { return }
 
-            let outputFrameCount = AVAudioFrameCount(Double(buffer.frameLength) * sampleRateRatio)
+            let outputFrameCount = AVAudioFrameCount(ceil(Double(buffer.frameLength) * sampleRateRatio))
             guard let outputBuffer = AVAudioPCMBuffer(
                 pcmFormat: targetFormat,
                 frameCapacity: outputFrameCount
             ) else { return }
 
             nonisolated(unsafe) let inputBuffer = buffer
+            nonisolated(unsafe) var inputConsumed = false
             var conversionError: NSError?
             let status = tapConverter.convert(to: outputBuffer, error: &conversionError) { _, outStatus in
+                guard !inputConsumed else {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                inputConsumed = true
                 outStatus.pointee = .haveData
                 return inputBuffer
             }
@@ -195,12 +272,11 @@ actor AudioEngine {
 
             if !hasLoggedFirstBuffer {
                 hasLoggedFirstBuffer = true
-                Log.audioEngine.debug("First buffer — inputFrames: \(buffer.frameLength), outputFrames: \(outputBuffer.frameLength)")
+                let latencyMs = Date().timeIntervalSince(requestedAt) * 1000
+                Log.audioEngine.info("First microphone buffer after \(latencyMs, privacy: .public) ms; input frames: \(buffer.frameLength), output frames: \(outputBuffer.frameLength)")
             }
 
-            Task {
-                await self.processAudioBufferData(bufferCopy)
-            }
+            captureBuffer.append(bufferCopy)
         }
 
         // Start the engine
@@ -213,8 +289,8 @@ actor AudioEngine {
             inputNode.removeTap(onBus: 0)
             self.engine = nil
             isCapturing = false
-            levelContinuation?.finish()
-            levelContinuation = nil
+            _ = captureBuffer.finish()
+            self.captureBuffer = nil
             throw WisprError.audioRecordingFailed("Failed to start audio engine: \(error.localizedDescription)")
         }
     }
@@ -226,13 +302,19 @@ actor AudioEngine {
             return []
         }
         
-        let capturedAudio = audioBuffer
+        // Stop delivery before snapshotting. Every completed tap callback has
+        // synchronously appended its samples, including the final audio chunk.
+        engine?.stop()
+        engine?.inputNode.removeTap(onBus: 0)
+        let capturedAudio = captureBuffer?.finish() ?? []
+        captureBuffer = nil
+        isCapturing = false
         
         let sampleCount = capturedAudio.count
         let duration = Double(sampleCount) / 16000.0
-        Log.audioEngine.debug("stopCapture — samples: \(sampleCount), duration: \(duration, format: .fixed(precision: 2))s")
+        Log.audioEngine.info("stopCapture: \(sampleCount, privacy: .public) samples, \(duration, privacy: .public) seconds")
         
-        teardownEngine()
+        // Retain the stopped graph for the next press; no microphone runs idle.
         return capturedAudio
     }
     
@@ -246,13 +328,12 @@ actor AudioEngine {
     /// Used by EOU monitoring to feed audio to the streaming transcription engine.
     /// Returns a finished stream if no capture is active.
     var captureStream: AsyncStream<[Float]> {
-        let (stream, continuation) = AsyncStream.makeStream(of: [Float].self)
-        if isCapturing {
-            self.audioContinuation = continuation
-        } else {
+        if isCapturing, let captureBuffer {
+            return captureBuffer.stream()
+        }
+        return AsyncStream { continuation in
             continuation.finish()
         }
-        return stream
     }
     
     // MARK: - Device Monitoring & Fallback
@@ -320,14 +401,13 @@ actor AudioEngine {
     private func teardownEngine() {
         guard let engine else { return }
         isCapturing = false
-        levelContinuation?.finish()
-        levelContinuation = nil
-        audioContinuation?.finish()
-        audioContinuation = nil
         engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        if captureBuffer != nil {
+            engine.inputNode.removeTap(onBus: 0)
+            _ = captureBuffer?.finish()
+            captureBuffer = nil
+        }
         self.engine = nil
-        audioBuffer.removeAll()
     }
 
     /// Waits for a Bluetooth device to complete the A2DP → HFP/SCO profile
@@ -371,23 +451,4 @@ actor AudioEngine {
         return ids
     }
     
-    private func processAudioBufferData(_ bufferData: [Float]) {
-        guard isCapturing, let continuation = levelContinuation else { return }
-        
-        // Append to our audio buffer for later retrieval
-        audioBuffer.append(contentsOf: bufferData)
-        
-        // Calculate RMS level for the stream
-        let sumOfSquares = bufferData.reduce(0.0) { $0 + $1 * $1 }
-        let rms = sqrt(sumOfSquares / Float(bufferData.count))
-        
-        // Normalize to 0.0 - 1.0 range (assuming typical speech is around -20dB to 0dB)
-        let normalizedLevel = min(max(rms * 5.0, 0.0), 1.0)
-        
-        // Send level to the stream
-        continuation.yield(normalizedLevel)
-        
-        // Also yield raw audio chunks for streaming transcription (EOU monitoring)
-        audioContinuation?.yield(bufferData)
-    }
 }

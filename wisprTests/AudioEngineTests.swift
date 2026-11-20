@@ -14,6 +14,46 @@ import WisprCore
 
 // MARK: - Test Helpers
 
+@Suite("Capture Buffer Regression Tests")
+struct CaptureBufferRegressionTests {
+    @Test("The final tap chunk is included without waiting for actor tasks")
+    func finalChunkIsPreserved() {
+        let (_, levels) = AsyncStream.makeStream(of: Float.self)
+        let buffer = CaptureAudioBuffer(levels: levels)
+        buffer.append([0.1, 0.2])
+        buffer.append([0.3])
+        #expect(buffer.finish() == [0.1, 0.2, 0.3])
+    }
+
+    @Test("Late callbacks cannot contaminate a finished or subsequent session")
+    func lateCallbacksAreDiscarded() {
+        let (_, firstLevels) = AsyncStream.makeStream(of: Float.self)
+        let first = CaptureAudioBuffer(levels: firstLevels)
+        first.append([0.1])
+        #expect(first.finish() == [0.1])
+        let (_, secondLevels) = AsyncStream.makeStream(of: Float.self)
+        let second = CaptureAudioBuffer(levels: secondLevels)
+        first.append([0.9])
+        second.append([0.2])
+        #expect(first.finish().isEmpty)
+        #expect(second.finish() == [0.2])
+    }
+
+    @Test("Streaming audio and saved audio contain the same final chunk")
+    func streamMatchesCapture() async {
+        let (_, levels) = AsyncStream.makeStream(of: Float.self)
+        let buffer = CaptureAudioBuffer(levels: levels)
+        let stream = buffer.stream()
+        buffer.append([0.1, 0.2])
+        buffer.append([0.3])
+        let saved = buffer.finish()
+        var streamed: [Float] = []
+        for await chunk in stream { streamed.append(contentsOf: chunk) }
+        #expect(streamed == saved)
+        #expect(saved == [0.1, 0.2, 0.3])
+    }
+}
+
 /// Reads the current system-wide default input device ID via Core Audio.
 /// This is used by bug condition exploration tests to verify that `startCapture()`
 /// does NOT mutate the system default.

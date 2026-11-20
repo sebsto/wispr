@@ -465,12 +465,7 @@ public actor WhisperService {
         let audioDuration = Double(sampleCount) / 16000.0
         Log.whisperService.debug("transcribe — samples: \(sampleCount), duration: \(audioDuration, format: .fixed(precision: 2))s")
 
-        // Guard against audio too short for meaningful transcription.
-        // WhisperKit needs at least ~0.5s of audio to produce results.
-        guard audioSamples.count >= 8000 else {
-            Log.whisperService.debug("transcribe — audio too short (\(audioSamples.count) samples), skipping")
-            throw WisprError.emptyTranscription
-        }
+        let decodingSamples = try TranscriptionAudio.paddedForDecoding(audioSamples)
 
         let startTime = Date()
 
@@ -500,7 +495,7 @@ public actor WhisperService {
                 onProgress: onProgress
             )
             let results = try await whisperKit.transcribe(
-                audioArray: audioSamples,
+                audioArray: decodingSamples,
                 decodeOptions: DecodingOptions(
                     language: languageCode,
                     detectLanguage: languageCode == nil
