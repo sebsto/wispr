@@ -210,6 +210,23 @@ public actor ParakeetService {
 
 extension ParakeetService: TranscriptionEngine {
 
+    /// Maps a requested language to FluidAudio's `Language`, or nil for
+    /// auto-detect and for codes FluidAudio does not know.
+    nonisolated static func fluidAudioLanguage(for language: TranscriptionLanguage) -> Language? {
+        language.languageCode.flatMap { Language(rawValue: $0) }
+    }
+
+    /// Whether Parakeet V3 can actually enforce `code`.
+    ///
+    /// The model has no language token. FluidAudio only filters candidate
+    /// tokens by writing script, which separates Cyrillic or Greek from Latin
+    /// but cannot tell French from English. For Latin-script languages the
+    /// request is therefore a hint at best, and the output may switch language.
+    public nonisolated static func canEnforceLanguage(_ code: String) -> Bool {
+        guard let language = Language(rawValue: code) else { return false }
+        return language.script != .latin
+    }
+
     public func availableModels() async -> [ModelInfo] {
         [
             ModelInfo(
@@ -529,7 +546,11 @@ extension ParakeetService: TranscriptionEngine {
         defer { progressPump?.cancel() }
 
         var decoderState = try TdtDecoderState()
-        let result = try await asrManager.transcribe(audioSamples, decoderState: &decoderState)
+        let result = try await asrManager.transcribe(
+            audioSamples,
+            decoderState: &decoderState,
+            language: Self.fluidAudioLanguage(for: language)
+        )
 
         let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
