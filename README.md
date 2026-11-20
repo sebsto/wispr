@@ -11,7 +11,7 @@ Wispr runs entirely on-device — your audio never leaves your Mac.
 - **Multiple models** — Whisper Tiny (~75 MB) to Large v3 (~3 GB) including Large v3 Turbo (~1.6 GB), Parakeet V3 (~400 MB), and Realtime 120M (~150 MB)
 - **Low-latency streaming** — Parakeet Realtime 120M provides end-of-utterance detection for near-instant results (English)
 - **Model management** — download, activate, switch, and delete models from a single UI
-- **Multi-language support** — Whisper supports 90+ languages, Parakeet V3 supports 25 languages
+- **Multi-language support** — Whisper supports 90+ languages, Parakeet V3 supports 25 languages but always auto-detects (it cannot be forced to one, so use Whisper for single-language recordings)
 - **Menu bar native** — lives in your menu bar, stays out of the way
 - **Onboarding flow** — guided setup for permissions, model selection, and a test dictation
 - **Accessibility-first** — full keyboard navigation, VoiceOver support, and high-contrast mode
