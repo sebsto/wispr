@@ -34,16 +34,26 @@ struct ModelDownloadProgressView: View {
 
     // MARK: - Internal Download State
 
+    /// The step of the download lifecycle the view is showing.
+    enum Phase: Equatable {
+        case idle
+        case downloading
+        case loadingModel
+        case warmingUp
+        case failed(String)
+        case complete
+    }
+
+    @State private var phase: Phase = .idle
     @State private var progress: Double = 0
     @State private var downloadedBytes: Int64 = 0
     @State private var totalBytes: Int64 = 0
-    @State private var error: String?
-    @State private var isComplete: Bool = false
-    @State private var isDownloading: Bool = false
-    @State private var isLoadingModel: Bool = false
-    @State private var isWarmingUp: Bool = false
     @State private var lastProgressUpdate: Date = .now
-    @State private var downloadTask: Task<Void, Never>?
+
+    /// Identifies the current download attempt. The download runs inside
+    /// `.task(id:)`, so changing this (Retry, Cancel) or removing the view
+    /// cancels the running download. `nil` means no download is wanted.
+    @State private var downloadAttempt: Int?
 
     // MARK: - Init
 
@@ -63,27 +73,32 @@ struct ModelDownloadProgressView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            if isComplete {
+            switch phase {
+            case .complete:
                 completionView
                     .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .center)))
-            } else if let error {
+            case .failed(let error):
                 errorView(error: error)
-            } else if isWarmingUp {
+            case .warmingUp:
                 warmingUpView
-            } else if isLoadingModel {
+            case .loadingModel:
                 loadingModelView
-            } else if isDownloading {
+            case .downloading:
                 progressView
-            } else {
+            case .idle:
                 idleView
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: isComplete)
+        .animation(.easeInOut(duration: 0.35), value: phase == .complete)
         .accessibilityElement(children: .contain)
         .task {
-            if autoStart && !isDownloading && !isComplete && error == nil {
+            if autoStart && phase == .idle {
                 startDownload()
             }
+        }
+        .task(id: downloadAttempt) {
+            guard downloadAttempt != nil else { return }
+            await runDownload()
         }
     }
 
@@ -219,7 +234,6 @@ struct ModelDownloadProgressView: View {
                 .frame(maxWidth: 400)
 
             Button {
-                self.error = nil
                 startDownload()
             } label: {
                 Label("Retry", systemImage: SFSymbols.retry)
@@ -250,62 +264,51 @@ struct ModelDownloadProgressView: View {
 
     // MARK: - Download Logic
 
+    /// Resets progress and starts a new download attempt.
     private func startDownload() {
-        isDownloading = true
-        isLoadingModel = false
-        isWarmingUp = false
+        phase = .downloading
         progress = 0
         downloadedBytes = 0
         totalBytes = 0
-        error = nil
-        isComplete = false
         lastProgressUpdate = .now
+        downloadAttempt = (downloadAttempt ?? 0) + 1
+    }
 
-        downloadTask = Task {
-            do {
-                let stream = await whisperService.downloadModel(model)
-                for try await downloadProgress in stream {
-                    try Task.checkCancellation()
-                    switch downloadProgress.phase {
-                    case .downloading:
-                        if downloadProgress.fractionCompleted != progress {
-                            lastProgressUpdate = .now
-                        }
-                        progress = downloadProgress.fractionCompleted
-                        downloadedBytes = downloadProgress.bytesDownloaded
-                        totalBytes = downloadProgress.totalBytes
-                    case .loadingModel:
-                        isDownloading = false
-                        isLoadingModel = true
-                        isWarmingUp = false
-                    case .warmingUp:
-                        isDownloading = false
-                        isLoadingModel = false
-                        isWarmingUp = true
-                    }
+    /// Runs one download attempt. Called from `.task(id: downloadAttempt)`, so
+    /// it is cancelled when the attempt changes or the view goes away.
+    private func runDownload() async {
+        do {
+            let stream = await whisperService.downloadModel(model)
+            for try await downloadProgress in stream {
+                try Task.checkCancellation()
+                switch downloadProgress.phase {
+                case .downloading:
+                    guard downloadProgress.fractionCompleted != progress else { continue }
+                    lastProgressUpdate = .now
+                    progress = downloadProgress.fractionCompleted
+                    downloadedBytes = downloadProgress.bytesDownloaded
+                    totalBytes = downloadProgress.totalBytes
+                case .loadingModel:
+                    phase = .loadingModel
+                case .warmingUp:
+                    phase = .warmingUp
                 }
-                isLoadingModel = false
-                isWarmingUp = false
-                isComplete = true
-                isDownloading = false
-                onComplete?(model.id)
-            } catch is CancellationError {
-                // Download was cancelled — UI state already reset by cancelDownload()
-            } catch {
-                self.error = error.localizedDescription
-                isDownloading = false
-                isLoadingModel = false
-                isWarmingUp = false
             }
+            try Task.checkCancellation()
+            phase = .complete
+            onComplete?(model.id)
+        } catch is CancellationError {
+            // Cancelled by the user or by the view going away; cancelDownload()
+            // already reset the visible state when it was the user.
+        } catch {
+            guard !Task.isCancelled else { return }
+            phase = .failed(error.localizedDescription)
         }
     }
 
     private func cancelDownload() {
-        downloadTask?.cancel()
-        downloadTask = nil
-        isDownloading = false
-        isLoadingModel = false
-        isWarmingUp = false
+        downloadAttempt = nil
+        phase = .idle
         progress = 0
         downloadedBytes = 0
         totalBytes = 0
@@ -372,11 +375,14 @@ extension ModelDownloadProgressView {
         _progress = State(initialValue: previewProgress)
         _downloadedBytes = State(initialValue: previewDownloadedBytes)
         _totalBytes = State(initialValue: previewTotalBytes)
-        _error = State(initialValue: previewError)
-        _isComplete = State(initialValue: previewIsComplete)
-        _isDownloading = State(initialValue: previewIsDownloading)
-        _isLoadingModel = State(initialValue: previewIsLoadingModel)
-        _isWarmingUp = State(initialValue: previewIsWarmingUp)
+        let phase: Phase =
+            if previewIsComplete { .complete }
+            else if let previewError { .failed(previewError) }
+            else if previewIsWarmingUp { .warmingUp }
+            else if previewIsLoadingModel { .loadingModel }
+            else if previewIsDownloading { .downloading }
+            else { .idle }
+        _phase = State(initialValue: phase)
         _lastProgressUpdate = State(initialValue: .now)
     }
 }
