@@ -75,6 +75,7 @@ final class WisprAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate 
     let whisperService: any TranscriptionEngine = CompositeTranscriptionEngine(engines: [
         WhisperService(),
         ParakeetService(),
+        Qwen3ASRService(),
     ])
 
     /// Text insertion via Accessibility API / clipboard fallback.

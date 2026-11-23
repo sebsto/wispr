@@ -21,6 +21,7 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "0.17.0"),
         .package(url: "https://github.com/FluidInference/FluidAudio.git", exact: "0.15.5"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
+        .package(url: "https://github.com/soniqo/speech-swift.git", exact: "0.0.19"),
     ],
     targets: [
         // Shared types and transcription engines used by both the app and CLI.
@@ -29,6 +30,7 @@ let package = Package(
             dependencies: [
                 "WhisperKit",
                 "FluidAudio",
+                .product(name: "Qwen3ASR", package: "speech-swift"),
             ],
             path: "Sources/WisprCore",
             swiftSettings: swiftSettings

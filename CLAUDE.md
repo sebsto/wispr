@@ -43,7 +43,8 @@ Four-layer structure under `wispr/`:
 | `AudioEngine` | `actor` | AVAudioEngine wrapper, real-time audio capture, level streaming |
 | `WhisperService` | `actor` | WhisperKit integration, batch transcription |
 | `ParakeetService` | `actor` | FluidAudio integration, streaming + EOU detection |
-| `CompositeTranscriptionEngine` | `actor` | Routes to Whisper/Parakeet based on active model |
+| `Qwen3ASRService` | `actor` | speech-swift Qwen3-ASR (MLX), batch transcription |
+| `CompositeTranscriptionEngine` | `actor` | Routes to Whisper/Parakeet/Qwen3-ASR based on active model |
 | `TextInsertionService` | `@MainActor` | Accessibility API insertion + clipboard fallback |
 | `HotkeyMonitor` | `@MainActor @Observable` | Carbon hotkeys + CGEventTap for Fn key |
 | `SettingsStore` | `@MainActor @Observable` | UserDefaults-backed persistent settings |
@@ -70,6 +71,7 @@ Four-layer structure under `wispr/`:
 
 - **WhisperKit 0.17.0** — OpenAI Whisper via CoreML
 - **FluidAudio 0.13.4** — NVIDIA Parakeet models
+- **speech-swift 0.0.19** — Qwen3-ASR on MLX (needs the Metal Toolchain; pinned below 0.0.20 because later releases require WhisperKit 1.x)
 - **swift-argument-parser 1.7.1** — CLI argument parsing
 
 ## CLI Tool (`WisprCLI`)
