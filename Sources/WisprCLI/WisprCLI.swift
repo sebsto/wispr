@@ -264,10 +264,10 @@ struct WisprCLI: AsyncParsableCommand {
         if modelName == ModelInfo.KnownID.parakeetV3,
            let code = config.languageCode,
            !ParakeetService.canEnforceLanguage(code) {
-            FileHandle.standardError.write(Data(
-                ("warning: Parakeet cannot force --language \(code). It may switch languages "
-                 + "mid-recording. Use a Whisper model (for example large-v3) to fix the language.\n").utf8
-            ))
+            await reporter.log(
+                "warning: Parakeet cannot force --language \(code). It may switch languages "
+                    + "mid-recording. Use a Whisper model (for example large-v3) to fix the language."
+            )
         }
 
         await reporter.begin(.loadingModel(modelName))
