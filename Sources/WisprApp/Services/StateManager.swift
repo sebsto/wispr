@@ -610,6 +610,50 @@ final class StateManager {
         }
     }
 
+    // MARK: - Onboarding model
+
+    /// What onboarding must do to get its default model ready.
+    enum OnboardingModelResolution: Equatable {
+        /// The model is loaded and saved as the active model.
+        case ready
+        /// The model must be downloaded first.
+        case needsDownload(ModelInfo)
+        /// Setup failed; the message is shown to the user.
+        case failed(String)
+    }
+
+    /// Gets onboarding's default model (Parakeet V3) ready.
+    ///
+    /// A model already on disk is loaded and made active. Otherwise the caller
+    /// is told to download it, then calls `markModelActive(_:)`.
+    func resolveOnboardingModel() async -> OnboardingModelResolution {
+        let models = await whisperService.availableModels()
+        guard let model = models.first(where: { $0.id == ModelInfo.KnownID.parakeetV3 }) else {
+            return .failed("Could not find Parakeet V3 model. Please restart the app and try again.")
+        }
+
+        switch await whisperService.modelStatus(model.id) {
+        case .active:
+            markModelActive(model.id)
+            return .ready
+        case .downloaded:
+            do {
+                try await whisperService.loadModel(model.id)
+            } catch {
+                return .failed("Failed to load model: \(error.localizedDescription)")
+            }
+            markModelActive(model.id)
+            return .ready
+        default:
+            return .needsDownload(model)
+        }
+    }
+
+    /// Saves `modelId` as the active model after it was downloaded and loaded.
+    func markModelActive(_ modelId: String) {
+        settingsStore.activeModelName = modelId
+    }
+
     /// The model being activated from Settings, or `nil` when none is.
     private(set) var activatingModelName: String?
 

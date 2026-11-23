@@ -57,8 +57,10 @@ struct ModelManagementView: View {
     /// The WhisperService actor used for model operations.
     private let whisperService: any TranscriptionEngine
 
-    /// Local state: snapshot of models with their current statuses.
-    @State private var models: [ModelInfo] = []
+    /// Model list and model actions (refresh, activate, delete).
+    @State private var catalog: ModelCatalog
+
+    private var models: [ModelInfo] { catalog.models }
 
     /// Model IDs currently showing the download progress view.
     @State private var activeDownloads: Set<String> = []
@@ -72,11 +74,6 @@ struct ModelManagementView: View {
     /// Whether a "no models" alert is shown after deleting the last model.
     @State private var showNoModelsAlert = false
 
-    /// Error message to display (for non-download errors).
-    @State private var errorMessage: String?
-
-    /// The model ID currently being activated (loading into memory).
-    @State private var activatingModelId: String?
 
     /// Tracks which model ID currently shows the green highlight overlay.
     /// Drives the animated transition when switching active models.
@@ -88,6 +85,7 @@ struct ModelManagementView: View {
 
     init(whisperService: any TranscriptionEngine) {
         self.whisperService = whisperService
+        _catalog = State(initialValue: ModelCatalog(whisperService: whisperService))
     }
 
     /// Flat list of headers and model rows for a single-level `ForEach`.
@@ -165,12 +163,12 @@ struct ModelManagementView: View {
             Text("All models have been removed. Please download a model to continue using Wispr.")
         }
         .alert("Error", isPresented: .init(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
+            get: { catalog.errorMessage != nil },
+            set: { if !$0 { catalog.errorMessage = nil } }
         )) {
-            Button("OK") { errorMessage = nil }
+            Button("OK") { catalog.errorMessage = nil }
         } message: {
-            if let errorMessage {
+            if let errorMessage = catalog.errorMessage {
                 Text(errorMessage)
             }
         }
@@ -229,12 +227,12 @@ struct ModelManagementView: View {
             ModelRowView(
                 model: model,
                 theme: theme,
-                isActivating: activatingModelId == model.id,
+                isActivating: catalog.activatingModelId == model.id,
                 isHighlighted: highlightedModelId == model.id,
                 namespace: highlightNamespace,
                 onDownload: {
                     activeDownloads.insert(model.id)
-                    updateModelStatus(model.id, to: .downloading(progress: 0.0))
+                    catalog.updateStatus(model.id, to: .downloading(progress: 0.0))
                 },
                 onSetActive: { await setActiveModel(model) },
                 onDelete: { requestDelete(model) }
@@ -244,19 +242,10 @@ struct ModelManagementView: View {
 
     // MARK: - Actions
 
-    /// Refreshes the model list with current statuses from WhisperService.
+    /// Refreshes the model list and keeps the green highlight on the active model.
     private func refreshModels() async {
-        var allModels = await whisperService.availableModels()
-        for index in allModels.indices {
-            allModels[index].status = await whisperService.modelStatus(allModels[index].id)
-        }
-        models = allModels
-
-        // Keep highlightedModelId in sync with the actual active model.
-        let activeId = allModels.first(where: {
-            if case .active = $0.status { return true }
-            return false
-        })?.id
+        await catalog.refresh()
+        let activeId = catalog.activeModelId
         if highlightedModelId != activeId {
             highlightedModelId = activeId
         }
@@ -277,21 +266,9 @@ struct ModelManagementView: View {
             highlightedModelId = model.id
         }
 
-        activatingModelId = model.id
-        do {
-            try await stateManager.switchActiveModel(to: model.id)
-            await refreshModels()
-            activatingModelId = nil
-        } catch {
-            activatingModelId = nil
-            // Revert highlight back to the actual active model on failure.
-            let activeId = models.first(where: {
-                if case .active = $0.status { return true }
-                return false
-            })?.id
-            highlightedModelId = activeId
-            errorMessage = "Failed to activate model: \(error.localizedDescription)"
-        }
+        await catalog.activate(model.id, using: stateManager)
+        // On failure this moves the highlight back to the model still active.
+        highlightedModelId = catalog.activeModelId
     }
 
     /// Shows the delete confirmation dialog.
@@ -300,43 +277,17 @@ struct ModelManagementView: View {
         showDeleteConfirmation = true
     }
 
-    /// Performs model deletion with fallback logic.
+    /// Deletes a model, then prompts for a download if none is left.
     ///
     /// Requirement 7.8: Remove model files from disk.
     /// Requirement 7.9: Switch to next smallest model before deleting active model.
     /// Requirement 7.10: Prompt to download if deleting the only model.
     private func performDelete(_ model: ModelInfo) async {
-        do {
-            try await whisperService.deleteModel(model.id)
-
-            if settingsStore.activeModelName == model.id {
-                if let newActive = await whisperService.activeModel() {
-                    settingsStore.activeModelName = newActive
-                }
-            }
-
-            await refreshModels()
-
-            let hasDownloaded = models.contains { status in
-                if case .downloaded = status.status { return true }
-                if case .active = status.status { return true }
-                return false
-            }
-            if !hasDownloaded {
-                showNoModelsAlert = true
-            }
-        } catch {
-            errorMessage = "Failed to delete model: \(error.localizedDescription)"
+        if await catalog.delete(model.id, settingsStore: settingsStore) {
+            showNoModelsAlert = true
         }
-
+        highlightedModelId = catalog.activeModelId
         modelToDelete = nil
-    }
-
-    /// Updates a model's status in the local state array.
-    private func updateModelStatus(_ modelId: String, to status: ModelStatus) {
-        if let index = models.firstIndex(where: { $0.id == modelId }) {
-            models[index].status = status
-        }
     }
 }
 

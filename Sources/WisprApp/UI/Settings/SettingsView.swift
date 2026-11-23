@@ -583,16 +583,10 @@ struct SettingsView: View {
     /// Reveals the transcripts folder in Finder, creating it first if no meeting
     /// has been saved yet so the button never opens a missing directory.
     private func openTranscriptsFolder() {
-        let dir = TranscriptStore.directory
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        openURL(dir)
+        openURL(TranscriptLocation.currentDirectoryCreatingIfNeeded())
     }
 
     /// Asks the user for a folder and saves new transcripts there.
-    ///
-    /// The panel is what grants sandbox access to the chosen folder, so the
-    /// bookmark has to be minted from the URL it returns — a path typed or
-    /// constructed by hand would not be readable.
     private func chooseTranscriptsFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -604,25 +598,12 @@ struct SettingsView: View {
         panel.directoryURL = TranscriptStore.directory
 
         guard panel.runModal() == .OK, let chosen = panel.url else { return }
-
-        do {
-            settingsStore.transcriptsFolderBookmark = try TranscriptLocation.makeBookmark(
-                for: chosen)
-        } catch {
-            transcriptsFolderError =
-                "Could not save that folder choice: \(error.localizedDescription)"
-            return
-        }
-
-        // Activating through the same path used at launch keeps stale-bookmark and
-        // permission handling in one place.
-        transcriptsFolderError = TranscriptLocation.applyStoredFolder(from: settingsStore)
+        transcriptsFolderError = TranscriptLocation.useChosenFolder(chosen, settings: settingsStore)
     }
 
     /// Returns to storing transcripts inside the app's own container.
     private func resetTranscriptsFolder() {
-        settingsStore.transcriptsFolderBookmark = nil
-        TranscriptLocation.useDefault()
+        TranscriptLocation.resetToDefault(settings: settingsStore)
         transcriptsFolderError = nil
     }
 
