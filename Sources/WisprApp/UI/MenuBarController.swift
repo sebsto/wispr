@@ -73,6 +73,13 @@ final class MenuBarController {
     /// Observation tracking for state changes.
     private var observationTask: Task<Void, Never>?
 
+    /// Updates only the meeting menu item title as the elapsed time ticks, so the
+    /// once-per-second tick does not rebuild the rest of the menu.
+    private var elapsedObservationTask: Task<Void, Never>?
+
+    /// The language mode the language submenu was last built for.
+    private var builtLanguageMode: TranscriptionLanguage?
+
     /// Path where the CLI symlink is installed.
     private let cliSymlinkPath = "/usr/local/bin/wispr"
 
@@ -308,12 +315,16 @@ final class MenuBarController {
     /// A meeting keeps running with its window closed, so the menu is the only
     /// place the user can tell it is live — and the only way to stop it without
     /// reopening the window.
+    private func meetingMenuTitle() -> String {
+        meetingStateManager.meetingState == .recording
+            ? "Meeting Transcription — \(meetingStateManager.elapsedTime)"
+            : "Meeting Transcription…"
+    }
+
     private func updateMeetingMenuItem() {
         let isMeetingRecording = meetingStateManager.meetingState == .recording
 
-        meetingMenuItem.title = isMeetingRecording
-            ? "Meeting Transcription — \(meetingStateManager.elapsedTime)"
-            : "Meeting Transcription…"
+        meetingMenuItem.title = meetingMenuTitle()
         meetingMenuItem.action = #selector(MenuBarActionHandler.toggleMeetingMode(_:))
         meetingMenuItem.target = MenuBarActionHandler.shared
         meetingMenuItem.image = NSImage(
@@ -396,6 +407,7 @@ final class MenuBarController {
     ///
     /// Requirement 16.8: Language selection control in the menu bar dropdown.
     private func buildLanguageSubmenu() {
+        builtLanguageMode = settingsStore.languageMode
         languageSubmenu.removeAllItems()
 
         // Auto-Detect option
@@ -518,7 +530,9 @@ final class MenuBarController {
                 self.updateMeetingMenuItem()
                 self.refreshUpdateMenuItem()
                 self.languageMenuItem.title = self.languageDisplayTitle()
-                self.buildLanguageSubmenu()
+                if self.builtLanguageMode != self.settingsStore.languageMode {
+                    self.buildLanguageSubmenu()
+                }
 
                 // Wait for the next change using Observation framework
                 await withCheckedContinuation { continuation in
@@ -530,6 +544,20 @@ final class MenuBarController {
                         _ = self.updateChecker.availableUpdate
                         // A meeting can run with its window closed; track it so the
                         // menu reflects the live session and offers "Stop Meeting".
+                        _ = self.meetingStateManager.meetingState
+                    } onChange: {
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+
+        elapsedObservationTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                self.meetingMenuItem.title = self.meetingMenuTitle()
+                await withCheckedContinuation { continuation in
+                    withObservationTracking {
                         _ = self.meetingStateManager.meetingState
                         _ = self.meetingStateManager.elapsedTime
                     } onChange: {
@@ -544,6 +572,8 @@ final class MenuBarController {
     func stopObserving() {
         observationTask?.cancel()
         observationTask = nil
+        elapsedObservationTask?.cancel()
+        elapsedObservationTask = nil
         stopProcessingAnimation()
     }
 

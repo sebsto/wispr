@@ -38,6 +38,9 @@ struct MeetingTranscriptView: View {
     let onHistoryVisibilityChanged: ((Bool) -> Void)?
 
     @State private var isExporting = false
+    /// Built when the user presses Export, so the transcript is serialized once
+    /// per export instead of on every render.
+    @State private var exportDocument = TranscriptDocument(text: "")
     /// Speaker index whose name is being edited, and the in-flight text.
     @State private var editingSpeakerIndex: Int?
     @State private var editingName = ""
@@ -86,7 +89,7 @@ struct MeetingTranscriptView: View {
         }
         .fileExporter(
             isPresented: $isExporting,
-            document: TranscriptDocument(text: transcript.asPlainText()),
+            document: exportDocument,
             contentType: .plainText,
             defaultFilename: exportFilename
         ) { result in
@@ -243,29 +246,7 @@ struct MeetingTranscriptView: View {
         Spacer()
 
         if isRecording {
-            // The level indicators are the first thing to go when the header runs
-            // out of room: hide them wholesale rather than let their labels wrap.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    if meetingState.mode == .inPerson {
-                        // In person the mic carries the whole room; it is the only
-                        // meaningful level.
-                        audioLevelIndicator(
-                            label: "Room", level: meetingState.micLevel, color: .green)
-                    } else {
-                        audioLevelIndicator(
-                            label: "You", level: meetingState.micLevel, color: .blue)
-                        audioLevelIndicator(
-                            label: "Others", level: meetingState.systemLevel, color: .green)
-                    }
-                }
-                // Fallback: nothing, so the timer keeps its place at narrow widths.
-                Color.clear.frame(width: 0, height: 0)
-            }
-
-            Text(meetingState.elapsedTime)
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(.secondary)
+            LiveRecordingIndicators()
         }
     }
 
@@ -290,26 +271,10 @@ struct MeetingTranscriptView: View {
             // Reassure the user that browsing history did not stop the meeting.
             HStack(spacing: 5) {
                 Circle().fill(Color.red).frame(width: 7, height: 7)
-                Text("Recording \(meetingState.elapsedTime)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                RecordingElapsedLabel()
             }
             Button("Back to Live") { history.showLive() }
                 .font(.caption)
-        }
-    }
-
-    private func audioLevelIndicator(label: String, level: Float, color: Color) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(color.opacity(Double(max(level, 0.2))))
-                .frame(width: 8, height: 8)
-
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .fixedSize()
         }
     }
 
@@ -505,6 +470,8 @@ struct MeetingTranscriptView: View {
     /// Color for a speaker badge. "You" is blue; each diarized remote speaker
     /// gets a distinct color, cycling for indices beyond the palette. Unknown
     /// (cold-start / diarization off) remote speech is gray.
+    private static let speakerPalette: [Color] = [.green, .orange, .purple, .pink]
+
     private func speakerColor(_ speaker: MeetingSpeaker) -> Color {
         switch speaker {
         case .you:
@@ -512,8 +479,7 @@ struct MeetingTranscriptView: View {
         case .others(.none):
             return .gray
         case .others(.some(let index)):
-            let palette: [Color] = [.green, .orange, .purple, .pink]
-            return palette[index % palette.count]
+            return Self.speakerPalette[index % Self.speakerPalette.count]
         }
     }
 
@@ -537,6 +503,7 @@ struct MeetingTranscriptView: View {
             .disabled(transcript.entries.isEmpty)
 
             Button {
+                exportDocument = TranscriptDocument(text: transcript.asPlainText())
                 isExporting = true
             } label: {
                 Label("Export", systemImage: SFSymbols.download)
@@ -555,5 +522,73 @@ struct MeetingTranscriptView: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+}
+
+// MARK: - Live indicators
+
+/// The mic/system level dots and the elapsed time shown while recording.
+///
+/// These values change many times per second. Reading them in their own views
+/// means only these small views re-render on each update, not the whole
+/// meeting window with its transcript list.
+private struct LiveRecordingIndicators: View {
+    @Environment(MeetingStateManager.self) private var meetingState: MeetingStateManager
+
+    var body: some View {
+        // The level indicators are the first thing to go when the header runs
+        // out of room: hide them wholesale rather than let their labels wrap.
+        ViewThatFits(in: .horizontal) {
+            AudioLevelIndicators()
+            // Fallback: nothing, so the timer keeps its place at narrow widths.
+            Color.clear.frame(width: 0, height: 0)
+        }
+
+        Text(meetingState.elapsedTime)
+            .font(.callout.monospacedDigit())
+            .foregroundStyle(.secondary)
+    }
+}
+
+/// Level dots for the current capture mode.
+private struct AudioLevelIndicators: View {
+    @Environment(MeetingStateManager.self) private var meetingState: MeetingStateManager
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if meetingState.mode == .inPerson {
+                // In person the mic carries the whole room; it is the only
+                // meaningful level.
+                indicator(label: "Room", level: meetingState.micLevel, color: .green)
+            } else {
+                indicator(label: "You", level: meetingState.micLevel, color: .blue)
+                indicator(label: "Others", level: meetingState.systemLevel, color: .green)
+            }
+        }
+    }
+
+    private func indicator(label: String, level: Float, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color.opacity(Double(max(level, 0.2))))
+                .frame(width: 8, height: 8)
+
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+}
+
+/// "Recording 01:23" label shown while browsing an archived transcript.
+private struct RecordingElapsedLabel: View {
+    @Environment(MeetingStateManager.self) private var meetingState: MeetingStateManager
+
+    var body: some View {
+        Text("Recording \(meetingState.elapsedTime)")
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
     }
 }
