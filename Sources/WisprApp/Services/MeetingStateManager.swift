@@ -238,7 +238,6 @@ final class MeetingStateManager {
         // guaranteed to complete before `transcript` can be replaced.
         let completed = transcript
         let savedURL = await TranscriptIO.shared.save(completed)
-        if savedURL != nil { exportCoordinator.exportIfConfigured(completed) }
 
         // Return "Current Session" to an empty slate: the finished meeting is now
         // on disk and shown from history, so keeping its text in the live view
@@ -249,6 +248,13 @@ final class MeetingStateManager {
         meetingState = .idle
         micLevel = 0
         systemLevel = 0
+
+        // Exporting touches the user's own folder, which may sit on iCloud Drive or a
+        // network volume, so it runs off the main actor and only after the window
+        // is back to idle. `isStopping` is released first so a meeting started while
+        // the export runs is still saved on quit.
+        isStopping = false
+        if savedURL != nil { await exportCoordinator.exportIfConfigured(completed) }
     }
 
     /// Persists an in-progress meeting synchronously, for use on app termination.
@@ -272,7 +278,7 @@ final class MeetingStateManager {
             "MeetingStateManager — finalizing in-progress meeting on termination (\(entryCount) entries)"
         )
         if TranscriptStore.save(transcript) != nil {
-            exportCoordinator.exportIfConfigured(transcript)
+            exportCoordinator.exportIfConfiguredBlocking(transcript)
         }
 
         recordingTask?.cancel()

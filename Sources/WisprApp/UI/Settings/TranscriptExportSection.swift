@@ -83,10 +83,7 @@ struct TranscriptExportSection: View {
         }
 
         if let bookmark = config.folderBookmark {
-            Text(Self.displayPath(for: bookmark))
-                .font(.caption)
-                .foregroundStyle(theme.secondaryTextColor)
-                .textSelection(.enabled)
+            FolderPathText(bookmark: bookmark)
         }
 
         if config.folderUnavailable {
@@ -184,7 +181,7 @@ struct TranscriptExportSection: View {
     /// Home-abbreviated path of a bookmarked folder, for display only.
     ///
     /// Resolving without opening the security scope is enough to read the path.
-    static func displayPath(for bookmark: Data) -> String {
+    nonisolated static func displayPath(for bookmark: Data) -> String {
         var isStale = false
         guard
             let url = try? URL(
@@ -198,5 +195,29 @@ struct TranscriptExportSection: View {
         let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
         guard path.hasPrefix(home) else { return path }
         return "~" + path.dropFirst(home.count)
+    }
+}
+
+/// Shows the path a folder bookmark points to.
+///
+/// Resolving a bookmark is file-system work that can stall on a slow or missing
+/// volume. It runs once per bookmark, off the main actor, instead of on every
+/// redraw of the section, so typing in the subfolder field stays responsive.
+private struct FolderPathText: View {
+    let bookmark: Data
+
+    @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
+    @State private var path = ""
+
+    var body: some View {
+        Text(path)
+            .font(.caption)
+            .foregroundStyle(theme.secondaryTextColor)
+            .textSelection(.enabled)
+            .accessibilityLabel("Export folder: \(path)")
+            .task(id: bookmark) {
+                let data = bookmark
+                path = await Task.detached { TranscriptExportSection.displayPath(for: data) }.value
+            }
     }
 }

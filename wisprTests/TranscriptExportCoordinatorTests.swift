@@ -68,54 +68,54 @@ struct TranscriptExportCoordinatorTests {
         .init(url: URL(fileURLWithPath: "/tmp/x.md"), refreshedBookmark: nil))
 
     @Test("An enabled, installed destination with a folder is exported to")
-    func testExports() {
+    func testExports() async {
         let calls = ExportCalls()
         let coordinator = makeCoordinator(
             settings: makeSettings(), detector: obsidianInstalled,
             notifier: RecordingNotifier(), calls: calls, result: success)
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
         #expect(calls.count == 1)
     }
 
     @Test("Nothing is exported when the destination is switched off")
-    func testDisabled() {
+    func testDisabled() async {
         let calls = ExportCalls()
         let coordinator = makeCoordinator(
             settings: makeSettings(enabled: false), detector: obsidianInstalled,
             notifier: RecordingNotifier(), calls: calls, result: success)
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
         #expect(calls.count == 0)
     }
 
     @Test("Nothing is exported when the app is not installed")
-    func testNotInstalled() {
+    func testNotInstalled() async {
         let calls = ExportCalls()
         let coordinator = makeCoordinator(
             settings: makeSettings(), detector: FakeAppInstallDetector(installed: []),
             notifier: RecordingNotifier(), calls: calls, result: success)
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
         #expect(calls.count == 0)
     }
 
     @Test("Nothing is exported when no folder has been chosen")
-    func testNoFolder() {
+    func testNoFolder() async {
         let calls = ExportCalls()
         let coordinator = makeCoordinator(
             settings: makeSettings(bookmark: nil), detector: obsidianInstalled,
             notifier: RecordingNotifier(), calls: calls, result: success)
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
         #expect(calls.count == 0)
     }
 
     @Test("A failing export is reported and does not throw")
-    func testFailureIsContained() {
+    func testFailureIsContained() async {
         let notifier = RecordingNotifier()
         let settings = makeSettings()
         let coordinator = makeCoordinator(
             settings: settings, detector: obsidianInstalled, notifier: notifier,
             calls: ExportCalls(), result: .failure(CocoaError(.fileWriteOutOfSpace)))
 
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
 
         #expect(notifier.failures.count == 1)
         #expect(notifier.failures.first?.destination == .obsidian)
@@ -123,18 +123,18 @@ struct TranscriptExportCoordinatorTests {
     }
 
     @Test("An unavailable folder is flagged so Settings can ask for it again")
-    func testFolderUnavailableFlag() {
+    func testFolderUnavailableFlag() async {
         let settings = makeSettings()
         let coordinator = makeCoordinator(
             settings: settings, detector: obsidianInstalled, notifier: RecordingNotifier(),
             calls: ExportCalls(), result: .failure(TranscriptExporter.ExportError.folderUnavailable("gone")))
 
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
         #expect(settings.exportConfig(for: .obsidian).folderUnavailable)
     }
 
     @Test("A refreshed bookmark replaces the stored one and clears the flag")
-    func testRefreshedBookmark() {
+    func testRefreshedBookmark() async {
         let settings = makeSettings()
         settings.updateExportConfig(for: .obsidian) { $0.folderUnavailable = true }
         let refreshed = Result<TranscriptExporter.Result, any Error>.success(
@@ -143,7 +143,7 @@ struct TranscriptExportCoordinatorTests {
             settings: settings, detector: obsidianInstalled, notifier: RecordingNotifier(),
             calls: ExportCalls(), result: refreshed)
 
-        coordinator.exportIfConfigured(makeTranscript())
+        await coordinator.exportIfConfigured(makeTranscript())
 
         let config = settings.exportConfig(for: .obsidian)
         #expect(config.folderBookmark == Data([9]))

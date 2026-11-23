@@ -76,22 +76,53 @@ final class TranscriptExportCoordinator {
         self.export = export
     }
 
-    /// Exports `transcript` to each destination that is ready.
-    func exportIfConfigured(_ transcript: MeetingTranscript) {
-        for destination in TranscriptExportDestination.detected(using: detector) {
+    /// A destination that is installed, switched on, and has a folder.
+    private struct Job {
+        let destination: TranscriptExportDestination
+        let config: TranscriptExportConfig
+    }
+
+    private func readyJobs() -> [Job] {
+        TranscriptExportDestination.detected(using: detector).compactMap { destination in
             let config = settings.exportConfig(for: destination)
-            guard config.enabled, config.folderBookmark != nil else { continue }
-            run(destination: destination, config: config, transcript: transcript)
+            guard config.enabled, config.folderBookmark != nil else { return nil }
+            return Job(destination: destination, config: config)
         }
     }
 
-    private func run(
-        destination: TranscriptExportDestination,
-        config: TranscriptExportConfig,
-        transcript: MeetingTranscript
+    /// Exports `transcript` to each destination that is ready, with the file work
+    /// done off the main actor.
+    ///
+    /// Resolving the folder bookmark and writing the file can stall on iCloud Drive
+    /// or a network volume. Settings and notifications are updated back on the main
+    /// actor once each write finishes.
+    func exportIfConfigured(_ transcript: MeetingTranscript) async {
+        for job in readyJobs() {
+            let export = self.export
+            let config = job.config
+            let outcome = await Task.detached {
+                Result { try export(transcript, config) }
+            }.value
+            apply(outcome, to: job.destination)
+        }
+    }
+
+    /// Same as `exportIfConfigured(_:)`, but finishes before returning.
+    ///
+    /// For app termination only, which cannot wait on an `await`. Blocks the
+    /// calling thread for as long as the folder takes to answer.
+    func exportIfConfiguredBlocking(_ transcript: MeetingTranscript) {
+        for job in readyJobs() {
+            apply(Result { try export(transcript, job.config) }, to: job.destination)
+        }
+    }
+
+    private func apply(
+        _ outcome: Result<TranscriptExporter.Result, any Error>,
+        to destination: TranscriptExportDestination
     ) {
-        do {
-            let result = try export(transcript, config)
+        switch outcome {
+        case .success(let result):
             settings.updateExportConfig(for: destination) {
                 if let refreshed = result.refreshedBookmark { $0.folderBookmark = refreshed }
                 $0.folderUnavailable = false
@@ -99,15 +130,14 @@ final class TranscriptExportCoordinator {
             Log.stateManager.debug(
                 "TranscriptExportCoordinator — exported to \(destination.id): \(result.url.lastPathComponent)"
             )
-        } catch {
+        case .failure(let error):
             if case TranscriptExporter.ExportError.folderUnavailable = error {
                 settings.updateExportConfig(for: destination) { $0.folderUnavailable = true }
             }
             Log.stateManager.error(
                 "TranscriptExportCoordinator — export to \(destination.id) failed: \(error.localizedDescription)"
             )
-            notifier.exportFailed(
-                destination: destination, message: error.localizedDescription)
+            notifier.exportFailed(destination: destination, message: error.localizedDescription)
         }
     }
 }
