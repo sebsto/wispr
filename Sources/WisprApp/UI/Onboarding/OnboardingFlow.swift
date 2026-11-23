@@ -53,12 +53,6 @@ struct OnboardingFlow: View {
     /// The transcribed text from the test dictation, if any.
     @State private var testTranscriptionResult: String = ""
 
-    /// Whether the user is currently recording during the test dictation.
-    @State private var isTestRecording = false
-
-    /// Whether the test dictation is being processed (transcription in progress).
-    @State private var isTestProcessing = false
-
     // MARK: - Body
 
     var body: some View {
@@ -171,8 +165,6 @@ struct OnboardingFlow: View {
                 case .testDictation:
                     OnboardingTestDictationStep(
                         testTranscriptionResult: $testTranscriptionResult,
-                        isTestRecording: $isTestRecording,
-                        isTestProcessing: $isTestProcessing,
                         currentStep: currentStep
                     )
                 case .completion:

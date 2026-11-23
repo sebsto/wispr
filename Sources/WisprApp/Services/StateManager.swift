@@ -610,6 +610,37 @@ final class StateManager {
         }
     }
 
+    /// The model being activated from Settings, or `nil` when none is.
+    private(set) var activatingModelName: String?
+
+    /// The model the Settings picker shows: the one being activated, else the
+    /// active one.
+    var displayedModelName: String {
+        activatingModelName ?? settingsStore.activeModelName
+    }
+
+    /// Starts activating a model chosen in Settings.
+    ///
+    /// The switch is owned here rather than by the view, so closing Settings
+    /// or switching sidebar sections does not cancel it half way. A choice
+    /// made while another activation runs is ignored.
+    func requestModelActivation(_ modelName: String) {
+        guard !modelName.isEmpty,
+              modelName != settingsStore.activeModelName,
+              activatingModelName == nil else { return }
+        activatingModelName = modelName
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.activatingModelName = nil }
+            do {
+                try await self.switchActiveModel(to: modelName)
+            } catch {
+                Log.stateManager.error(
+                    "requestModelActivation — failed to activate '\(modelName)': \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Switches the active transcription model.
     ///
     /// Unloads the current model, loads the new one, and persists the choice.

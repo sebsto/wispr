@@ -163,11 +163,6 @@ struct SettingsView: View {
     /// looking like the setting was ignored.
     @State private var transcriptsFolderError: String?
 
-    /// The model ID currently being activated from the Settings picker.
-    @State private var activatingModelId: String?
-
-    /// Local selection state for the model picker, synced via .onChange/.task.
-    @State private var selectedModelId: String = ""
 
     private let audioEngine: AudioEngine
     private let whisperService: any TranscriptionEngine
@@ -206,8 +201,10 @@ struct SettingsView: View {
             Text("All settings will be reset to their original values. This cannot be undone.")
         }
         .task {
-            selectedModelId = settingsStore.activeModelName
             await loadAudioDevices()
+        }
+        .task(id: settingsStore.activeModelName) {
+            // Runs on appear and again after each model switch.
             await loadWhisperModels()
         }
         .onDisappear {
@@ -366,7 +363,7 @@ struct SettingsView: View {
                 Text("No models downloaded")
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Active Model", selection: $selectedModelId) {
+                Picker("Active Model", selection: activeModelBinding) {
                     ForEach(availableModels) { model in
                         HStack {
                             Text(model.displayName)
@@ -376,35 +373,15 @@ struct SettingsView: View {
                         .tag(model.id)
                     }
                 }
-                .disabled(activatingModelId != nil)
+                .disabled(stateManager.activatingModelName != nil)
                 .overlay(alignment: .trailing) {
-                    if activatingModelId != nil {
+                    if stateManager.activatingModelName != nil {
                         ProgressView()
                             .controlSize(.small)
                             .padding(.trailing, 4)
                     }
                 }
                 .accessibilityHint(AccessibilityHints.activeModel)
-                .onChange(of: selectedModelId) { _, newModelId in
-                    guard newModelId != settingsStore.activeModelName,
-                        !newModelId.isEmpty
-                    else { return }
-                    activatingModelId = newModelId
-                }
-                .task(id: activatingModelId) {
-                    guard let modelId = activatingModelId else { return }
-                    do {
-                        try await stateManager.switchActiveModel(to: modelId)
-                    } catch {
-                        selectedModelId = settingsStore.activeModelName
-                    }
-                    await loadWhisperModels()
-                    activatingModelId = nil
-                }
-                .onChange(of: settingsStore.activeModelName) { _, newName in
-                    guard activatingModelId == nil else { return }
-                    selectedModelId = newName
-                }
             }
 
             Toggle("Auto-Detect Language", isOn: autoDetectBinding)
@@ -729,6 +706,16 @@ struct SettingsView: View {
     }
 
     // MARK: - Bindings
+
+    /// Picker selection for the active model. Choosing a model asks
+    /// `StateManager` to activate it; the picker shows the pending choice
+    /// until the switch finishes, then the real active model.
+    private var activeModelBinding: Binding<String> {
+        Binding<String>(
+            get: { stateManager.displayedModelName },
+            set: { stateManager.requestModelActivation($0) }
+        )
+    }
 
     /// Manual binding because toggling auto-detect has side effects:
     /// enabling it clears the language selection, disabling it defaults to English.

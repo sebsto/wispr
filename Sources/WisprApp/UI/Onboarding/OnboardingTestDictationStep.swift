@@ -17,8 +17,10 @@ struct OnboardingTestDictationStep: View {
     @Environment(StateManager.self) private var stateManager: StateManager
 
     @Binding var testTranscriptionResult: String
-    @Binding var isTestRecording: Bool
-    @Binding var isTestProcessing: Bool
+    /// Derived from the app state so the step never drifts from what the
+    /// recorder is actually doing.
+    private var isTestRecording: Bool { stateManager.appState == .recording }
+    private var isTestProcessing: Bool { stateManager.appState == .processing }
 
     /// The current onboarding step, used to guard state change handling.
     let currentStep: OnboardingStep
@@ -95,8 +97,8 @@ struct OnboardingTestDictationStep: View {
                     .foregroundStyle(theme.secondaryTextColor)
             }
         }
-        .onChange(of: stateManager.appState) { _, newState in
-            handleTestDictationStateChange(newState)
+        .onChange(of: stateManager.appState) { oldState, newState in
+            captureTestResult(from: oldState, to: newState)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Test Dictation step")
@@ -117,36 +119,11 @@ struct OnboardingTestDictationStep: View {
         }
     }
 
-    /// Reacts to StateManager app state changes during the test dictation step.
-    ///
-    /// Tracks recording → processing → idle transitions and captures the
-    /// transcription result when the cycle completes.
-    private func handleTestDictationStateChange(_ newState: AppStateType) {
-        guard currentStep == .testDictation else { return }
-
-        switch newState {
-        case .loading:
-            // Ignore loading state during test dictation
-            break
-        case .recording:
-            isTestRecording = true
-            isTestProcessing = false
-        case .processing:
-            isTestRecording = false
-            isTestProcessing = true
-        case .idle:
-            // If we were processing, the cycle completed successfully
-            if isTestProcessing {
-                if testTranscriptionResult.isEmpty {
-                    testTranscriptionResult = "Dictation working! Your speech was transcribed successfully."
-                }
-            }
-            isTestRecording = false
-            isTestProcessing = false
-        case .error(let message):
-            isTestRecording = false
-            isTestProcessing = false
-            _ = message // Error is displayed by the overlay; user can retry
-        }
+    /// Records a success message when a test dictation finishes processing.
+    private func captureTestResult(from oldState: AppStateType, to newState: AppStateType) {
+        guard currentStep == .testDictation,
+              oldState == .processing, newState == .idle,
+              testTranscriptionResult.isEmpty else { return }
+        testTranscriptionResult = "Dictation working! Your speech was transcribed successfully."
     }
 }

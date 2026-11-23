@@ -766,6 +766,63 @@ struct StateManagerTests {
                 "activeModelName should remain unchanged after a failed switch")
     }
 
+    // MARK: - requestModelActivation
+
+    @Test("requestModelActivation shows the pending model, then falls back after a failed switch")
+    func testRequestModelActivationFailure() async throws {
+        let settingsStore = SettingsStore(
+            defaults: UserDefaults(suiteName: "test.wispr.activate.\(UUID().uuidString)")!
+        )
+        settingsStore.activeModelName = "tiny"
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+        sm.markAsReady()
+
+        sm.requestModelActivation("nonexistent-model")
+        #expect(sm.activatingModelName == "nonexistent-model")
+        #expect(sm.displayedModelName == "nonexistent-model")
+
+        // A second choice while one is running is ignored.
+        sm.requestModelActivation("base")
+        #expect(sm.activatingModelName == "nonexistent-model")
+
+        for _ in 0..<200 where sm.activatingModelName != nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(sm.activatingModelName == nil)
+        #expect(sm.displayedModelName == "tiny")
+        #expect(settingsStore.activeModelName == "tiny")
+    }
+
+    @Test("requestModelActivation ignores the already-active model")
+    func testRequestModelActivationNoOp() {
+        let settingsStore = SettingsStore(
+            defaults: UserDefaults(suiteName: "test.wispr.activate.noop.\(UUID().uuidString)")!
+        )
+        settingsStore.activeModelName = "tiny"
+
+        let sm = StateManager(
+            audioEngine: AudioEngine(),
+            whisperService: WhisperService(),
+            textInsertionService: TextInsertionService(),
+            textCorrectionService: TextCorrectionService(),
+            hotkeyMonitor: HotkeyMonitor(),
+            permissionManager: PermissionManager(),
+            settingsStore: settingsStore
+        )
+
+        sm.requestModelActivation("tiny")
+        #expect(sm.activatingModelName == nil)
+    }
+
     // MARK: - Hands-Free / toggleRecording
 
     /// Helper that also returns the SettingsStore for hands-free tests.
