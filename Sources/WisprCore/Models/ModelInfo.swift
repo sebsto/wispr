@@ -50,4 +50,25 @@ public nonisolated struct ModelInfo: Identifiable, Sendable, Equatable {
         public static let parakeetV3 = "parakeet-v3"
         public static let parakeetEou = "parakeet-eou-160ms"
     }
+
+    // MARK: - Aliases
+
+    /// Short names accepted wherever a model name is typed (e.g. `wispr-cli --model`).
+    /// Each maps to the model ID used on disk and in settings.
+    public static let aliases: [String: String] = [
+        "turbo": KnownID.largeV3Turbo,
+        "large-v3-turbo": KnownID.largeV3Turbo,
+        "turbo-v3": KnownID.largeV3Turbo,
+    ]
+
+    /// Returns the model ID for `name`, ignoring case. A name that is not an
+    /// alias is returned unchanged.
+    public static func canonicalID(for name: String) -> String {
+        aliases[name.lowercased()] ?? name
+    }
+
+    /// The aliases that point to `id`, sorted for stable output.
+    public static func aliases(for id: String) -> [String] {
+        aliases.filter { $0.value == id }.keys.sorted()
+    }
 }

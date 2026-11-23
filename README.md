@@ -65,6 +65,7 @@ ln -s /Applications/Wispr.app/Contents/Resources/bin/WisprCLI /usr/local/bin/wis
 ```bash
 wispr-cli recording.m4a
 wispr-cli meeting.mp4 --model large-v3 --language en
+wispr-cli lecture.m4a --model turbo   # alias for large-v3-v20240930_turbo
 wispr-cli podcast.mp3 --output transcript.txt --verbose
 wispr-cli --list-models
 ```
