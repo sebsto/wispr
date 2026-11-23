@@ -56,6 +56,9 @@ struct OnboardingAccessibilityStep: View {
                     .frame(maxWidth: 380)
             }
         }
+        // Status changes arrive from polling, outside any animation, so bind
+        // one here for the status views' transitions.
+        .animation(theme.reduceMotion ? nil : .default, value: permissionManager.accessibilityStatus)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Accessibility Permission step")
     }

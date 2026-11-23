@@ -83,8 +83,13 @@ struct ModelManagementView: View {
     /// slides from one row to another instead of fading independently.
     @Namespace private var highlightNamespace
 
-    init(whisperService: any TranscriptionEngine) {
+    /// Closes the window hosting this view. Supplied by the owner of the
+    /// window, so Close always closes this window and not whichever is key.
+    private let onClose: (() -> Void)?
+
+    init(whisperService: any TranscriptionEngine, onClose: (() -> Void)? = nil) {
         self.whisperService = whisperService
+        self.onClose = onClose
         _catalog = State(initialValue: ModelCatalog(whisperService: whisperService))
     }
 
@@ -128,7 +133,7 @@ struct ModelManagementView: View {
             Divider()
 
             Button("Close") {
-                NSApp.keyWindow?.close()
+                onClose?()
             }
             .buttonStyle(.bordered)
             .controlSize(.regular)

@@ -201,6 +201,7 @@ struct SettingsView: View {
             Text("All settings will be reset to their original values. This cannot be undone.")
         }
         .task {
+            textCorrectionService.checkAvailability()
             await loadAudioDevices()
         }
         .task(id: settingsStore.activeModelName) {
@@ -419,7 +420,6 @@ struct SettingsView: View {
             Toggle("Local AI Text Correction", isOn: $store.aiTextCorrectionEnabled)
                 .disabled(textCorrectionService.availability != .available)
                 .accessibilityHint(AccessibilityHints.aiTextCorrection)
-                .onAppear { textCorrectionService.checkAvailability() }
 
             if case .notAvailable(let reason) = textCorrectionService.availability {
                 Label(reason, systemImage: SFSymbols.info)
@@ -619,12 +619,12 @@ struct SettingsView: View {
                 Text("Version")
                     .foregroundStyle(theme.primaryTextColor)
                 Spacer()
-                Text(appVersion)
+                Text(Self.appVersion)
                     .foregroundStyle(theme.secondaryTextColor)
                     .font(.callout)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Version \(appVersion)")
+            .accessibilityLabel("Version \(Self.appVersion)")
 
             if let update = updateChecker.availableUpdate {
                 HStack {
@@ -655,14 +655,14 @@ struct SettingsView: View {
     // MARK: - Version Info
 
     /// Returns the app version string in the format "1.0.0 (123)" where 123 is the build number.
-    private var appVersion: String {
+    private static let appVersion: String = {
         let version =
             Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? "Unknown"
         let build =
             Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
         return "\(version) (\(build))"
-    }
+    }()
 
     // MARK: - Data Loading
 

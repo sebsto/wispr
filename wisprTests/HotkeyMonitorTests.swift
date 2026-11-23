@@ -190,6 +190,14 @@ struct HotkeyMonitorTests {
         #expect(display == "🌐 Fn")
     }
 
+    @Test("KeyCodeMapping maps F13, F14 and Forward Delete key characters to key codes")
+    func testExtendedKeyCharacters() {
+        let mapping = KeyCodeMapping.shared
+        #expect(mapping.keyCode(for: Character("\u{F710}")) == 105)
+        #expect(mapping.keyCode(for: Character("\u{F711}")) == 113)
+        #expect(mapping.keyCode(for: Character("\u{F728}")) == 117)
+    }
+
     // MARK: - updateHotkey Conflict Detection Tests
 
     @Test("updateHotkey() throws hotkeyConflict for reserved shortcut")

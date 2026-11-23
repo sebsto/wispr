@@ -325,7 +325,7 @@ final class MenuBarController {
         let isMeetingRecording = meetingStateManager.meetingState == .recording
 
         meetingMenuItem.title = meetingMenuTitle()
-        meetingMenuItem.action = #selector(MenuBarActionHandler.toggleMeetingMode(_:))
+        meetingMenuItem.action = #selector(MenuBarActionHandler.showMeetingWindow(_:))
         meetingMenuItem.target = MenuBarActionHandler.shared
         meetingMenuItem.image = NSImage(
             systemSymbolName: isMeetingRecording ? "person.2.wave.2.fill" : "person.2.wave.2",
@@ -621,6 +621,8 @@ final class MenuBarController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Wispr Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
+        // The controller owns the window; AppKit must not also release it on close.
+        window.isReleasedWhenClosed = false
         window.setContentSize(NSSize(width: 740, height: 540))
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -641,7 +643,10 @@ final class MenuBarController {
             return
         }
 
-        let modelView = ModelManagementView(whisperService: transcriptionEngine)
+        let modelView = ModelManagementView(
+            whisperService: transcriptionEngine,
+            onClose: { [weak self] in self?.modelManagementWindow?.close() }
+        )
             .environment(settingsStore)
             .environment(themeEngine)
             .environment(stateManager)
@@ -650,6 +655,8 @@ final class MenuBarController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Model Management"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        // The controller owns the window; AppKit must not also release it on close.
+        window.isReleasedWhenClosed = false
         window.setContentSize(NSSize(width: 620, height: 640))
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -739,8 +746,8 @@ final class MenuBarController {
         NSApp.terminate(nil)
     }
 
-    /// Toggles the meeting transcription window.
-    func toggleMeetingMode() {
+    /// Shows the meeting transcription window.
+    func showMeetingWindow() {
         meetingStateManager.isWindowVisible = true
     }
 
@@ -814,8 +821,8 @@ final class MenuBarActionHandler: NSObject {
     }
 
     @MainActor
-    @objc func toggleMeetingMode(_ sender: NSMenuItem) {
-        menuBarController?.toggleMeetingMode()
+    @objc func showMeetingWindow(_ sender: NSMenuItem) {
+        menuBarController?.showMeetingWindow()
     }
 
     @MainActor

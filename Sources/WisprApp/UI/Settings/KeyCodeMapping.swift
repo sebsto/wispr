@@ -71,6 +71,9 @@ struct KeyCodeMapping {
         map[Character("\u{F70D}")] = 109 // F10
         map[Character("\u{F70E}")] = 103 // F11
         map[Character("\u{F70F}")] = 111 // F12
+        map[Character("\u{F710}")] = 105 // F13
+        map[Character("\u{F711}")] = 113 // F14
+        map[Character("\u{F728}")] = 117 // Forward Delete
         map[Character("\u{F729}")] = 115 // Home
         map[Character("\u{F72B}")] = 119 // End
         map[Character("\u{F72C}")] = 116 // Page Up

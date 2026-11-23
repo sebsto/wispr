@@ -97,6 +97,8 @@ struct OnboardingTestDictationStep: View {
                     .foregroundStyle(theme.secondaryTextColor)
             }
         }
+        .animation(theme.reduceMotion ? nil : .default, value: stateManager.appState)
+        .animation(theme.reduceMotion ? nil : .default, value: testTranscriptionResult)
         .onChange(of: stateManager.appState) { oldState, newState in
             captureTestResult(from: oldState, to: newState)
         }

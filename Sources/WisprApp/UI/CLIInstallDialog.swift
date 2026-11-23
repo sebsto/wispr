@@ -52,6 +52,12 @@ struct CLIInstallDialogView: View {
                     )
                 }
                 .controlSize(.large)
+                .task(id: copied) {
+                    // Go back to "Copy Command" so a second copy is acknowledged too.
+                    guard copied else { return }
+                    try? await Task.sleep(for: .seconds(2))
+                    copied = false
+                }
 
                 Spacer()
 
