@@ -51,6 +51,11 @@ struct MeetingTranscriptView: View {
     /// for the lifetime of the retained panel, rather than resetting on reopen.
     @State private var showHistory = false
 
+    /// Timestamp and speaker column widths, scaled with the text size so
+    /// larger accessibility sizes do not truncate them.
+    @ScaledMetric(relativeTo: .caption) private var timestampColumnWidth: CGFloat = 50
+    @ScaledMetric(relativeTo: .caption) private var speakerColumnWidth: CGFloat = 70
+
     // MARK: - Displayed transcript
 
     /// The transcript currently on screen — live session or loaded archive.
@@ -449,13 +454,13 @@ struct MeetingTranscriptView: View {
             Text(MeetingTranscript.formatTime(entry.timestamp))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.tertiary)
-                .frame(width: 50, alignment: .trailing)
+                .frame(width: timestampColumnWidth, alignment: .trailing)
 
             // Resolved through the transcript so a rename relabels every entry.
             Text(transcript.displayName(for: entry.speaker))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(speakerColor(entry.speaker))
-                .frame(width: 70, alignment: .leading)
+                .frame(width: speakerColumnWidth, alignment: .leading)
                 .lineLimit(1)
 
             Text(entry.text)
@@ -465,6 +470,8 @@ struct MeetingTranscriptView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 4)
+        // One VoiceOver element per line: time, speaker, then what they said.
+        .accessibilityElement(children: .combine)
     }
 
     /// Color for a speaker badge. "You" is blue; each diarized remote speaker

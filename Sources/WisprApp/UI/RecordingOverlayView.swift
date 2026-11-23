@@ -75,12 +75,16 @@ struct RecordingOverlayView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabelForState)
-        .accessibilityHint(
-            settingsStore.handsFreeMode
-                ? "Press the hotkey again to stop recording. Recording may also stop automatically, depending on the model."
-                : "Release the hotkey to stop recording"
-        )
+        .accessibilityHint(recordingAccessibilityHint)
         .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// How to stop recording, announced only while recording.
+    private var recordingAccessibilityHint: String {
+        guard stateManager.appState == .recording else { return "" }
+        return settingsStore.handsFreeMode
+            ? "Press the hotkey again to stop recording. Recording may also stop automatically, depending on the model."
+            : "Release the hotkey to stop recording"
     }
 
     // MARK: - Content
