@@ -153,6 +153,37 @@ final class SettingsStore {
         }
     }
 
+    /// Per-destination settings for exporting meeting transcripts as Markdown,
+    /// keyed by `TranscriptExportDestination.id`.
+    ///
+    /// A destination with no entry uses `TranscriptExportConfig()`, so adding a
+    /// destination later needs no migration and never shares another's folder.
+    var transcriptExportConfigs: [String: TranscriptExportConfig] {
+        didSet {
+            guard !isLoading else { return }
+            if transcriptExportConfigs.isEmpty {
+                defaults.removeObject(forKey: Keys.transcriptExportConfigs)
+            } else if let data = try? JSONEncoder().encode(transcriptExportConfigs) {
+                defaults.set(data, forKey: Keys.transcriptExportConfigs)
+            }
+        }
+    }
+
+    /// The export settings for one destination.
+    func exportConfig(for destination: TranscriptExportDestination) -> TranscriptExportConfig {
+        transcriptExportConfigs[destination.id] ?? TranscriptExportConfig()
+    }
+
+    /// Changes the export settings for one destination, leaving the others as they are.
+    func updateExportConfig(
+        for destination: TranscriptExportDestination,
+        _ change: (inout TranscriptExportConfig) -> Void
+    ) {
+        var config = exportConfig(for: destination)
+        change(&config)
+        transcriptExportConfigs[destination.id] = config
+    }
+
     /// When true, Wispr watches for another app using the microphone and posts a
     /// notification inviting the user to start meeting transcription.
     var meetingDetectionEnabled: Bool {
@@ -257,6 +288,7 @@ final class SettingsStore {
         static let soundFeedbackEnabled = "soundFeedbackEnabled"
         static let meetingDetectionEnabled = "meetingDetectionEnabled"
         static let transcriptsFolderBookmark = "transcriptsFolderBookmark"
+        static let transcriptExportConfigs = "transcriptExportConfigs"
         static let autoSuffixEnabled = "autoSuffixEnabled"
         static let autoSuffixText = "autoSuffixText"
         static let removeFillerWords = "removeFillerWords"
@@ -288,6 +320,7 @@ final class SettingsStore {
         static let soundFeedbackEnabled: Bool = false
         static let meetingDetectionEnabled: Bool = false
         static let transcriptsFolderBookmark: Data? = nil
+        static let transcriptExportConfigs: [String: TranscriptExportConfig] = [:]
         static let autoSuffixEnabled: Bool = false
         static let autoSuffixText: String = " "
         static let removeFillerWords: Bool = false
@@ -323,6 +356,7 @@ final class SettingsStore {
         self.soundFeedbackEnabled = Defaults.soundFeedbackEnabled
         self.meetingDetectionEnabled = Defaults.meetingDetectionEnabled
         self.transcriptsFolderBookmark = Defaults.transcriptsFolderBookmark
+        self.transcriptExportConfigs = Defaults.transcriptExportConfigs
         self.autoSuffixEnabled = Defaults.autoSuffixEnabled
         self.autoSuffixText = Defaults.autoSuffixText
         self.removeFillerWords = Defaults.removeFillerWords
@@ -359,6 +393,7 @@ final class SettingsStore {
         // the destination for new transcripts returns to the app container.
         transcriptsFolderBookmark = Defaults.transcriptsFolderBookmark
         TranscriptLocation.useDefault()
+        transcriptExportConfigs = Defaults.transcriptExportConfigs
         autoSuffixEnabled = Defaults.autoSuffixEnabled
         autoSuffixText = Defaults.autoSuffixText
         removeFillerWords = Defaults.removeFillerWords
@@ -483,6 +518,12 @@ final class SettingsStore {
         }
 
         self.transcriptsFolderBookmark = defaults.data(forKey: Keys.transcriptsFolderBookmark)
+
+        if let data = defaults.data(forKey: Keys.transcriptExportConfigs),
+            let configs = try? JSONDecoder().decode([String: TranscriptExportConfig].self, from: data)
+        {
+            self.transcriptExportConfigs = configs
+        }
 
         // Load auto-suffix settings
         if defaults.object(forKey: Keys.autoSuffixEnabled) != nil {

@@ -102,6 +102,10 @@
             { "path": "TextInsertionService.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "TranscriptStore.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "TranscriptLocation.swift", "target-membership": [ "WisprApp/compile-sources" ] },
+            { "path": "TranscriptExportDestination.swift", "target-membership": [ "WisprApp/compile-sources" ] },
+            { "path": "TranscriptExportCoordinator.swift", "target-membership": [ "WisprApp/compile-sources" ] },
+            { "path": "TranscriptExporter.swift", "target-membership": [ "WisprApp/compile-sources" ] },
+            { "path": "TranscriptMarkdownRenderer.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "TranscriptDirectoryWatcher.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "UpdateChecker.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "ClipboardService.swift", "target-membership": [ "WisprApp/compile-sources" ] },
@@ -140,6 +144,7 @@
                 { "path": "HotkeyRecorderView.swift", "target-membership": [ "WisprApp/compile-sources" ] },
                 { "path": "KeyCodeMapping.swift", "target-membership": [ "WisprApp/compile-sources" ] },
                 { "path": "SettingsView.swift", "target-membership": [ "WisprApp/compile-sources" ] },
+                { "path": "TranscriptExportSection.swift", "target-membership": [ "WisprApp/compile-sources" ] },
                 { "path": "SupportedLanguage.swift", "target-membership": [ "WisprApp/compile-sources" ] },
               ],
             }, {

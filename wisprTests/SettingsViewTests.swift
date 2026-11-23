@@ -453,3 +453,37 @@ struct SettingsViewAutoSuffixUITests {
         #expect(reloaded.autoSendEnterEnabled == SettingsStore.Defaults.autoSendEnterEnabled)
     }
 }
+
+// MARK: - Transcript Export Section Tests
+
+@MainActor
+@Suite("SettingsView transcript export section")
+struct TranscriptExportSectionTests {
+
+    @Test("The section is offered only for destinations whose app is installed")
+    func testVisibilityFollowsDetection() {
+        let missing = FakeAppInstallDetector(installed: [])
+        let installed = FakeAppInstallDetector(installed: ["md.obsidian"])
+
+        #expect(TranscriptExportDestination.detected(using: missing).isEmpty)
+        #expect(TranscriptExportDestination.detected(using: installed).map(\.id) == ["obsidian"])
+    }
+
+    @Test("A usable subfolder shows no error")
+    func testValidSubfolderHasNoError() {
+        #expect(TranscriptExportSection.subfolderError(for: "") == nil)
+        #expect(TranscriptExportSection.subfolderError(for: "Transcripts") == nil)
+    }
+
+    @Test("An unusable subfolder shows an error")
+    func testInvalidSubfolderHasError() {
+        #expect(TranscriptExportSection.subfolderError(for: "../up") != nil)
+        #expect(TranscriptExportSection.subfolderError(for: ".obsidian") != nil)
+    }
+
+    @Test("A bookmark that cannot be resolved is shown as unavailable")
+    func testUnresolvableBookmarkPath() {
+        #expect(
+            TranscriptExportSection.displayPath(for: Data("junk".utf8)) == "Folder unavailable")
+    }
+}

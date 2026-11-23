@@ -12,6 +12,7 @@ Wispr runs entirely on-device — your audio never leaves your Mac.
 - **Low-latency streaming** — Parakeet Realtime 120M provides end-of-utterance detection for near-instant results (English)
 - **Model management** — download, activate, switch, and delete models from a single UI
 - **Multi-language support** — Whisper supports 90+ languages, Parakeet V3 supports 25 languages and honors `--language` only for non-Latin scripts (Cyrillic, Greek). For Latin-script languages it is only a hint, so use Whisper to fix the language. Qwen3-ASR supports 52 languages and dialects
+- **Export to Obsidian** — when Obsidian is installed, Settings offers an Export section that saves each finished meeting transcript as a Markdown file in a folder you choose, such as a vault. It is off by default
 - **Menu bar native** — lives in your menu bar, stays out of the way
 - **Onboarding flow** — guided setup for permissions, model selection, and a test dictation
 - **Accessibility-first** — full keyboard navigation, VoiceOver support, and high-contrast mode

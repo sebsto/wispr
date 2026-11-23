@@ -88,6 +88,9 @@ final class MeetingStateManager {
     private let transcriptionEngine: any TranscriptionEngine
     private let settingsStore: SettingsStore
 
+    /// Copies each saved meeting to the user's note-taking apps, when they set that up.
+    private let exportCoordinator: TranscriptExportCoordinator
+
     /// Optional speaker-diarization engine. In online mode it diarizes the
     /// system-audio ("Others") track; in in-person mode it diarizes the mic track.
     /// `nil` disables diarization entirely (e.g. in tests). It is warmed up when
@@ -119,12 +122,15 @@ final class MeetingStateManager {
         meetingAudioEngine: MeetingAudioEngine,
         transcriptionEngine: any TranscriptionEngine,
         settingsStore: SettingsStore,
-        meetingDiarizer: MeetingDiarizer? = nil
+        meetingDiarizer: MeetingDiarizer? = nil,
+        exportCoordinator: TranscriptExportCoordinator? = nil
     ) {
         self.meetingAudioEngine = meetingAudioEngine
         self.transcriptionEngine = transcriptionEngine
         self.settingsStore = settingsStore
         self.meetingDiarizer = meetingDiarizer
+        self.exportCoordinator =
+            exportCoordinator ?? TranscriptExportCoordinator(settings: settingsStore)
         self.mode = settingsStore.meetingInPersonMode ? .inPerson : .online
     }
 
@@ -232,6 +238,7 @@ final class MeetingStateManager {
         // guaranteed to complete before `transcript` can be replaced.
         let completed = transcript
         let savedURL = await TranscriptIO.shared.save(completed)
+        if savedURL != nil { exportCoordinator.exportIfConfigured(completed) }
 
         // Return "Current Session" to an empty slate: the finished meeting is now
         // on disk and shown from history, so keeping its text in the live view
@@ -264,7 +271,9 @@ final class MeetingStateManager {
         Log.stateManager.debug(
             "MeetingStateManager — finalizing in-progress meeting on termination (\(entryCount) entries)"
         )
-        TranscriptStore.save(transcript)
+        if TranscriptStore.save(transcript) != nil {
+            exportCoordinator.exportIfConfigured(transcript)
+        }
 
         recordingTask?.cancel()
         recordingTask = nil
