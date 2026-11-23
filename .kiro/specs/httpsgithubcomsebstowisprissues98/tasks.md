@@ -15,7 +15,7 @@ Delivery: one PR per task, in this order. Each task builds with `swift build` an
   - Keep Restore Defaults and version info reachable as chosen in the mockup.
   - Verify with screenshots; check keyboard and VoiceOver navigation.
 
-- [ ] 3. Meeting window and menu performance (requirements B)
+- [x] 3. Meeting window and menu performance (requirements B)
   - Extract the level and elapsed-time indicators into small subviews.
   - Build `TranscriptDocument` only in the Export action.
   - Cache `presentSpeakerIndices`; make the speaker palette `private static let`.
