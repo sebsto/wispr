@@ -336,24 +336,31 @@ struct WisprCLI: AsyncParsableCommand {
         guard !downloadedModels.isEmpty else {
             throw CLIError.noDownloadedModels(searched: ModelPaths.models.path)
         }
+        // The GUI's active model is only read when no explicit name is given.
+        let active = explicitName == nil ? try guiDefaultsString(forKey: "activeModelName") : nil
+        return try Self.resolve(explicitName, among: downloadedModels, activeModel: active)
+    }
 
+    /// Picks the model to use from `downloadedModels`. An explicit name may be
+    /// an alias; otherwise the GUI's active model is used when it is downloaded.
+    static func resolve(
+        _ explicitName: String?,
+        among downloadedModels: [DownloadedModelInfo],
+        activeModel: String?
+    ) throws -> String {
         if let requested = explicitName {
             let name = ModelInfo.canonicalID(for: requested)
             guard downloadedModels.contains(where: { $0.name == name }) else {
                 throw CLIError.modelNotFound(
                     requested,
-                    available: downloadedModels.map {
-                        Self.displayName(for: $0.name)
-                    }
+                    available: downloadedModels.map { displayName(for: $0.name) }
                 )
             }
             return name
         }
 
-        // Try GUI app's active model from its sandboxed container plist.
-        if let active = try guiDefaultsString(forKey: "activeModelName"),
-           downloadedModels.contains(where: { $0.name == active }) {
-            return active
+        if let activeModel, downloadedModels.contains(where: { $0.name == activeModel }) {
+            return activeModel
         }
 
         throw CLIError.noActiveModel
@@ -470,6 +477,20 @@ struct WisprCLI: AsyncParsableCommand {
         return aliases.isEmpty ? name : "\(name) (alias: \(aliases.joined(separator: ", ")))"
     }
 
+    /// One `--list-models` line. The first tab-separated column is always the
+    /// bare model ID, so `cut -f1` output can be passed to `--model`. Aliases,
+    /// when the model has any, are in a trailing column.
+    static func listLine(for model: DownloadedModelInfo, isActive: Bool) -> String {
+        let sizeMB = Double(model.sizeOnDisk) / 1_000_000
+        let active = isActive ? " (active)" : ""
+        var line = "\(model.name)\t\(String(format: "%.0f", sizeMB)) MB\(active)"
+        let aliases = ModelInfo.aliases(for: model.name)
+        if !aliases.isEmpty {
+            line += "\taliases: \(aliases.joined(separator: ", "))"
+        }
+        return line
+    }
+
     func doListModels() throws {
         let models = try discoverDownloadedModels()
         if models.isEmpty {
@@ -479,9 +500,7 @@ struct WisprCLI: AsyncParsableCommand {
         let activeModel = try guiDefaultsString(forKey: "activeModelName")
 
         for model in models {
-            let sizeMB = Double(model.sizeOnDisk) / 1_000_000
-            let active = model.name == activeModel ? " (active)" : ""
-            print("\(Self.displayName(for: model.name))\t\(String(format: "%.0f", sizeMB)) MB\(active)")
+            print(Self.listLine(for: model, isActive: model.name == activeModel))
         }
     }
 
