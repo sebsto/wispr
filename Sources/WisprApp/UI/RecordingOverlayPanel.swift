@@ -41,6 +41,10 @@ final class RecordingOverlayPanel {
     /// Whether the panel is currently visible.
     private(set) var isVisible = false
 
+    /// Incremented on every `show()`. A dismiss fade-out only orders the panel
+    /// out if no newer `show()` happened while it was running.
+    private var showGeneration = 0
+
     // MARK: - Initialization
 
     /// Creates a new overlay panel controller.
@@ -67,14 +71,16 @@ final class RecordingOverlayPanel {
             createPanel()
         }
 
-        guard let panel, !isVisible else { return }
+        guard let panel else { return }
 
+        showGeneration += 1
+        isVisible = true
         positionPanel(panel)
 
-        // Start transparent for fade-in
-        panel.alphaValue = 0
+        // Fade in from the current alpha so a show during a dismiss fade-out
+        // continues smoothly instead of flashing.
+        if !panel.isVisible { panel.alphaValue = 0 }
         panel.orderFrontRegardless()
-        isVisible = true
 
         // Animate in — respect Reduce Motion
         let duration = themeEngine.reduceMotion ? 0.0 : 0.25
@@ -89,6 +95,8 @@ final class RecordingOverlayPanel {
     func dismiss() {
         guard let panel, isVisible else { return }
 
+        let generation = showGeneration
+        isVisible = false
         let duration = themeEngine.reduceMotion ? 0.0 : 0.2
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = duration
@@ -96,9 +104,8 @@ final class RecordingOverlayPanel {
             panel.animator().alphaValue = 0.0
         }, completionHandler: { [weak self] in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self, self.showGeneration == generation else { return }
                 self.panel?.orderOut(nil)
-                self.isVisible = false
             }
         })
     }
@@ -137,6 +144,11 @@ final class RecordingOverlayPanel {
     private func positionPanel(_ panel: NSPanel) {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
+
+        // Size to the SwiftUI content so larger accessibility text sizes are not clipped.
+        if let fitting = panel.contentView?.fittingSize, fitting.width > 0, fitting.height > 0 {
+            panel.setContentSize(fitting)
+        }
         let panelSize = panel.frame.size
 
         let x = screenFrame.midX - panelSize.width / 2

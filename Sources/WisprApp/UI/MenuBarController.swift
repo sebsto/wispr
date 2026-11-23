@@ -591,7 +591,7 @@ final class MenuBarController {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Wispr Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 560, height: 580))
+        window.setContentSize(NSSize(width: 740, height: 540))
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()

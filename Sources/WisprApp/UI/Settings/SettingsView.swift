@@ -32,6 +32,62 @@ private struct SectionHeader: View {
     }
 }
 
+// MARK: - SettingsPane
+
+/// A page of the Settings window, listed in the sidebar.
+enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
+    case shortcut, audioDevice, recognition, afterTranscription, feedback, meeting, general
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .shortcut: "Shortcut"
+        case .audioDevice: "Audio Device"
+        case .recognition: "Recognition"
+        case .afterTranscription: "After Transcription"
+        case .feedback: "Feedback"
+        case .meeting: "Meeting"
+        case .general: "General"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .shortcut: .orange
+        case .audioDevice: .blue
+        case .recognition: .purple
+        case .afterTranscription: .teal
+        case .feedback: .mint
+        case .meeting: .indigo
+        case .general: .secondary
+        }
+    }
+
+    /// Sidebar group labels.
+    enum Group: String, CaseIterable, Identifiable {
+        case input, text, app
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .input: "Input"
+            case .text: "Text"
+            case .app: "App"
+            }
+        }
+
+        var panes: [SettingsPane] {
+            switch self {
+            case .input: [.shortcut, .audioDevice]
+            case .text: [.recognition, .afterTranscription]
+            case .app: [.feedback, .meeting, .general]
+            }
+        }
+    }
+}
+
 // MARK: - SettingsView
 
 struct SettingsView: View {
@@ -121,19 +177,27 @@ struct SettingsView: View {
         self.whisperService = whisperService
     }
 
+    /// The section currently shown in the detail pane.
+    @State private var selectedPane: SettingsPane = .shortcut
+
     var body: some View {
-        Form {
-            shortcutSection
-            audioDeviceSection
-            recognitionSection
-            afterTranscriptionSection
-            feedbackSection
-            meetingSection
-            generalSection
+        HStack(spacing: 0) {
+            sidebar
+            Divider()
+            Form {
+                switch selectedPane {
+                case .shortcut: shortcutSection
+                case .audioDevice: audioDeviceSection
+                case .recognition: recognitionSection
+                case .afterTranscription: afterTranscriptionSection
+                case .feedback: feedbackSection
+                case .meeting: meetingSection
+                case .general: generalSection
+                }
+            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
-        .frame(width: 520)
-        .frame(maxHeight: 600)
+        .frame(width: 740, height: 540)
         .liquidGlassPanel()
         .alert("Restore Defaults?", isPresented: $showRestoreDefaultsAlert) {
             Button("Restore", role: .destructive, action: restoreDefaults)
@@ -146,22 +210,68 @@ struct SettingsView: View {
             await loadAudioDevices()
             await loadWhisperModels()
         }
+        .onDisappear {
+            // The window can close mid-recording; the @State flip back to false
+            // never happens then, so restore the hotkey here.
+            if isRecordingHotkey { restoreHotkeyRegistration() }
+        }
         .onChange(of: isRecordingHotkey) { _, recording in
             if recording {
                 hotkeyMonitor.unregister()
             } else {
-                do {
-                    try hotkeyMonitor.register(
-                        keyCode: settingsStore.hotkeyKeyCode,
-                        modifiers: settingsStore.hotkeyModifiers
-                    )
-                    hotkeyError = nil
-                } catch {
-                    hotkeyError = error.localizedDescription
-                    Log.hotkey.error(
-                        "Settings — failed to re-register hotkey: \(error.localizedDescription)")
+                restoreHotkeyRegistration()
+            }
+        }
+    }
+
+    // MARK: - Sidebar
+
+    private var sidebar: some View {
+        List(selection: $selectedPane) {
+            ForEach(SettingsPane.Group.allCases) { group in
+                Section(group.title) {
+                    ForEach(group.panes) { pane in
+                        Label {
+                            Text(pane.title)
+                        } icon: {
+                            Image(systemName: icon(for: pane))
+                                .foregroundStyle(pane.tint.gradient)
+                        }
+                        .tag(pane)
+                        .accessibilityLabel(pane.title)
+                    }
                 }
             }
+        }
+        .listStyle(.sidebar)
+        .frame(width: 190)
+        .accessibilityLabel("Settings sections")
+    }
+
+    private func icon(for pane: SettingsPane) -> String {
+        switch pane {
+        case .shortcut: SFSymbols.keyboard
+        case .audioDevice: theme.actionSymbol(.microphone)
+        case .recognition: theme.actionSymbol(.model)
+        case .afterTranscription: SFSymbols.textOutput
+        case .feedback: SFSymbols.feedback
+        case .meeting: SFSymbols.meeting
+        case .general: SFSymbols.settings
+        }
+    }
+
+    /// Re-registers the global hotkey from the saved settings.
+    private func restoreHotkeyRegistration() {
+        do {
+            try hotkeyMonitor.register(
+                keyCode: settingsStore.hotkeyKeyCode,
+                modifiers: settingsStore.hotkeyModifiers
+            )
+            hotkeyError = nil
+        } catch {
+            hotkeyError = error.localizedDescription
+            Log.hotkey.error(
+                "Settings — failed to re-register hotkey: \(error.localizedDescription)")
         }
     }
 
