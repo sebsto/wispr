@@ -219,6 +219,7 @@
           "path": "Utilities",
           "children": [
             { "path": "FileAccess.swift", "target-membership": [ "WisprCore/compile-sources" ] },
+            { "path": "EnclosingAppBundle.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "Logger.swift", "target-membership": [ "WisprCore/compile-sources" ] },
             { "path": "ModelPaths.swift", "target-membership": [ "WisprCore/compile-sources" ] },
           ],

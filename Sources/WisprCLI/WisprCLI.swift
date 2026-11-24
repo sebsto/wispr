@@ -139,6 +139,9 @@ struct WisprCLI: AsyncParsableCommand {
     var listModels = false
 
     mutating func run() async throws {
+        // MLX finds its Metal library through the app bundle; see EnclosingAppBundle.
+        EnclosingAppBundle.register()
+
         // Printed before any discovery so a misdirected root is visible in bug
         // reports without having to read the source. Suppressed by --quiet,
         // which promises to silence all stderr output.
