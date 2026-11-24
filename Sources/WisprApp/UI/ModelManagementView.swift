@@ -30,19 +30,6 @@ extension ModelProvider {
     }
 }
 
-/// Discriminated union for flattening grouped model data into a single `ForEach`.
-private enum ModelListItem: Identifiable {
-    case header(ModelProvider)
-    case model(ModelInfo)
-
-    var id: String {
-        switch self {
-        case .header(let provider): "header-\(provider.rawValue)"
-        case .model(let model): model.id
-        }
-    }
-}
-
 /// View displaying all available Whisper models with download, delete, and activation controls.
 ///
 /// Requirement 7.2: List all available models with name, size, and status.
@@ -57,8 +44,13 @@ struct ModelManagementView: View {
     /// The WhisperService actor used for model operations.
     private let whisperService: any TranscriptionEngine
 
-    /// Local state: snapshot of models with their current statuses.
-    @State private var models: [ModelInfo] = []
+    /// Model list and model actions (refresh, activate, delete).
+    @State private var catalog: ModelCatalog
+
+    private var models: [ModelInfo] { catalog.models }
+
+    /// The provider shown in the detail pane.
+    @State private var selectedProvider: ModelProvider?
 
     /// Model IDs currently showing the download progress view.
     @State private var activeDownloads: Set<String> = []
@@ -72,11 +64,6 @@ struct ModelManagementView: View {
     /// Whether a "no models" alert is shown after deleting the last model.
     @State private var showNoModelsAlert = false
 
-    /// Error message to display (for non-download errors).
-    @State private var errorMessage: String?
-
-    /// The model ID currently being activated (loading into memory).
-    @State private var activatingModelId: String?
 
     /// Tracks which model ID currently shows the green highlight overlay.
     /// Drives the animated transition when switching active models.
@@ -86,51 +73,44 @@ struct ModelManagementView: View {
     /// slides from one row to another instead of fading independently.
     @Namespace private var highlightNamespace
 
-    init(whisperService: any TranscriptionEngine) {
+    /// Closes the window hosting this view. Supplied by the owner of the
+    /// window, so Close always closes this window and not whichever is key.
+    private let onClose: (() -> Void)?
+
+    init(whisperService: any TranscriptionEngine, onClose: (() -> Void)? = nil) {
         self.whisperService = whisperService
+        self.onClose = onClose
+        _catalog = State(initialValue: ModelCatalog(whisperService: whisperService))
     }
 
-    /// Flat list of headers and model rows for a single-level `ForEach`.
-    /// Using a single `ForEach` avoids macOS `OutlineListCoordinator` crashes
-    /// that occur with nested `ForEach` inside `List` when data loads async.
-    private var listItems: [ModelListItem] {
-        var seen: [ModelProvider] = []
-        var groups: [ModelProvider: [ModelInfo]] = [:]
-        for model in models {
-            if !seen.contains(model.provider) {
-                seen.append(model.provider)
-            }
-            groups[model.provider, default: []].append(model)
+    /// Providers that have at least one model, in a stable order.
+    private var providers: [ModelProvider] {
+        ModelProvider.allCases.filter { provider in models.contains { $0.provider == provider } }
+    }
+
+    private func models(for provider: ModelProvider) -> [ModelInfo] {
+        models.filter { $0.provider == provider }
+    }
+
+    private func hasActiveModel(_ provider: ModelProvider) -> Bool {
+        models(for: provider).contains {
+            if case .active = $0.status { return true }
+            return false
         }
-        var items: [ModelListItem] = []
-        for provider in seen.sorted(by: { $0.rawValue < $1.rawValue }) {
-            items.append(.header(provider))
-            for model in groups[provider, default: []] {
-                items.append(.model(model))
-            }
-        }
-        return items
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            List {
-                ForEach(listItems) { item in
-                    switch item {
-                    case .header(let provider):
-                        providerHeader(provider)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
-                    case .model(let model):
-                        modelSection(for: model)
-                    }
-                }
+            HStack(spacing: 0) {
+                providerSidebar
+                Divider()
+                detailPane
             }
 
             Divider()
 
             Button("Close") {
-                NSApp.keyWindow?.close()
+                onClose?()
             }
             .buttonStyle(.bordered)
             .controlSize(.regular)
@@ -139,11 +119,15 @@ struct ModelManagementView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: highlightedModelId)
-        .frame(minWidth: 560, idealWidth: 620)
+        .frame(minWidth: 740, idealWidth: 780, minHeight: 480)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
         .task {
             await refreshModels()
+            // Open on the provider of the active model, else the first one.
+            if selectedProvider == nil {
+                selectedProvider = providers.first(where: hasActiveModel) ?? providers.first
+            }
         }
         .confirmationDialog(
             "Delete Model",
@@ -165,40 +149,77 @@ struct ModelManagementView: View {
             Text("All models have been removed. Please download a model to continue using Wispr.")
         }
         .alert("Error", isPresented: .init(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
+            get: { catalog.errorMessage != nil },
+            set: { if !$0 { catalog.errorMessage = nil } }
         )) {
-            Button("OK") { errorMessage = nil }
+            Button("OK") { catalog.errorMessage = nil }
         } message: {
-            if let errorMessage {
+            if let errorMessage = catalog.errorMessage {
                 Text(errorMessage)
             }
         }
     }
 
-    // MARK: - Provider Header
+    // MARK: - Provider Sidebar
 
-    @ScaledMetric(relativeTo: .body) private var providerIconSize: CGFloat = 24
-
-    @ViewBuilder
-    private func providerHeader(_ provider: ModelProvider) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: provider.icon)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(provider.tintColor.gradient)
-                .frame(width: providerIconSize, height: providerIconSize)
-                .background(provider.tintColor.opacity(0.12), in: Circle())
-
-            Text(provider.rawValue)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(theme.primaryTextColor)
-
-            Spacer()
+    private var providerSidebar: some View {
+        List(selection: $selectedProvider) {
+            Section("Providers") {
+                ForEach(providers, id: \.self) { provider in
+                    providerRow(provider)
+                        .tag(provider)
+                }
+            }
         }
-        .padding(.top, 6)
-        .padding(.bottom, 2)
+        .listStyle(.sidebar)
+        .frame(width: 200)
+        .accessibilityLabel("Model providers")
+    }
+
+    private func providerRow(_ provider: ModelProvider) -> some View {
+        let isActive = hasActiveModel(provider)
+        return HStack {
+            Label {
+                Text(provider.rawValue)
+            } icon: {
+                Image(systemName: provider.icon)
+                    .foregroundStyle(provider.tintColor.gradient)
+            }
+            Spacer()
+            if isActive {
+                Image(systemName: SFSymbols.checkmarkPlain)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(theme.successColor)
+                    .help("The active model is from this provider")
+            }
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(provider.rawValue) models")
+        .accessibilityLabel(
+            isActive ? "\(provider.rawValue), has the active model" : provider.rawValue)
+    }
+
+    // MARK: - Detail Pane
+
+    /// Model list for the selected provider.
+    ///
+    /// Every provider's list stays in the view tree and only the selected one
+    /// is shown: a model download runs inside its row's `.task`, so removing
+    /// the row by switching provider would cancel the download.
+    private var detailPane: some View {
+        ZStack {
+            ForEach(providers, id: \.self) { provider in
+                let isSelected = provider == selectedProvider
+                List {
+                    ForEach(models(for: provider)) { model in
+                        modelSection(for: model)
+                    }
+                }
+                .opacity(isSelected ? 1 : 0)
+                .allowsHitTesting(isSelected)
+                .accessibilityHidden(!isSelected)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Model Section
@@ -229,12 +250,12 @@ struct ModelManagementView: View {
             ModelRowView(
                 model: model,
                 theme: theme,
-                isActivating: activatingModelId == model.id,
+                isActivating: catalog.activatingModelId == model.id,
                 isHighlighted: highlightedModelId == model.id,
                 namespace: highlightNamespace,
                 onDownload: {
                     activeDownloads.insert(model.id)
-                    updateModelStatus(model.id, to: .downloading(progress: 0.0))
+                    catalog.updateStatus(model.id, to: .downloading(progress: 0.0))
                 },
                 onSetActive: { await setActiveModel(model) },
                 onDelete: { requestDelete(model) }
@@ -244,19 +265,10 @@ struct ModelManagementView: View {
 
     // MARK: - Actions
 
-    /// Refreshes the model list with current statuses from WhisperService.
+    /// Refreshes the model list and keeps the green highlight on the active model.
     private func refreshModels() async {
-        var allModels = await whisperService.availableModels()
-        for index in allModels.indices {
-            allModels[index].status = await whisperService.modelStatus(allModels[index].id)
-        }
-        models = allModels
-
-        // Keep highlightedModelId in sync with the actual active model.
-        let activeId = allModels.first(where: {
-            if case .active = $0.status { return true }
-            return false
-        })?.id
+        await catalog.refresh()
+        let activeId = catalog.activeModelId
         if highlightedModelId != activeId {
             highlightedModelId = activeId
         }
@@ -277,21 +289,9 @@ struct ModelManagementView: View {
             highlightedModelId = model.id
         }
 
-        activatingModelId = model.id
-        do {
-            try await stateManager.switchActiveModel(to: model.id)
-            await refreshModels()
-            activatingModelId = nil
-        } catch {
-            activatingModelId = nil
-            // Revert highlight back to the actual active model on failure.
-            let activeId = models.first(where: {
-                if case .active = $0.status { return true }
-                return false
-            })?.id
-            highlightedModelId = activeId
-            errorMessage = "Failed to activate model: \(error.localizedDescription)"
-        }
+        await catalog.activate(model.id, using: stateManager)
+        // On failure this moves the highlight back to the model still active.
+        highlightedModelId = catalog.activeModelId
     }
 
     /// Shows the delete confirmation dialog.
@@ -300,43 +300,17 @@ struct ModelManagementView: View {
         showDeleteConfirmation = true
     }
 
-    /// Performs model deletion with fallback logic.
+    /// Deletes a model, then prompts for a download if none is left.
     ///
     /// Requirement 7.8: Remove model files from disk.
     /// Requirement 7.9: Switch to next smallest model before deleting active model.
     /// Requirement 7.10: Prompt to download if deleting the only model.
     private func performDelete(_ model: ModelInfo) async {
-        do {
-            try await whisperService.deleteModel(model.id)
-
-            if settingsStore.activeModelName == model.id {
-                if let newActive = await whisperService.activeModel() {
-                    settingsStore.activeModelName = newActive
-                }
-            }
-
-            await refreshModels()
-
-            let hasDownloaded = models.contains { status in
-                if case .downloaded = status.status { return true }
-                if case .active = status.status { return true }
-                return false
-            }
-            if !hasDownloaded {
-                showNoModelsAlert = true
-            }
-        } catch {
-            errorMessage = "Failed to delete model: \(error.localizedDescription)"
+        if await catalog.delete(model.id, settingsStore: settingsStore) {
+            showNoModelsAlert = true
         }
-
+        highlightedModelId = catalog.activeModelId
         modelToDelete = nil
-    }
-
-    /// Updates a model's status in the local state array.
-    private func updateModelStatus(_ modelId: String, to status: ModelStatus) {
-        if let index = models.firstIndex(where: { $0.id == modelId }) {
-            models[index].status = status
-        }
     }
 }
 

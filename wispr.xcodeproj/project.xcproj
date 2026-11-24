@@ -112,6 +112,7 @@
             { "path": "UpdateChecker.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "ClipboardService.swift", "target-membership": [ "WisprApp/compile-sources" ] },
             { "path": "LayoutKeyResolver.swift", "target-membership": [ "WisprApp/compile-sources" ] },
+            { "path": "ModelCatalog.swift", "target-membership": [ "WisprApp/compile-sources" ] },
           ],
         }, {
           "kind": "group",

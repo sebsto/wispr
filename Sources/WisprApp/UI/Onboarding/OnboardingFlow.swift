@@ -53,12 +53,6 @@ struct OnboardingFlow: View {
     /// The transcribed text from the test dictation, if any.
     @State private var testTranscriptionResult: String = ""
 
-    /// Whether the user is currently recording during the test dictation.
-    @State private var isTestRecording = false
-
-    /// Whether the test dictation is being processed (transcription in progress).
-    @State private var isTestProcessing = false
-
     // MARK: - Body
 
     var body: some View {
@@ -171,8 +165,6 @@ struct OnboardingFlow: View {
                 case .testDictation:
                     OnboardingTestDictationStep(
                         testTranscriptionResult: $testTranscriptionResult,
-                        isTestRecording: $isTestRecording,
-                        isTestProcessing: $isTestProcessing,
                         currentStep: currentStep
                     )
                 case .completion:
@@ -185,30 +177,6 @@ struct OnboardingFlow: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollIndicators(.hidden)
-    }
-
-    // MARK: - Placeholder Step Content
-
-    func placeholderStepContent(icon: String, title: String, description: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 48))
-                .foregroundStyle(theme.accentColor)
-                .accessibilityHidden(true)
-
-            Text(title)
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundStyle(theme.primaryTextColor)
-
-            Text(description)
-                .font(.body)
-                .foregroundStyle(theme.secondaryTextColor)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title). \(description)")
     }
 
     // MARK: - Navigation Bar
@@ -236,14 +204,18 @@ struct OnboardingFlow: View {
                 .buttonStyle(OnboardingContinueButtonStyle())
                 .accessibilityLabel("Done")
                 .accessibilityHint("Completes setup and closes the onboarding window")
-            } else if currentStep.isSkippable && !isCurrentStepComplete {
+            } else {
+                // One Continue button in a stable position, so its identity
+                // and keyboard shortcut survive the step becoming complete.
                 HStack(spacing: 12) {
-                    Button("Skip") {
-                        goForward()
+                    if currentStep.isSkippable && !isCurrentStepComplete {
+                        Button("Skip") {
+                            goForward()
+                        }
+                        .buttonStyle(OnboardingSecondaryButtonStyle())
+                        .accessibilityLabel("Skip this step")
+                        .accessibilityHint("Skips the test dictation step")
                     }
-                    .buttonStyle(OnboardingSecondaryButtonStyle())
-                    .accessibilityLabel("Skip this step")
-                    .accessibilityHint("Skips the test dictation step")
 
                     Button("Continue") {
                         goForward()
@@ -254,15 +226,6 @@ struct OnboardingFlow: View {
                     .accessibilityLabel("Continue")
                     .accessibilityHint(isCurrentStepComplete ? "Proceeds to the next step" : "Complete this step to continue")
                 }
-            } else {
-                Button("Continue") {
-                    goForward()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(OnboardingContinueButtonStyle())
-                .disabled(!isCurrentStepComplete)
-                .accessibilityLabel("Continue")
-                .accessibilityHint(isCurrentStepComplete ? "Proceeds to the next step" : "Complete this step to continue")
             }
         }
     }

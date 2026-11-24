@@ -610,6 +610,81 @@ final class StateManager {
         }
     }
 
+    // MARK: - Onboarding model
+
+    /// What onboarding must do to get its default model ready.
+    enum OnboardingModelResolution: Equatable {
+        /// The model is loaded and saved as the active model.
+        case ready
+        /// The model must be downloaded first.
+        case needsDownload(ModelInfo)
+        /// Setup failed; the message is shown to the user.
+        case failed(String)
+    }
+
+    /// Gets onboarding's default model (Parakeet V3) ready.
+    ///
+    /// A model already on disk is loaded and made active. Otherwise the caller
+    /// is told to download it, then calls `markModelActive(_:)`.
+    func resolveOnboardingModel() async -> OnboardingModelResolution {
+        let models = await whisperService.availableModels()
+        guard let model = models.first(where: { $0.id == ModelInfo.KnownID.parakeetV3 }) else {
+            return .failed("Could not find Parakeet V3 model. Please restart the app and try again.")
+        }
+
+        switch await whisperService.modelStatus(model.id) {
+        case .active:
+            markModelActive(model.id)
+            return .ready
+        case .downloaded:
+            do {
+                try await whisperService.loadModel(model.id)
+            } catch {
+                return .failed("Failed to load model: \(error.localizedDescription)")
+            }
+            markModelActive(model.id)
+            return .ready
+        default:
+            return .needsDownload(model)
+        }
+    }
+
+    /// Saves `modelId` as the active model after it was downloaded and loaded.
+    func markModelActive(_ modelId: String) {
+        settingsStore.activeModelName = modelId
+    }
+
+    /// The model being activated from Settings, or `nil` when none is.
+    private(set) var activatingModelName: String?
+
+    /// The model the Settings picker shows: the one being activated, else the
+    /// active one.
+    var displayedModelName: String {
+        activatingModelName ?? settingsStore.activeModelName
+    }
+
+    /// Starts activating a model chosen in Settings.
+    ///
+    /// The switch is owned here rather than by the view, so closing Settings
+    /// or switching sidebar sections does not cancel it half way. A choice
+    /// made while another activation runs is ignored.
+    func requestModelActivation(_ modelName: String) {
+        guard !modelName.isEmpty,
+              modelName != settingsStore.activeModelName,
+              activatingModelName == nil else { return }
+        activatingModelName = modelName
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.activatingModelName = nil }
+            do {
+                try await self.switchActiveModel(to: modelName)
+            } catch {
+                Log.stateManager.error(
+                    "requestModelActivation — failed to activate '\(modelName)': \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Switches the active transcription model.
     ///
     /// Unloads the current model, loads the new one, and persists the choice.

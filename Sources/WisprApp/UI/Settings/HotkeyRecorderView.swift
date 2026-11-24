@@ -21,9 +21,14 @@ struct HotkeyRecorderView: View {
     @State private var isHovering = false
     @State private var fnMonitor: Any?
 
+    /// Key focus for `.onKeyPress`. A mouse click on a button does not give it
+    /// key focus on macOS unless keyboard navigation is on, so recording takes
+    /// focus explicitly.
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         Button {
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(theme.reduceMotion ? nil : .smooth(duration: 0.2)) {
                 isRecording.toggle()
                 if !isRecording {
                     errorMessage = nil
@@ -61,6 +66,8 @@ struct HotkeyRecorderView: View {
                 : "Current hotkey: \(KeyCodeMapping.shared.hotkeyDisplayString(keyCode: keyCode, modifiers: modifiers))"
         )
         .accessibilityHint("Click to record a new hotkey")
+        .focusable()
+        .focused($isFocused)
         .onKeyPress(phases: .down) { keyPress in
             guard isRecording else { return .ignored }
             handleKeyPress(keyPress)
@@ -68,9 +75,18 @@ struct HotkeyRecorderView: View {
         }
         .onChange(of: isRecording) { _, recording in
             if recording {
+                isFocused = true
                 installFnMonitor()
             } else {
                 removeFnMonitor()
+            }
+        }
+        .onAppear {
+            // Coming back while still recording (e.g. a pane switch) needs the
+            // monitor and focus again; onDisappear removed the monitor.
+            if isRecording {
+                isFocused = true
+                installFnMonitor()
             }
         }
         .onDisappear {
@@ -79,6 +95,7 @@ struct HotkeyRecorderView: View {
     }
 
     private func installFnMonitor() {
+        removeFnMonitor()
         fnMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
             guard isRecording else { return event }
 

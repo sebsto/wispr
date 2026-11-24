@@ -73,6 +73,43 @@ struct ModelRowView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
+            infoSection
+
+            Spacer()
+
+            // Left outside the combined element so VoiceOver reaches each
+            // button with its own label and hint.
+            trailingActions
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(theme.successColor.opacity(0.08))
+                    .matchedGeometryEffect(id: "activeHighlight", in: namespace)
+            } else if isHovered {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(theme.primaryTextColor.opacity(0.04))
+            }
+        }
+        .overlay {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(theme.successColor.opacity(0.5), lineWidth: 1.5)
+                    .matchedGeometryEffect(id: "activeHighlightBorder", in: namespace)
+            }
+        }
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+    }
+
+    /// Icon, name, status, size and quality, read by VoiceOver as one element.
+    private var infoSection: some View {
+        HStack(alignment: .center, spacing: 10) {
             statusIcon
 
             VStack(alignment: .leading, spacing: 2) {
@@ -100,34 +137,6 @@ struct ModelRowView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
-            }
-
-            Spacer()
-
-            trailingActions
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background {
-            if isHighlighted {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(theme.successColor.opacity(0.08))
-                    .matchedGeometryEffect(id: "activeHighlight", in: namespace)
-            } else if isHovered {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(theme.primaryTextColor.opacity(0.04))
-            }
-        }
-        .overlay {
-            if isHighlighted {
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(theme.successColor.opacity(0.5), lineWidth: 1.5)
-                    .matchedGeometryEffect(id: "activeHighlightBorder", in: namespace)
-            }
-        }
-        .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.15)) {
-                isHovered = hovering
             }
         }
         .accessibilityElement(children: .combine)

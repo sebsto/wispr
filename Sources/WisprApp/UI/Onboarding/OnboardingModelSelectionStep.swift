@@ -11,8 +11,8 @@ import SwiftUI
 
 /// Model download step that automatically fetches and activates Parakeet V3.
 struct OnboardingModelSelectionStep: View {
-    @Environment(SettingsStore.self) private var settingsStore: SettingsStore
     @Environment(UIThemeEngine.self) private var theme: UIThemeEngine
+    @Environment(StateManager.self) private var stateManager: StateManager
 
     /// The transcription engine used for model operations.
     let whisperService: any TranscriptionEngine
@@ -60,7 +60,7 @@ struct OnboardingModelSelectionStep: View {
                     model: parakeetModel,
                     autoStart: true,
                     onComplete: { completedModelId in
-                        settingsStore.activeModelName = completedModelId
+                        stateManager.markModelActive(completedModelId)
                         downloadComplete = true
                     },
                     onCancel: nil
@@ -131,32 +131,16 @@ struct OnboardingModelSelectionStep: View {
 
     // MARK: - Model Resolution
 
-    /// Fetches available models, finds Parakeet V3, and checks if it's already active.
+    /// Asks `StateManager` to get Parakeet V3 ready and shows the outcome.
     private func resolveParakeetModel() async {
-        let models = await whisperService.availableModels()
-
-        guard let model = models.first(where: { $0.id == ModelInfo.KnownID.parakeetV3 }) else {
-            errorMessage = "Could not find Parakeet V3 model. Please restart the app and try again."
-            return
-        }
-
-        let status = await whisperService.modelStatus(model.id)
-
-        if status == .active || status == .downloaded {
-            // Already available — activate if needed and mark complete
-            if status == .downloaded {
-                do {
-                    try await whisperService.loadModel(model.id)
-                } catch {
-                    errorMessage = "Failed to load model: \(error.localizedDescription)"
-                    return
-                }
-            }
-            settingsStore.activeModelName = model.id
+        switch await stateManager.resolveOnboardingModel() {
+        case .ready:
             downloadComplete = true
-        } else {
-            // Needs download — set parakeetModel to trigger ModelDownloadProgressView
+        case .needsDownload(let model):
+            // Shows ModelDownloadProgressView, which starts the download.
             parakeetModel = model
+        case .failed(let message):
+            errorMessage = message
         }
     }
 }

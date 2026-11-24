@@ -29,9 +29,6 @@ struct RecordingOverlayView: View {
     /// Recent audio level samples for the level meter visualization.
     @State private var audioLevels: [Float] = Array(repeating: 0, count: 20)
 
-    /// Task consuming the audio level stream.
-    @State private var levelTask: Task<Void, Never>?
-
     /// Whether the recording glow pulse is in its "on" phase.
     @State private var isGlowActive: Bool = false
 
@@ -67,6 +64,9 @@ struct RecordingOverlayView: View {
                 isLoadingSlow = true
             }
         }
+        .task(id: isLevelStreamReady) {
+            await consumeAudioLevels()
+        }
         .onAppear {
             handleStateChange(stateManager.appState)
         }
@@ -75,12 +75,16 @@ struct RecordingOverlayView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabelForState)
-        .accessibilityHint(
-            settingsStore.handsFreeMode
-                ? "Press the hotkey again to stop recording. Recording may also stop automatically, depending on the model."
-                : "Release the hotkey to stop recording"
-        )
+        .accessibilityHint(recordingAccessibilityHint)
         .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// How to stop recording, announced only while recording.
+    private var recordingAccessibilityHint: String {
+        guard stateManager.appState == .recording else { return "" }
+        return settingsStore.handsFreeMode
+            ? "Press the hotkey again to stop recording. Recording may also stop automatically, depending on the model."
+            : "Release the hotkey to stop recording"
     }
 
     // MARK: - Content
@@ -209,50 +213,34 @@ struct RecordingOverlayView: View {
     private func handleStateChange(_ state: AppStateType) {
         switch state {
         case .recording:
-            startConsumingAudioLevels()
             startGlowAnimation()
         default:
-            stopConsumingAudioLevels()
             stopGlowAnimation()
         }
     }
 
     // MARK: - Audio Level Stream Consumption
 
-    /// Starts a task that reads from `StateManager.audioLevelStream`
-    /// and shifts new samples into the `audioLevels` ring buffer.
-    /// If the stream isn't available yet (recording still starting),
-    /// polls briefly until it appears.
-    private func startConsumingAudioLevels() {
-        stopConsumingAudioLevels()
-
-        levelTask = Task { @MainActor in
-            // Wait for the stream to become available (recording may still be starting)
-            var stream = stateManager.audioLevelStream
-            var retries = 0
-            while stream == nil, retries < 20, !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))
-                stream = stateManager.audioLevelStream
-                retries += 1
-            }
-
-            guard let stream, !Task.isCancelled else { return }
-
-            for await level in stream {
-                guard !Task.isCancelled else { break }
-                if audioLevels.count > 1 {
-                    audioLevels.removeFirst()
-                }
-                audioLevels.append(level)
-            }
-        }
+    /// True while recording and the audio level stream exists. The stream is
+    /// set by `StateManager` shortly after recording starts; observing it here
+    /// restarts level consumption the moment it appears, with no polling.
+    private var isLevelStreamReady: Bool {
+        stateManager.appState == .recording && stateManager.audioLevelStream != nil
     }
 
-    /// Cancels the audio level consumption task and resets levels.
-    private func stopConsumingAudioLevels() {
-        levelTask?.cancel()
-        levelTask = nil
+    /// Reads `StateManager.audioLevelStream` into the `audioLevels` ring buffer.
+    /// Runs inside `.task(id: isLevelStreamReady)`, so it is cancelled when
+    /// recording ends or the view goes away.
+    private func consumeAudioLevels() async {
         audioLevels = Array(repeating: 0, count: 20)
+        guard isLevelStreamReady, let stream = stateManager.audioLevelStream else { return }
+        for await level in stream {
+            guard !Task.isCancelled else { break }
+            if audioLevels.count > 1 {
+                audioLevels.removeFirst()
+            }
+            audioLevels.append(level)
+        }
     }
 
     // MARK: - Glow Animation

@@ -32,6 +32,62 @@ private struct SectionHeader: View {
     }
 }
 
+// MARK: - SettingsPane
+
+/// A page of the Settings window, listed in the sidebar.
+enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
+    case shortcut, audioDevice, recognition, afterTranscription, feedback, meeting, general
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .shortcut: "Shortcut"
+        case .audioDevice: "Audio Device"
+        case .recognition: "Recognition"
+        case .afterTranscription: "After Transcription"
+        case .feedback: "Feedback"
+        case .meeting: "Meeting"
+        case .general: "General"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .shortcut: .orange
+        case .audioDevice: .blue
+        case .recognition: .purple
+        case .afterTranscription: .teal
+        case .feedback: .mint
+        case .meeting: .indigo
+        case .general: .secondary
+        }
+    }
+
+    /// Sidebar group labels.
+    enum Group: String, CaseIterable, Identifiable {
+        case input, text, app
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .input: "Input"
+            case .text: "Text"
+            case .app: "App"
+            }
+        }
+
+        var panes: [SettingsPane] {
+            switch self {
+            case .input: [.shortcut, .audioDevice]
+            case .text: [.recognition, .afterTranscription]
+            case .app: [.feedback, .meeting, .general]
+            }
+        }
+    }
+}
+
 // MARK: - SettingsView
 
 struct SettingsView: View {
@@ -107,11 +163,6 @@ struct SettingsView: View {
     /// looking like the setting was ignored.
     @State private var transcriptsFolderError: String?
 
-    /// The model ID currently being activated from the Settings picker.
-    @State private var activatingModelId: String?
-
-    /// Local selection state for the model picker, synced via .onChange/.task.
-    @State private var selectedModelId: String = ""
 
     private let audioEngine: AudioEngine
     private let whisperService: any TranscriptionEngine
@@ -121,19 +172,27 @@ struct SettingsView: View {
         self.whisperService = whisperService
     }
 
+    /// The section currently shown in the detail pane.
+    @State private var selectedPane: SettingsPane = .shortcut
+
     var body: some View {
-        Form {
-            shortcutSection
-            audioDeviceSection
-            recognitionSection
-            afterTranscriptionSection
-            feedbackSection
-            meetingSection
-            generalSection
+        HStack(spacing: 0) {
+            sidebar
+            Divider()
+            Form {
+                switch selectedPane {
+                case .shortcut: shortcutSection
+                case .audioDevice: audioDeviceSection
+                case .recognition: recognitionSection
+                case .afterTranscription: afterTranscriptionSection
+                case .feedback: feedbackSection
+                case .meeting: meetingSection
+                case .general: generalSection
+                }
+            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
-        .frame(width: 520)
-        .frame(maxHeight: 600)
+        .frame(width: 740, height: 540)
         .liquidGlassPanel()
         .alert("Restore Defaults?", isPresented: $showRestoreDefaultsAlert) {
             Button("Restore", role: .destructive, action: restoreDefaults)
@@ -142,26 +201,75 @@ struct SettingsView: View {
             Text("All settings will be reset to their original values. This cannot be undone.")
         }
         .task {
-            selectedModelId = settingsStore.activeModelName
+            textCorrectionService.checkAvailability()
             await loadAudioDevices()
+        }
+        .task(id: settingsStore.activeModelName) {
+            // Runs on appear and again after each model switch.
             await loadWhisperModels()
+        }
+        .onDisappear {
+            // The window can close mid-recording; the @State flip back to false
+            // never happens then, so restore the hotkey here.
+            if isRecordingHotkey { restoreHotkeyRegistration() }
         }
         .onChange(of: isRecordingHotkey) { _, recording in
             if recording {
                 hotkeyMonitor.unregister()
             } else {
-                do {
-                    try hotkeyMonitor.register(
-                        keyCode: settingsStore.hotkeyKeyCode,
-                        modifiers: settingsStore.hotkeyModifiers
-                    )
-                    hotkeyError = nil
-                } catch {
-                    hotkeyError = error.localizedDescription
-                    Log.hotkey.error(
-                        "Settings — failed to re-register hotkey: \(error.localizedDescription)")
+                restoreHotkeyRegistration()
+            }
+        }
+    }
+
+    // MARK: - Sidebar
+
+    private var sidebar: some View {
+        List(selection: $selectedPane) {
+            ForEach(SettingsPane.Group.allCases) { group in
+                Section(group.title) {
+                    ForEach(group.panes) { pane in
+                        Label {
+                            Text(pane.title)
+                        } icon: {
+                            Image(systemName: icon(for: pane))
+                                .foregroundStyle(pane.tint.gradient)
+                        }
+                        .tag(pane)
+                        .accessibilityLabel(pane.title)
+                    }
                 }
             }
+        }
+        .listStyle(.sidebar)
+        .frame(width: 190)
+        .accessibilityLabel("Settings sections")
+    }
+
+    private func icon(for pane: SettingsPane) -> String {
+        switch pane {
+        case .shortcut: SFSymbols.keyboard
+        case .audioDevice: theme.actionSymbol(.microphone)
+        case .recognition: theme.actionSymbol(.model)
+        case .afterTranscription: SFSymbols.textOutput
+        case .feedback: SFSymbols.feedback
+        case .meeting: SFSymbols.meeting
+        case .general: SFSymbols.settings
+        }
+    }
+
+    /// Re-registers the global hotkey from the saved settings.
+    private func restoreHotkeyRegistration() {
+        do {
+            try hotkeyMonitor.register(
+                keyCode: settingsStore.hotkeyKeyCode,
+                modifiers: settingsStore.hotkeyModifiers
+            )
+            hotkeyError = nil
+        } catch {
+            hotkeyError = error.localizedDescription
+            Log.hotkey.error(
+                "Settings — failed to re-register hotkey: \(error.localizedDescription)")
         }
     }
 
@@ -256,7 +364,7 @@ struct SettingsView: View {
                 Text("No models downloaded")
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Active Model", selection: $selectedModelId) {
+                Picker("Active Model", selection: activeModelBinding) {
                     ForEach(availableModels) { model in
                         HStack {
                             Text(model.displayName)
@@ -266,35 +374,15 @@ struct SettingsView: View {
                         .tag(model.id)
                     }
                 }
-                .disabled(activatingModelId != nil)
+                .disabled(stateManager.activatingModelName != nil)
                 .overlay(alignment: .trailing) {
-                    if activatingModelId != nil {
+                    if stateManager.activatingModelName != nil {
                         ProgressView()
                             .controlSize(.small)
                             .padding(.trailing, 4)
                     }
                 }
                 .accessibilityHint(AccessibilityHints.activeModel)
-                .onChange(of: selectedModelId) { _, newModelId in
-                    guard newModelId != settingsStore.activeModelName,
-                        !newModelId.isEmpty
-                    else { return }
-                    activatingModelId = newModelId
-                }
-                .task(id: activatingModelId) {
-                    guard let modelId = activatingModelId else { return }
-                    do {
-                        try await stateManager.switchActiveModel(to: modelId)
-                    } catch {
-                        selectedModelId = settingsStore.activeModelName
-                    }
-                    await loadWhisperModels()
-                    activatingModelId = nil
-                }
-                .onChange(of: settingsStore.activeModelName) { _, newName in
-                    guard activatingModelId == nil else { return }
-                    selectedModelId = newName
-                }
             }
 
             Toggle("Auto-Detect Language", isOn: autoDetectBinding)
@@ -332,7 +420,6 @@ struct SettingsView: View {
             Toggle("Local AI Text Correction", isOn: $store.aiTextCorrectionEnabled)
                 .disabled(textCorrectionService.availability != .available)
                 .accessibilityHint(AccessibilityHints.aiTextCorrection)
-                .onAppear { textCorrectionService.checkAvailability() }
 
             if case .notAvailable(let reason) = textCorrectionService.availability {
                 Label(reason, systemImage: SFSymbols.info)
@@ -496,16 +583,10 @@ struct SettingsView: View {
     /// Reveals the transcripts folder in Finder, creating it first if no meeting
     /// has been saved yet so the button never opens a missing directory.
     private func openTranscriptsFolder() {
-        let dir = TranscriptStore.directory
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        openURL(dir)
+        openURL(TranscriptLocation.currentDirectoryCreatingIfNeeded())
     }
 
     /// Asks the user for a folder and saves new transcripts there.
-    ///
-    /// The panel is what grants sandbox access to the chosen folder, so the
-    /// bookmark has to be minted from the URL it returns — a path typed or
-    /// constructed by hand would not be readable.
     private func chooseTranscriptsFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -517,25 +598,12 @@ struct SettingsView: View {
         panel.directoryURL = TranscriptStore.directory
 
         guard panel.runModal() == .OK, let chosen = panel.url else { return }
-
-        do {
-            settingsStore.transcriptsFolderBookmark = try TranscriptLocation.makeBookmark(
-                for: chosen)
-        } catch {
-            transcriptsFolderError =
-                "Could not save that folder choice: \(error.localizedDescription)"
-            return
-        }
-
-        // Activating through the same path used at launch keeps stale-bookmark and
-        // permission handling in one place.
-        transcriptsFolderError = TranscriptLocation.applyStoredFolder(from: settingsStore)
+        transcriptsFolderError = TranscriptLocation.useChosenFolder(chosen, settings: settingsStore)
     }
 
     /// Returns to storing transcripts inside the app's own container.
     private func resetTranscriptsFolder() {
-        settingsStore.transcriptsFolderBookmark = nil
-        TranscriptLocation.useDefault()
+        TranscriptLocation.resetToDefault(settings: settingsStore)
         transcriptsFolderError = nil
     }
 
@@ -551,12 +619,12 @@ struct SettingsView: View {
                 Text("Version")
                     .foregroundStyle(theme.primaryTextColor)
                 Spacer()
-                Text(appVersion)
+                Text(Self.appVersion)
                     .foregroundStyle(theme.secondaryTextColor)
                     .font(.callout)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Version \(appVersion)")
+            .accessibilityLabel("Version \(Self.appVersion)")
 
             if let update = updateChecker.availableUpdate {
                 HStack {
@@ -587,14 +655,14 @@ struct SettingsView: View {
     // MARK: - Version Info
 
     /// Returns the app version string in the format "1.0.0 (123)" where 123 is the build number.
-    private var appVersion: String {
+    private static let appVersion: String = {
         let version =
             Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? "Unknown"
         let build =
             Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
         return "\(version) (\(build))"
-    }
+    }()
 
     // MARK: - Data Loading
 
@@ -619,6 +687,16 @@ struct SettingsView: View {
     }
 
     // MARK: - Bindings
+
+    /// Picker selection for the active model. Choosing a model asks
+    /// `StateManager` to activate it; the picker shows the pending choice
+    /// until the switch finishes, then the real active model.
+    private var activeModelBinding: Binding<String> {
+        Binding<String>(
+            get: { stateManager.displayedModelName },
+            set: { stateManager.requestModelActivation($0) }
+        )
+    }
 
     /// Manual binding because toggling auto-detect has side effects:
     /// enabling it clears the language selection, disabling it defaults to English.

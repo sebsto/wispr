@@ -81,6 +81,9 @@ struct OnboardingMicPermissionStep: View {
                 .accessibilityHint("Opens the system dialog to allow microphone access")
             }
         }
+        // Status changes arrive from polling, outside any animation, so bind
+        // one here for the status views' transitions.
+        .animation(theme.reduceMotion ? nil : .default, value: permissionManager.microphoneStatus)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Microphone Permission step")
     }

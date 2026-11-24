@@ -200,6 +200,37 @@ nonisolated enum TranscriptLocation {
         }
     }
 
+    /// Saves a folder the user just picked and starts using it.
+    ///
+    /// `url` must come from an `NSOpenPanel`: the panel grants sandbox access
+    /// to that selection, and the bookmark minted here carries the grant
+    /// across launches. Returns a message to surface on failure.
+    @MainActor
+    static func useChosenFolder(_ url: URL, settings: SettingsStore) -> String? {
+        do {
+            settings.transcriptsFolderBookmark = try makeBookmark(for: url)
+        } catch {
+            return "Could not save that folder choice: \(error.localizedDescription)"
+        }
+        // Activating through the launch path keeps stale-bookmark and
+        // permission handling in one place.
+        return applyStoredFolder(from: settings)
+    }
+
+    /// Forgets the custom folder and saves transcripts in the app container.
+    @MainActor
+    static func resetToDefault(settings: SettingsStore) {
+        settings.transcriptsFolderBookmark = nil
+        useDefault()
+    }
+
+    /// The current transcripts folder, created if it does not exist yet.
+    static func currentDirectoryCreatingIfNeeded() -> URL {
+        let dir = TranscriptStore.directory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     // MARK: - Private
 
     private static func replaceScope(with new: Scope?) {

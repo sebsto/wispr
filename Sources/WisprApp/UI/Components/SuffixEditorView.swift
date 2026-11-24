@@ -8,20 +8,22 @@
 
 import SwiftUI
 
-/// Renders whitespace as visible glyphs: space → `␣`, newline → `↵`, tab → `⇥`.
-/// Non-whitespace characters pass through unchanged.
-private func visibleWhitespace(for text: String) -> String {
-    var result = ""
-    for char in text {
-        switch char {
-        case " ":  result.append("␣")
-        case "\n": result.append("↵")
-        case "\r": result.append("↵")
-        case "\t": result.append("⇥")
-        default:   result.append(char)
+extension String {
+    /// This string with whitespace drawn as visible glyphs: space → `␣`,
+    /// newline → `↵`, tab → `⇥`; `∅` when empty. Other characters are kept.
+    var visibleWhitespace: String {
+        var result = ""
+        for char in self {
+            switch char {
+            case " ":  result.append("␣")
+            case "\n": result.append("↵")
+            case "\r": result.append("↵")
+            case "\t": result.append("⇥")
+            default:   result.append(char)
+            }
         }
+        return result.isEmpty ? "∅" : result
     }
-    return result.isEmpty ? "∅" : result
 }
 
 /// Displays the current suffix with visible whitespace glyphs and offers
@@ -43,7 +45,7 @@ struct SuffixEditorView: View {
     var body: some View {
         HStack(spacing: 6) {
             // Visual representation of the current suffix
-            Text(visibleWhitespace(for: suffixText))
+            Text(suffixText.visibleWhitespace)
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 6)
@@ -58,7 +60,7 @@ struct SuffixEditorView: View {
                             suffixText = preset.value
                         } label: {
                             HStack {
-                                Text(visibleWhitespace(for: preset.label))
+                                Text(preset.label.visibleWhitespace)
                                     .font(.system(.body, design: .monospaced))
                                 if suffixText == preset.value {
                                     Image(systemName: SFSymbols.checkmarkPlain)
@@ -83,7 +85,7 @@ struct SuffixEditorView: View {
             .accessibilityHint("Opens a menu to pick a common suffix or enter a custom one")
         }
         .popover(isPresented: $isEditing) {
-            SuffixCustomEditor(suffixText: $suffixText, isPresented: $isEditing)
+            SuffixCustomEditor(suffixText: $suffixText)
         }
     }
 
@@ -106,8 +108,14 @@ struct SuffixEditorView: View {
 /// A small popover for typing a custom suffix with a live preview.
 private struct SuffixCustomEditor: View {
     @Binding var suffixText: String
-    @Binding var isPresented: Bool
-    @State private var draft: String = ""
+    @Environment(\.dismiss) private var dismiss
+    /// Seeded from the current suffix so the first frame already shows it.
+    @State private var draft: String
+
+    init(suffixText: Binding<String>) {
+        _suffixText = suffixText
+        _draft = State(initialValue: suffixText.wrappedValue)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -130,22 +138,21 @@ private struct SuffixCustomEditor: View {
             HStack {
                 Spacer()
                 Button("Cancel") {
-                    isPresented = false
+                    dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
                 Button("Apply") {
                     suffixText = draft
-                    isPresented = false
+                    dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
             }
         }
         .padding()
         .frame(width: 240)
-        .onAppear { draft = suffixText }
     }
 
     private var previewString: String {
-        visibleWhitespace(for: draft)
+        draft.visibleWhitespace
     }
 }
