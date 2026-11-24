@@ -31,6 +31,12 @@
       },
     }, {
       "kind": "remote",
+      "repository": "https://github.com/ml-explore/mlx-swift",
+      "version": {
+        "version": "0.33.0",
+      },
+    }, {
+      "kind": "remote",
       "repository": "https://github.com/apple/swift-argument-parser.git",
       "version": {
         "up-to-next-major-version": "1.5.0",
@@ -273,6 +279,10 @@
           "package": "speech-swift",
           "product-name": "Qwen3ASR",
           "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "mlx-swift",
+          "product-name": "MLX",
+          "build-phase": { "build-phase": "frameworks" },
         },
       ],
       "build-settings": {
@@ -315,6 +325,10 @@
         }, {
           "package": "speech-swift",
           "product-name": "Qwen3ASR",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "mlx-swift",
+          "product-name": "MLX",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],
@@ -383,6 +397,10 @@
         }, {
           "package": "speech-swift",
           "product-name": "Qwen3ASR",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "mlx-swift",
+          "product-name": "MLX",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "swift-argument-parser",

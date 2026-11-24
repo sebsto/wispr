@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import MLX
 import Qwen3ASR
 import os
 
@@ -25,8 +26,14 @@ private actor Qwen3Runner {
     private let model: Qwen3ASRModel
     private var isUnloaded = false
 
+    /// Upper bound for MLX's pool of freed GPU buffers. Left alone, the pool
+    /// grows until the GPU nears its working-set limit (about 12 GB on a
+    /// 16 GB Mac), and decoding allocates many differently sized buffers.
+    private static let bufferCacheLimit = 512 * 1024 * 1024
+
     init(model: sending Qwen3ASRModel) {
         self.model = model
+        Memory.cacheLimit = Self.bufferCacheLimit
     }
 
     func transcribe(_ samples: [Float], sampleRate: Int, language: String?) throws -> String {
@@ -45,7 +52,11 @@ private actor Qwen3Runner {
             repetitionPenalty: isShortWindow ? 1.15 : 1.0,
             noRepeatNgramSize: isShortWindow ? 3 : 0
         )
-        return model.transcribe(audio: samples, sampleRate: sampleRate, options: options)
+        let text = model.transcribe(audio: samples, sampleRate: sampleRate, options: options)
+        // Hand this window's freed buffers back to the system. Only buffers
+        // nothing refers to are released, so the model weights are untouched.
+        Memory.clearCache()
+        return text
     }
 
     /// Frees the weights and the MLX buffer cache.
