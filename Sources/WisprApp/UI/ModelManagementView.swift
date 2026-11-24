@@ -30,19 +30,6 @@ extension ModelProvider {
     }
 }
 
-/// Discriminated union for flattening grouped model data into a single `ForEach`.
-private enum ModelListItem: Identifiable {
-    case header(ModelProvider)
-    case model(ModelInfo)
-
-    var id: String {
-        switch self {
-        case .header(let provider): "header-\(provider.rawValue)"
-        case .model(let model): model.id
-        }
-    }
-}
-
 /// View displaying all available Whisper models with download, delete, and activation controls.
 ///
 /// Requirement 7.2: List all available models with name, size, and status.
@@ -61,6 +48,9 @@ struct ModelManagementView: View {
     @State private var catalog: ModelCatalog
 
     private var models: [ModelInfo] { catalog.models }
+
+    /// The provider shown in the detail pane.
+    @State private var selectedProvider: ModelProvider?
 
     /// Model IDs currently showing the download progress view.
     @State private var activeDownloads: Set<String> = []
@@ -93,41 +83,28 @@ struct ModelManagementView: View {
         _catalog = State(initialValue: ModelCatalog(whisperService: whisperService))
     }
 
-    /// Flat list of headers and model rows for a single-level `ForEach`.
-    /// Using a single `ForEach` avoids macOS `OutlineListCoordinator` crashes
-    /// that occur with nested `ForEach` inside `List` when data loads async.
-    private var listItems: [ModelListItem] {
-        var seen: [ModelProvider] = []
-        var groups: [ModelProvider: [ModelInfo]] = [:]
-        for model in models {
-            if !seen.contains(model.provider) {
-                seen.append(model.provider)
-            }
-            groups[model.provider, default: []].append(model)
+    /// Providers that have at least one model, in a stable order.
+    private var providers: [ModelProvider] {
+        ModelProvider.allCases.filter { provider in models.contains { $0.provider == provider } }
+    }
+
+    private func models(for provider: ModelProvider) -> [ModelInfo] {
+        models.filter { $0.provider == provider }
+    }
+
+    private func hasActiveModel(_ provider: ModelProvider) -> Bool {
+        models(for: provider).contains {
+            if case .active = $0.status { return true }
+            return false
         }
-        var items: [ModelListItem] = []
-        for provider in seen.sorted(by: { $0.rawValue < $1.rawValue }) {
-            items.append(.header(provider))
-            for model in groups[provider, default: []] {
-                items.append(.model(model))
-            }
-        }
-        return items
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            List {
-                ForEach(listItems) { item in
-                    switch item {
-                    case .header(let provider):
-                        providerHeader(provider)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 4, trailing: 16))
-                    case .model(let model):
-                        modelSection(for: model)
-                    }
-                }
+            HStack(spacing: 0) {
+                providerSidebar
+                Divider()
+                detailPane
             }
 
             Divider()
@@ -142,11 +119,15 @@ struct ModelManagementView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .animation(theme.reduceMotion ? nil : .easeInOut(duration: 0.35), value: highlightedModelId)
-        .frame(minWidth: 560, idealWidth: 620)
+        .frame(minWidth: 740, idealWidth: 780, minHeight: 480)
         .liquidGlassPanel()
         .navigationTitle("Model Management")
         .task {
             await refreshModels()
+            // Open on the provider of the active model, else the first one.
+            if selectedProvider == nil {
+                selectedProvider = providers.first(where: hasActiveModel) ?? providers.first
+            }
         }
         .confirmationDialog(
             "Delete Model",
@@ -179,29 +160,66 @@ struct ModelManagementView: View {
         }
     }
 
-    // MARK: - Provider Header
+    // MARK: - Provider Sidebar
 
-    @ScaledMetric(relativeTo: .body) private var providerIconSize: CGFloat = 24
-
-    @ViewBuilder
-    private func providerHeader(_ provider: ModelProvider) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: provider.icon)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(provider.tintColor.gradient)
-                .frame(width: providerIconSize, height: providerIconSize)
-                .background(provider.tintColor.opacity(0.12), in: Circle())
-
-            Text(provider.rawValue)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(theme.primaryTextColor)
-
-            Spacer()
+    private var providerSidebar: some View {
+        List(selection: $selectedProvider) {
+            Section("Providers") {
+                ForEach(providers, id: \.self) { provider in
+                    providerRow(provider)
+                        .tag(provider)
+                }
+            }
         }
-        .padding(.top, 6)
-        .padding(.bottom, 2)
+        .listStyle(.sidebar)
+        .frame(width: 200)
+        .accessibilityLabel("Model providers")
+    }
+
+    private func providerRow(_ provider: ModelProvider) -> some View {
+        let isActive = hasActiveModel(provider)
+        return HStack {
+            Label {
+                Text(provider.rawValue)
+            } icon: {
+                Image(systemName: provider.icon)
+                    .foregroundStyle(provider.tintColor.gradient)
+            }
+            Spacer()
+            if isActive {
+                Image(systemName: SFSymbols.checkmarkPlain)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(theme.successColor)
+                    .help("The active model is from this provider")
+            }
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(provider.rawValue) models")
+        .accessibilityLabel(
+            isActive ? "\(provider.rawValue), has the active model" : provider.rawValue)
+    }
+
+    // MARK: - Detail Pane
+
+    /// Model list for the selected provider.
+    ///
+    /// Every provider's list stays in the view tree and only the selected one
+    /// is shown: a model download runs inside its row's `.task`, so removing
+    /// the row by switching provider would cancel the download.
+    private var detailPane: some View {
+        ZStack {
+            ForEach(providers, id: \.self) { provider in
+                let isSelected = provider == selectedProvider
+                List {
+                    ForEach(models(for: provider)) { model in
+                        modelSection(for: model)
+                    }
+                }
+                .opacity(isSelected ? 1 : 0)
+                .allowsHitTesting(isSelected)
+                .accessibilityHidden(!isSelected)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Model Section

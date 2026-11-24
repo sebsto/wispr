@@ -61,6 +61,12 @@ Fix the bugs, performance problems, structured-concurrency violations, state ant
 - H6. Before code, 2 or 3 mockups are shown and the user picks one. The chosen mockup is the visual spec.
 - H7. Restore Defaults and the version info stay reachable (placement is decided in the mockup step).
 
+### I. Model Management window redesign
+- I1. The Model Management window has a sidebar on the left listing the model providers (OpenAI Whisper, NVIDIA Parakeet, Alibaba Qwen) with their icons and colors. The right side lists only the selected provider's models.
+- I2. The sidebar marks the provider that holds the active model, and the window opens on that provider.
+- I3. Switching provider does not stop a running download.
+- I4. Download, activate and delete work as before.
+
 ### Done when
 - The project builds with the CI `xcodebuild` command and `swift build`, and existing tests pass.
 - Each bug fix (A1 to A3, C1, D3, G3) has a test that fails on the old code, where the logic is testable without UI.

@@ -657,7 +657,7 @@ final class MenuBarController {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         // The controller owns the window; AppKit must not also release it on close.
         window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 620, height: 640))
+        window.setContentSize(NSSize(width: 780, height: 560))
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()

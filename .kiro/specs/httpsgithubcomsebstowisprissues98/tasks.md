@@ -47,3 +47,9 @@ Delivery: one PR per task, in this order. Each task builds with `swift build` an
 - [x] 8. Smaller items (requirements G)
   - G1 window release, G2 hotkey recorder focus/Fn monitor/Reduce Motion, G3 F13/F14/Forward Delete key codes, G4 onboarding animations, G5 "Copied!" reset, G6 Close button, G7 rename to `showMeetingWindow()`, G8 onboarding Continue/Skip cleanup and dead code removal, G9 `String` extension and suffix editor, G10 `appVersion` and `checkAvailability()`.
   - Test: the new key codes map to 105, 113 and 117.
+
+- [x] 9. Model Management sidebar (requirements I)
+  - Provider sidebar in the same style as the Settings sidebar; detail pane lists the selected provider's models.
+  - Open on the provider of the active model and mark it with a checkmark.
+  - Keep every provider's list mounted and show only the selected one, so a download keeps running when the user switches provider.
+  - Window size 780×560.
