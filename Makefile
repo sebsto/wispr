@@ -154,8 +154,10 @@ bump-build: ## Set build number (CFBundleVersion) to git commit count
 	@echo "Build number set to $(BUILD_NUM)"
 
 archive: bump-build ## Bump build number and create Release archive (version is unchanged)
+	@# ARCHS=arm64 applies to package targets too: archive otherwise builds them for
+	@# ARCHS_STANDARD (incl. x86_64), which breaks Float16 code in speech-swift.
 	set -o pipefail && xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Release \
-		-archivePath $(ARCHIVE_PATH) clean archive | xcbeautify
+		-archivePath $(ARCHIVE_PATH) ARCHS=arm64 clean archive | xcbeautify
 
 run: ## Build Release and launch that exact bundle (dev loop)
 	@$(MAKE) -s _build-dev
@@ -170,7 +172,7 @@ run: ## Build Release and launch that exact bundle (dev loop)
 _build-dev:
 	@echo "Building Release …"
 	@set -o pipefail && xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) \
-		-configuration Release -derivedDataPath $(DERIVED_DATA) $(DEV_SIGN) build \
+		-configuration Release -derivedDataPath $(DERIVED_DATA) $(DEV_SIGN) ARCHS=arm64 build \
 		> /tmp/wispr-dev-build.log 2>&1 \
 		|| { echo "BUILD FAILED — last errors:"; grep -E "error:" /tmp/wispr-dev-build.log | head -20; exit 1; }
 
