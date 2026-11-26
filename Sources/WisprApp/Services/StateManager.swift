@@ -447,6 +447,12 @@ final class StateManager {
                 try await audioEngine.setInputDevice(nil)
             }
 
+            // Surface unrecoverable mid-recording failures (e.g. repeated Bluetooth
+            // profile switches) instead of leaving a silent .recording session.
+            await audioEngine.setOnCaptureFailure { [weak self] error in
+                await self?.handleCaptureFailure(error)
+            }
+
             // Requirement 2.1: Start audio capture
             let levelStream = try await audioEngine.startCapture()
             audioLevelStream = levelStream
@@ -456,11 +462,21 @@ final class StateManager {
             if settingsStore.handsFreeMode {
                 await startEouMonitoringIfSupported()
             }
+        } catch is CancellationError {
+            // The hotkey was released before capture finished starting; endRecording()
+            // already handled the (empty) session.
+            Log.stateManager.debug("beginRecording — capture cancelled before it started")
         } catch let error as WisprError {
             await handleError(error)
         } catch {
             await handleError(.audioRecordingFailed(error.localizedDescription))
         }
+    }
+
+    /// Called by AudioEngine when an active capture cannot be recovered.
+    private func handleCaptureFailure(_ error: WisprError) async {
+        guard appState == .recording else { return }
+        await handleError(error)
     }
 
     /// Ends the current recording session.
