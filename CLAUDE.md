@@ -93,8 +93,8 @@ macOS protects that container as app-private data. Because the CLI is not the ow
 - **Actors** for all mutable shared state (audio buffers, ASR engines)
 - **AsyncStream** via `makeStream()` pattern for audio levels and transcription results
 - **Structured concurrency** only — no `Task.detached`, no GCD, no Combine
-- Per-engine audio device routing via `inputNode.auAudioUnit.setDeviceID(_:)` (no global side effects), re-checked after `prepare()` and `start()` because AVAudioEngine can rebind the IO unit to the default device
-- Capture restarts on `AVAudioEngineConfigurationChange` (filtered to the capture engine) so a Bluetooth A2DP → HFP switch doesn't end the session; unrecoverable failures are reported via `AudioEngine.setOnCaptureFailure`
+- Audio input routing: an explicitly selected device is captured through `InputDeviceCapture`, a dedicated input-only AUHAL bound with `kAudioOutputUnitProperty_CurrentDevice` (no global side effects). AVAudioEngine is used only for the system default, because its IO unit follows the default device and reverts per-unit device selection
+- System-default capture restarts on `AVAudioEngineConfigurationChange` (filtered to the capture engine) so a Bluetooth A2DP → HFP switch doesn't end the session; unrecoverable failures are reported via `AudioEngine.setOnCaptureFailure`
 
 ## Privacy Guarantees
 

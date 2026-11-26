@@ -228,18 +228,24 @@ END FOR
 - Bluetooth device simulation: set a Bluetooth device → start capture → verify the nil-format tap handles the HFP/SCO format correctly
 
 
-## Update (issue #133): `auAudioUnit.setDeviceID` replaces `AudioUnitSetProperty`
+## Update (issue #133): selected devices use a dedicated input-only AUHAL
 
-Field logs showed that a raw `AudioUnitSetProperty(kAudioOutputUnitProperty_CurrentDevice)` on
-`inputNode.audioUnit` is reverted to `CADefaultDeviceAggregate` ~75 ms later, when AVAudioEngine
-rebuilds its graph. With a Bluetooth headset as system default this meant the headset was opened
-anyway, triggering the A2DP → HFP switch. `AudioEngine` now:
+Field logs showed that AVAudioEngine cannot be kept off the system default device. A raw
+`AudioUnitSetProperty(kAudioOutputUnitProperty_CurrentDevice)` on `inputNode.audioUnit` is reverted to
+`CADefaultDeviceAggregate` ~75 ms later. `inputNode.auAudioUnit.setDeviceID(_:)` reverts the same way,
+and each re-apply makes coreaudiod switch a Bluetooth default headset to SCO and back, so the engine
+reconfigures and stops again in a loop. `AudioEngine` now:
 
-- routes the device with `inputNode.auAudioUnit.setDeviceID(_:)`, so AVAudioEngine tracks it itself;
-- re-checks `auAudioUnit.deviceID` after `prepare()` and after `start()`, re-applying (and restarting
-  the engine after `start()`) if it was reverted;
-- observes `AVAudioEngineConfigurationChange` for its own engine and restarts capture (up to 3 times)
-  when a Bluetooth profile switch stops the engine, keeping already-captured audio;
-- waits for the HFP switch for the system-default Bluetooth device too, not only a selected one.
+- captures from an explicitly selected device through `InputDeviceCapture`, an input-only AUHAL
+  (`kAudioUnitSubType_HALOutput`, input element 1 enabled, output element 0 disabled, bound with
+  `kAudioOutputUnitProperty_CurrentDevice`, mono Float32 client format at the device rate). It never
+  opens the default devices, so a Bluetooth default headset stays in A2DP. If the unit cannot be
+  created, capture falls back to the system default;
+- uses AVAudioEngine only for the system default. It observes `AVAudioEngineConfigurationChange` for
+  its own engine and restarts capture (up to 3 times) when a Bluetooth profile switch stops the
+  engine, keeping already-captured audio. Unrecoverable failures go through `setOnCaptureFailure`;
+- waits for the HFP switch for any Bluetooth capture device, selected or default;
+- converts both paths to 16 kHz mono through `CaptureBufferConverter`, which hands each hardware
+  buffer to `AVAudioConverter` exactly once (re-supplying it duplicated audio with small buffers).
 
 The `AudioUnitSetProperty` snippets and tests above describe the original fix and are kept for history.
