@@ -37,8 +37,9 @@ actor AudioEngine {
     private var selectedDeviceID: AudioDeviceID?
     private var isCapturing = false
     private var configChangeTask: Task<Void, Never>?
-    private var configurationChangeRestartCount = 0
-    private static let maxConfigurationChangeRestarts = 3
+    /// Restarts allowed per capture session after the engine stops on a configuration change.
+    nonisolated static let maxConfigurationChangeRestarts = 3
+    private var configurationChangeRestarts = RestartBudget(limit: AudioEngine.maxConfigurationChangeRestarts)
     private var onCaptureFailure: (@Sendable (WisprError) async -> Void)?
 
     /// WhisperKit and Parakeet require 16kHz mono Float32 audio.
@@ -125,7 +126,7 @@ actor AudioEngine {
 
         let audioEngine = AVAudioEngine()
         self.engine = audioEngine
-        configurationChangeRestartCount = 0
+        configurationChangeRestarts.reset()
 
         do {
             try await configureAndStart(audioEngine)
@@ -254,13 +255,12 @@ actor AudioEngine {
         // Only restart if capture is active and the change actually stopped the engine.
         guard isCapturing, let audioEngine = engine, !audioEngine.isRunning else { return }
 
-        guard configurationChangeRestartCount < Self.maxConfigurationChangeRestarts else {
-            Log.audioEngine.error("Engine configuration changed again after \(self.configurationChangeRestartCount) restarts, giving up")
+        guard configurationChangeRestarts.consume() else {
+            Log.audioEngine.error("Engine configuration changed again after \(self.configurationChangeRestarts.used) restarts, giving up")
             await reportCaptureFailure("The microphone keeps changing configuration. Please try again.")
             return
         }
-        configurationChangeRestartCount += 1
-        Log.audioEngine.warning("Engine configuration changed during capture, restarting (attempt \(self.configurationChangeRestartCount))")
+        Log.audioEngine.warning("Engine configuration changed during capture, restarting (attempt \(self.configurationChangeRestarts.used))")
 
         audioEngine.inputNode.removeTap(onBus: 0)
         do {
@@ -456,6 +456,30 @@ actor AudioEngine {
         
         // Also yield raw audio chunks for streaming transcription (EOU monitoring)
         audioContinuation?.yield(bufferData)
+    }
+}
+
+// MARK: - Restart Budget
+
+/// Caps how many times capture is restarted after configuration changes within one
+/// session, so a device that keeps reconfiguring ends the session instead of looping.
+nonisolated struct RestartBudget: Sendable {
+    let limit: Int
+    private(set) var used = 0
+
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    /// Records a restart and returns `true` if one was still allowed.
+    mutating func consume() -> Bool {
+        guard used < limit else { return false }
+        used += 1
+        return true
+    }
+
+    mutating func reset() {
+        used = 0
     }
 }
 
