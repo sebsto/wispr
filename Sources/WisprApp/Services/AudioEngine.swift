@@ -488,12 +488,22 @@ nonisolated final class CaptureBufferConverter: @unchecked Sendable {
         }
         guard let converter else { return nil }
 
-        let outputFrameCount = AVAudioFrameCount(Double(buffer.frameLength) * sampleRateRatio)
+        // Round up, plus one frame of headroom: 512 frames at 48kHz give 170.67 samples
+        // at 16kHz, and truncating leaves the fraction in the converter.
+        let outputFrameCount = AVAudioFrameCount((Double(buffer.frameLength) * sampleRateRatio).rounded(.up)) + 1
         guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: outputFrameCount) else { return nil }
 
+        // Hand each buffer to the converter once. It may ask for more input than a small
+        // buffer holds; supplying the same buffer again duplicates audio.
         nonisolated(unsafe) let inputBuffer = buffer
+        nonisolated(unsafe) var consumed = false
         var conversionError: NSError?
         let status = converter.convert(to: outputBuffer, error: &conversionError) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            consumed = true
             outStatus.pointee = .haveData
             return inputBuffer
         }
