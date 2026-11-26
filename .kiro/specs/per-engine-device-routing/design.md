@@ -226,3 +226,20 @@ END FOR
 - Device switch during idle: set device A → start/stop → set device B → start/stop → verify both sessions captured correctly
 - Runtime device switching: change `selectedAudioDeviceUID` in settings between two recording sessions → verify each session uses the correct device and no stale AudioDeviceID is carried over
 - Bluetooth device simulation: set a Bluetooth device → start capture → verify the nil-format tap handles the HFP/SCO format correctly
+
+
+## Update (issue #133): `auAudioUnit.setDeviceID` replaces `AudioUnitSetProperty`
+
+Field logs showed that a raw `AudioUnitSetProperty(kAudioOutputUnitProperty_CurrentDevice)` on
+`inputNode.audioUnit` is reverted to `CADefaultDeviceAggregate` ~75 ms later, when AVAudioEngine
+rebuilds its graph. With a Bluetooth headset as system default this meant the headset was opened
+anyway, triggering the A2DP → HFP switch. `AudioEngine` now:
+
+- routes the device with `inputNode.auAudioUnit.setDeviceID(_:)`, so AVAudioEngine tracks it itself;
+- re-checks `auAudioUnit.deviceID` after `prepare()` and after `start()`, re-applying (and restarting
+  the engine after `start()`) if it was reverted;
+- observes `AVAudioEngineConfigurationChange` for its own engine and restarts capture (up to 3 times)
+  when a Bluetooth profile switch stops the engine, keeping already-captured audio;
+- waits for the HFP switch for the system-default Bluetooth device too, not only a selected one.
+
+The `AudioUnitSetProperty` snippets and tests above describe the original fix and are kept for history.
