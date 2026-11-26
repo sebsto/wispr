@@ -32,6 +32,9 @@ actor AudioEngine {
     private var audioContinuation: AsyncStream<[Float]>.Continuation?
     private var selectedDeviceID: AudioDeviceID?
     private var isCapturing = false
+    private var configChangeTask: Task<Void, Never>?
+    private var configurationRestarts = 0
+    private static let maxConfigurationRestarts = 3
     
     // MARK: - Configuration
     
@@ -96,44 +99,73 @@ actor AudioEngine {
 
         let audioEngine = AVAudioEngine()
         self.engine = audioEngine
+        configurationRestarts = 0
+
+        do {
+            try await configureAndStart(audioEngine, targetFormat: targetFormat)
+        } catch {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+            self.engine = nil
+            isCapturing = false
+            levelContinuation?.finish()
+            levelContinuation = nil
+            throw error
+        }
+
+        // Bluetooth headsets switch A2DP -> HFP when the mic opens, which changes the
+        // hardware format under the running engine. AVAudioEngine then stops itself and
+        // posts AVAudioEngineConfigurationChange; without a restart the session is silent.
+        configChangeTask?.cancel()
+        configChangeTask = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .AVAudioEngineConfigurationChange) {
+                guard let self else { return }
+                await self.handleConfigurationChange(targetFormat: targetFormat)
+            }
+        }
+
+        return stream
+    }
+
+    /// Routes the engine's input to the selected device (or default), waits for a
+    /// Bluetooth HFP switch to settle, installs the capture tap, and starts the engine.
+    /// Called on initial start and again after an engine configuration change.
+    private func configureAndStart(_ audioEngine: AVAudioEngine, targetFormat: AVAudioFormat) async throws {
         let inputNode = audioEngine.inputNode
 
-        // Assign the selected device to this engine's input AudioUnit
-        // BEFORE reading any format or installing taps (Req 2.1, 2.3).
-        // For selected devices, build an explicit tap format from CoreAudio
-        // since inputNode's cached format may be stale after device switches.
-        // For system-default devices, nil lets AVAudioEngine use its cache.
-        var tapFormat: AVAudioFormat? = nil
+        // Route this engine's input AudioUnit to the selected device BEFORE reading any
+        // format or installing taps (Req 2.1, 2.3). Use AUAudioUnit.setDeviceID so that
+        // AVAudioEngine tracks the device itself; a raw AudioUnitSetProperty on the IO unit
+        // gets reverted to CADefaultDeviceAggregate when the engine rebuilds its graph.
         if let deviceID = selectedDeviceID {
-            var devID = deviceID
-            let status = AudioUnitSetProperty(
-                inputNode.audioUnit!,
-                kAudioOutputUnitProperty_CurrentDevice,
-                kAudioUnitScope_Global,
-                0,
-                &devID,
-                UInt32(MemoryLayout<AudioDeviceID>.size)
-            )
-            if status == noErr {
+            do {
+                try inputNode.auAudioUnit.setDeviceID(deviceID)
                 Log.audioEngine.debug("Per-engine input device set to \(deviceID)")
-            } else {
-                Log.audioEngine.warning("AudioUnitSetProperty failed (OSStatus: \(status)) for device \(deviceID), falling back to system default")
+            } catch {
+                Log.audioEngine.warning("setDeviceID failed (\(error.localizedDescription)) for device \(deviceID), falling back to system default")
                 selectedDeviceID = nil
             }
+        }
 
-            if selectedDeviceID != nil {
-                let device = CoreAudioDevice(id: deviceID)
+        // The physical device we will actually capture from.
+        let captureDeviceID = selectedDeviceID ?? CoreAudioDevice.defaultInputDeviceID()
+        var tapFormat: AVAudioFormat? = nil
 
-                // Bluetooth devices switch from A2DP (48kHz) to HFP/SCO
-                // (16/24kHz) when the mic is activated. Wait for the rate
-                // to settle before querying the hardware format.
-                let isBluetooth = device.transportType == kAudioDeviceTransportTypeBluetooth
-                    || device.transportType == kAudioDeviceTransportTypeBluetoothLE
-                if isBluetooth {
-                    try await waitForBluetoothHFP(deviceID: deviceID)
-                }
+        if let captureDeviceID {
+            let device = CoreAudioDevice(id: captureDeviceID)
 
-                // Build tap format from the actual hardware rate.
+            // Bluetooth devices switch from A2DP (44.1/48kHz) to HFP/SCO (16/24kHz)
+            // when the mic is activated. Wait for the rate to settle before querying
+            // the hardware format.
+            let isBluetooth = device.transportType == kAudioDeviceTransportTypeBluetooth
+                || device.transportType == kAudioDeviceTransportTypeBluetoothLE
+            if isBluetooth {
+                try await waitForBluetoothHFP(deviceID: captureDeviceID)
+            }
+
+            // inputNode's cached format may be stale after a device/profile switch, so
+            // build the tap format from the actual hardware rate.
+            if selectedDeviceID != nil || isBluetooth {
                 let rate = device.nominalSampleRate ?? 48000
                 let channels = max(device.inputChannelCount, 1)
                 guard let format = AVAudioFormat(
@@ -142,10 +174,6 @@ actor AudioEngine {
                     channels: AVAudioChannelCount(channels),
                     interleaved: false
                 ) else {
-                    isCapturing = false
-                    levelContinuation?.finish()
-                    levelContinuation = nil
-                    self.engine = nil
                     throw WisprError.audioRecordingFailed("Failed to create tap format at \(rate)Hz \(channels)ch")
                 }
                 tapFormat = format
@@ -155,6 +183,26 @@ actor AudioEngine {
         let deviceDescription = selectedDeviceID.map { String($0) } ?? "system default"
         Log.audioEngine.debug("startCapture — device: \(deviceDescription), tapFormat: \(tapFormat?.description ?? "nil (system default)")")
 
+        installCaptureTap(on: inputNode, format: tapFormat, targetFormat: targetFormat)
+
+        audioEngine.prepare()
+
+        // Verify the engine didn't silently revert to the default device during prepare.
+        if let wanted = selectedDeviceID, inputNode.auAudioUnit.deviceID != wanted {
+            Log.audioEngine.warning("Input device reverted to \(inputNode.auAudioUnit.deviceID) during prepare, re-applying \(wanted)")
+            try? inputNode.auAudioUnit.setDeviceID(wanted)
+        }
+
+        do {
+            try audioEngine.start()
+        } catch {
+            Log.audioEngine.error("engine.start() failed: \(error.localizedDescription)")
+            throw WisprError.audioRecordingFailed("Failed to start audio engine: \(error.localizedDescription)")
+        }
+    }
+
+    /// Installs the tap that converts hardware buffers to 16kHz mono and feeds the buffer.
+    private func installCaptureTap(on inputNode: AVAudioInputNode, format tapFormat: AVAudioFormat?, targetFormat: AVAudioFormat) {
         // The converter is created lazily from the first buffer's actual format.
         nonisolated(unsafe) var converter: AVAudioConverter?
         nonisolated(unsafe) var sampleRateRatio: Double = 0
@@ -202,23 +250,30 @@ actor AudioEngine {
                 await self.processAudioBufferData(bufferCopy)
             }
         }
+    }
 
-        // Start the engine
+    /// Restarts capture after AVAudioEngine stopped itself because the IO unit's
+    /// configuration changed (e.g. Bluetooth A2DP -> HFP). Keeps already-captured audio.
+    private func handleConfigurationChange(targetFormat: AVAudioFormat) async {
+        // Only act on our own engine, and only if it was actually stopped by the change
+        // (MeetingAudioEngine posts the same notification for its own engine).
+        guard isCapturing, let audioEngine = engine, !audioEngine.isRunning else { return }
+
+        guard configurationRestarts < Self.maxConfigurationRestarts else {
+            Log.audioEngine.error("Engine configuration changed again after \(self.configurationRestarts) restarts, giving up")
+            return
+        }
+        configurationRestarts += 1
+        Log.audioEngine.warning("Engine configuration changed during capture, restarting (attempt \(self.configurationRestarts))")
+
+        audioEngine.inputNode.removeTap(onBus: 0)
         do {
-            try audioEngine.start()
-            return stream
+            try await configureAndStart(audioEngine, targetFormat: targetFormat)
         } catch {
-            Log.audioEngine.error("engine.start() failed: \(error.localizedDescription)")
-            audioEngine.stop()
-            inputNode.removeTap(onBus: 0)
-            self.engine = nil
-            isCapturing = false
-            levelContinuation?.finish()
-            levelContinuation = nil
-            throw WisprError.audioRecordingFailed("Failed to start audio engine: \(error.localizedDescription)")
+            Log.audioEngine.error("Restart after configuration change failed: \(error.localizedDescription)")
         }
     }
-    
+
     /// Stops audio capture and returns the recorded audio samples
     /// - Returns: Array of Float samples suitable for WhisperKit's transcribe(audioArray:)
     func stopCapture() -> [Float] {
@@ -320,6 +375,8 @@ actor AudioEngine {
     private func teardownEngine() {
         guard let engine else { return }
         isCapturing = false
+        configChangeTask?.cancel()
+        configChangeTask = nil
         levelContinuation?.finish()
         levelContinuation = nil
         audioContinuation?.finish()
