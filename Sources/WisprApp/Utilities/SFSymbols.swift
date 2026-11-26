@@ -58,6 +58,9 @@ enum SFSymbols {
     /// Folder icon, for revealing files in Finder.
     static let folder = "folder"
 
+    /// Icon for the section that exports transcripts to note-taking apps.
+    static let export = "square.and.arrow.up"
+
     /// Pencil icon, for inline rename affordances.
     static let rename = "pencil"
 

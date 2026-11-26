@@ -88,6 +88,9 @@ final class MeetingStateManager {
     private let transcriptionEngine: any TranscriptionEngine
     private let settingsStore: SettingsStore
 
+    /// Copies each saved meeting to the user's note-taking apps, when they set that up.
+    private let exportCoordinator: TranscriptExportCoordinator
+
     /// Optional speaker-diarization engine. In online mode it diarizes the
     /// system-audio ("Others") track; in in-person mode it diarizes the mic track.
     /// `nil` disables diarization entirely (e.g. in tests). It is warmed up when
@@ -119,12 +122,15 @@ final class MeetingStateManager {
         meetingAudioEngine: MeetingAudioEngine,
         transcriptionEngine: any TranscriptionEngine,
         settingsStore: SettingsStore,
-        meetingDiarizer: MeetingDiarizer? = nil
+        meetingDiarizer: MeetingDiarizer? = nil,
+        exportCoordinator: TranscriptExportCoordinator? = nil
     ) {
         self.meetingAudioEngine = meetingAudioEngine
         self.transcriptionEngine = transcriptionEngine
         self.settingsStore = settingsStore
         self.meetingDiarizer = meetingDiarizer
+        self.exportCoordinator =
+            exportCoordinator ?? TranscriptExportCoordinator(settings: settingsStore)
         self.mode = settingsStore.meetingInPersonMode ? .inPerson : .online
     }
 
@@ -242,6 +248,13 @@ final class MeetingStateManager {
         meetingState = .idle
         micLevel = 0
         systemLevel = 0
+
+        // Exporting touches the user's own folder, which may sit on iCloud Drive or a
+        // network volume, so it runs off the main actor and only after the window
+        // is back to idle. `isStopping` is released first so a meeting started while
+        // the export runs is still saved on quit.
+        isStopping = false
+        if savedURL != nil { await exportCoordinator.exportIfConfigured(completed) }
     }
 
     /// Persists an in-progress meeting synchronously, for use on app termination.
@@ -264,7 +277,9 @@ final class MeetingStateManager {
         Log.stateManager.debug(
             "MeetingStateManager — finalizing in-progress meeting on termination (\(entryCount) entries)"
         )
-        TranscriptStore.save(transcript)
+        if TranscriptStore.save(transcript) != nil {
+            exportCoordinator.exportIfConfiguredBlocking(transcript)
+        }
 
         recordingTask?.cancel()
         recordingTask = nil

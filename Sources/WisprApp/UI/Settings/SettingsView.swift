@@ -12,7 +12,7 @@ import os
 
 // MARK: - Reusable Components
 
-private struct SectionHeader: View {
+struct SectionHeader: View {
     let title: String
     let systemImage: String
     let tint: Color
@@ -107,6 +107,11 @@ struct SettingsView: View {
     /// looking like the setting was ignored.
     @State private var transcriptsFolderError: String?
 
+    /// Note-taking apps found on this Mac that meeting transcripts can be exported to.
+    /// Refreshed each time the window appears, so installing Obsidian shows the
+    /// section without restarting Wispr.
+    @State private var exportDestinations: [TranscriptExportDestination] = []
+
     /// The model ID currently being activated from the Settings picker.
     @State private var activatingModelId: String?
 
@@ -129,6 +134,9 @@ struct SettingsView: View {
             afterTranscriptionSection
             feedbackSection
             meetingSection
+            if !exportDestinations.isEmpty {
+                TranscriptExportSection(destinations: exportDestinations)
+            }
             generalSection
         }
         .formStyle(.grouped)
@@ -142,6 +150,7 @@ struct SettingsView: View {
             Text("All settings will be reset to their original values. This cannot be undone.")
         }
         .task {
+            exportDestinations = TranscriptExportDestination.detected()
             selectedModelId = settingsStore.activeModelName
             await loadAudioDevices()
             await loadWhisperModels()

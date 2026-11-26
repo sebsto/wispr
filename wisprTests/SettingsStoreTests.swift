@@ -517,3 +517,69 @@ struct SettingsStoreTests {
         #expect(newStore.onboardingLastStep == 9, "Final value should persist after rapid changes")
     }
 }
+
+@MainActor
+@Suite("SettingsStore transcript export Tests")
+struct SettingsStoreExportTests {
+
+    private func makeDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "test.wispr.export.\(UUID().uuidString)")!
+    }
+
+    /// A second destination, so tests can prove settings are kept apart.
+    private let other = TranscriptExportDestination(
+        id: "other", displayName: "Other", bundleIdentifier: "com.example.other")
+
+    @Test("Export is off by default, with frontmatter on and no folder")
+    func testDefaults() {
+        let store = SettingsStore(defaults: makeDefaults())
+        let config = store.exportConfig(for: .obsidian)
+        #expect(config.enabled == false)
+        #expect(config.folderBookmark == nil)
+        #expect(config.subfolder.isEmpty)
+        #expect(config.includeFrontmatter == true)
+    }
+
+    @Test("Export settings survive a relaunch")
+    func testRoundTrip() {
+        let defaults = makeDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.updateExportConfig(for: .obsidian) {
+            $0.enabled = true
+            $0.folderBookmark = Data([1, 2, 3])
+            $0.subfolder = "Transcripts"
+            $0.includeFrontmatter = false
+        }
+
+        let reloaded = SettingsStore(defaults: defaults).exportConfig(for: .obsidian)
+        #expect(reloaded.enabled)
+        #expect(reloaded.folderBookmark == Data([1, 2, 3]))
+        #expect(reloaded.subfolder == "Transcripts")
+        #expect(reloaded.includeFrontmatter == false)
+    }
+
+    @Test("Changing one destination leaves another untouched")
+    func testDestinationsAreIndependent() {
+        let store = SettingsStore(defaults: makeDefaults())
+        store.updateExportConfig(for: .obsidian) {
+            $0.enabled = true
+            $0.subfolder = "Notes"
+        }
+        #expect(store.exportConfig(for: other) == TranscriptExportConfig())
+
+        store.updateExportConfig(for: other) { $0.includeFrontmatter = false }
+        #expect(store.exportConfig(for: .obsidian).includeFrontmatter == true)
+        #expect(store.exportConfig(for: .obsidian).subfolder == "Notes")
+    }
+
+    @Test("Restore defaults clears export settings")
+    func testRestoreDefaults() {
+        let defaults = makeDefaults()
+        let store = SettingsStore(defaults: defaults)
+        store.updateExportConfig(for: .obsidian) { $0.enabled = true }
+        store.restoreDefaults()
+
+        #expect(store.exportConfig(for: .obsidian) == TranscriptExportConfig())
+        #expect(SettingsStore(defaults: defaults).exportConfig(for: .obsidian).enabled == false)
+    }
+}
