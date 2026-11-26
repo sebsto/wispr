@@ -481,6 +481,26 @@ struct TranscriptExportSectionTests {
         #expect(TranscriptExportSection.subfolderError(for: ".obsidian") != nil)
     }
 
+    @Test("Turning the switch on without a folder asks for a folder first")
+    func testEnablingWithoutFolderNeedsFolder() {
+        #expect(TranscriptExportSection.needsFolderBeforeEnabling(turningOn: true, hasFolder: false))
+        #expect(!TranscriptExportSection.needsFolderBeforeEnabling(turningOn: true, hasFolder: true))
+        #expect(!TranscriptExportSection.needsFolderBeforeEnabling(turningOn: false, hasFolder: false))
+    }
+
+    @Test("A folder picked inside the export folder becomes the subfolder name")
+    func testSubfolderPickInsideRoot() {
+        let root = URL(fileURLWithPath: "/tmp/Vault", isDirectory: true)
+        let inside = root.appendingPathComponent("Meetings", isDirectory: true)
+        let nested = inside.appendingPathComponent("2026", isDirectory: true)
+        let hidden = root.appendingPathComponent(".obsidian", isDirectory: true)
+
+        #expect(TranscriptExportSection.subfolderName(chosen: inside, root: root) == "Meetings")
+        #expect(TranscriptExportSection.subfolderName(chosen: nested, root: root) == nil)
+        #expect(TranscriptExportSection.subfolderName(chosen: hidden, root: root) == nil)
+        #expect(TranscriptExportSection.subfolderName(chosen: root, root: root) == nil)
+    }
+
     @Test("A bookmark that cannot be resolved is shown as unavailable")
     func testUnresolvableBookmarkPath() {
         #expect(

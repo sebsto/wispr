@@ -21,6 +21,7 @@ struct TranscriptExportSection: View {
         static let chooseFolder = "Choose the folder that receives exported transcripts"
         static let clearFolder = "Stops exporting and forgets the chosen folder"
         static let subfolder = "Optional folder inside the chosen folder to put transcripts in"
+        static let chooseSubfolder = "Choose a folder inside the export folder to put transcripts in"
         static let frontmatter =
             "When enabled, each file starts with properties such as title, date, and speakers"
     }
@@ -55,10 +56,15 @@ struct TranscriptExportSection: View {
 
         Toggle(
             "Export to \(destination.displayName)",
-            isOn: binding(destination, \.enabled)
+            isOn: enabledBinding(destination)
         )
-        .disabled(config.folderBookmark == nil)
         .accessibilityHint(AccessibilityHints.enable)
+
+        if config.folderBookmark == nil {
+            Text("Turning this on asks you to choose a folder.")
+                .font(.caption)
+                .foregroundStyle(theme.secondaryTextColor)
+        }
 
         Text(
             "Saves each finished meeting as a Markdown file in a \(destination.displayName) folder. Transcripts in Wispr are unchanged."
@@ -98,8 +104,15 @@ struct TranscriptExportSection: View {
                 .foregroundStyle(.orange)
         }
 
-        TextField("Subfolder (optional)", text: binding(destination, \.subfolder))
-            .accessibilityHint(AccessibilityHints.subfolder)
+        HStack {
+            TextField("Subfolder (optional)", text: binding(destination, \.subfolder))
+                .accessibilityHint(AccessibilityHints.subfolder)
+            Button("Choose…") {
+                chooseSubfolder(for: destination)
+            }
+            .disabled(config.folderBookmark == nil)
+            .accessibilityHint(AccessibilityHints.chooseSubfolder)
+        }
 
         if let message = Self.subfolderError(for: config.subfolder) {
             Label(message, systemImage: SFSymbols.warning)
@@ -130,11 +143,29 @@ struct TranscriptExportSection: View {
         )
     }
 
+    /// The on/off switch. Turning it on without a folder asks for one first and
+    /// stays off if the user cancels, so export is never on without a destination.
+    private func enabledBinding(_ destination: TranscriptExportDestination) -> Binding<Bool> {
+        Binding(
+            get: { settingsStore.exportConfig(for: destination).enabled },
+            set: { newValue in
+                let hasFolder = settingsStore.exportConfig(for: destination).folderBookmark != nil
+                if Self.needsFolderBeforeEnabling(turningOn: newValue, hasFolder: hasFolder) {
+                    chooseFolder(for: destination, enableOnSuccess: true)
+                } else {
+                    settingsStore.updateExportConfig(for: destination) { $0.enabled = newValue }
+                }
+            }
+        )
+    }
+
     /// Asks the user for a folder and stores it as a security-scoped bookmark.
     ///
     /// The open panel is what grants sandbox access, so the bookmark has to be made
     /// from the URL it returns.
-    private func chooseFolder(for destination: TranscriptExportDestination) {
+    private func chooseFolder(
+        for destination: TranscriptExportDestination, enableOnSuccess: Bool = false
+    ) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -150,11 +181,53 @@ struct TranscriptExportSection: View {
             settingsStore.updateExportConfig(for: destination) {
                 $0.folderBookmark = bookmark
                 $0.folderUnavailable = false
+                if enableOnSuccess { $0.enabled = true }
             }
             folderErrors[destination.id] = nil
         } catch {
             folderErrors[destination.id] =
                 "Could not save that folder choice: \(error.localizedDescription)"
+        }
+    }
+
+    /// Lets the user pick the subfolder inside the export folder instead of typing it.
+    ///
+    /// The panel opens in the export folder. Only a folder directly inside it is
+    /// accepted, because the subfolder setting is a single folder name.
+    private func chooseSubfolder(for destination: TranscriptExportDestination) {
+        let config = settingsStore.exportConfig(for: destination)
+        guard let bookmark = config.folderBookmark else { return }
+
+        var isStale = false
+        guard
+            let root = try? URL(
+                resolvingBookmarkData: bookmark,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale),
+            root.startAccessingSecurityScopedResource()
+        else {
+            folderErrors[destination.id] = "Folder unavailable. Choose it again."
+            return
+        }
+        defer { root.stopAccessingSecurityScopedResource() }
+
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = root
+        panel.prompt = "Choose"
+        panel.message = "Choose a folder inside the export folder."
+
+        guard panel.runModal() == .OK, let chosen = panel.url else { return }
+
+        if let name = Self.subfolderName(chosen: chosen, root: root) {
+            settingsStore.updateExportConfig(for: destination) { $0.subfolder = name }
+            folderErrors[destination.id] = nil
+        } else {
+            folderErrors[destination.id] = "Choose a folder directly inside the export folder."
         }
     }
 
@@ -170,6 +243,20 @@ struct TranscriptExportSection: View {
     }
 
     // MARK: - Helpers
+
+    /// Whether flipping the switch must first ask for a folder.
+    static func needsFolderBeforeEnabling(turningOn: Bool, hasFolder: Bool) -> Bool {
+        turningOn && !hasFolder
+    }
+
+    /// The name of `chosen` when it sits directly inside `root`, otherwise `nil`.
+    static func subfolderName(chosen: URL, root: URL) -> String? {
+        let chosen = chosen.standardizedFileURL.resolvingSymlinksInPath()
+        let root = root.standardizedFileURL.resolvingSymlinksInPath()
+        guard chosen.deletingLastPathComponent().path == root.path else { return nil }
+        let name = chosen.lastPathComponent
+        return TranscriptExporter.isValid(subfolder: name) ? name : nil
+    }
 
     /// The message to show under the subfolder field, or `nil` when the name is usable.
     static func subfolderError(for subfolder: String) -> String? {
